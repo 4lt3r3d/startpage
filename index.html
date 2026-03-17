@@ -94,35 +94,75 @@
   }
 
   /* ── GREETING ── */
-  .greeting-bar {
-    grid-column: 1 / 4;
-    padding: 4px 4px 0;
+  .greeting-wrap {
     display: flex;
-    align-items: baseline;
-    gap: 8px;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 8px;
+    min-height: 20px;
+    flex-wrap: wrap;
   }
-  .greeting-text {
+  .greeting-phrase {
     font-family: var(--mono);
-    font-size: 11px;
+    font-size: 12px;
     color: var(--text2);
     letter-spacing: 0.08em;
+    cursor: pointer;
+    border-bottom: 1px dashed transparent;
+    transition: border-color 0.15s;
+    white-space: nowrap;
   }
+  .greeting-phrase:hover { border-color: var(--text3); }
   .greeting-name {
     font-family: var(--mono);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
-    color: var(--accent);
     letter-spacing: 0.08em;
+    cursor: pointer;
+    border-bottom: 1px dashed transparent;
+    transition: border-color 0.15s, color 0.2s;
+    white-space: nowrap;
   }
+  .greeting-name:hover { border-color: var(--text3); }
   .greeting-cursor {
     display: inline-block;
-    width: 7px; height: 13px;
-    background: var(--accent);
+    width: 7px; height: 14px;
+    background: currentColor;
     opacity: 0.7;
     vertical-align: middle;
-    animation: blink 1.1s step-end infinite;
+    flex-shrink: 0;
   }
-  @keyframes blink { 0%,100%{opacity:0.7} 50%{opacity:0} }
+  .greeting-cursor.blink { animation: gblink 1.1s step-end infinite; }
+  @keyframes gblink { 0%,100%{opacity:0.7} 50%{opacity:0} }
+  .greeting-edit-input {
+    background: var(--bg3);
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 2px 6px;
+    outline: none;
+    caret-color: var(--accent);
+    min-width: 60px;
+    max-width: 180px;
+  }
+  .greeting-color-picker {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    margin-left: 2px;
+  }
+  .gc-swatch {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: transform 0.12s, border-color 0.12s;
+    flex-shrink: 0;
+  }
+  .gc-swatch:hover { transform: scale(1.3); }
+  .gc-swatch.active { border-color: #fff; transform: scale(1.2); }
 
 
   .clock-panel {
@@ -724,20 +764,20 @@
 
 <div class="layout" id="layout">
 
-  <!-- ── GREETING ── -->
-  <div class="greeting-bar fade-in">
-    <span class="greeting-text">hello,</span>
-    <span class="greeting-name">4lt_</span>
-    <span class="greeting-cursor"></span>
-  </div>
-
   <!-- ── CLOCK BAR ── -->
   <div class="clock-panel fade-in">
-    <div class="clock-left">
-      <div class="clock-time" id="clockTime">00:00</div>
-      <div class="clock-seconds" id="clockSec">:00</div>
+    <div style="flex:1;">
+      <div class="greeting-wrap" id="greetingWrap">
+        <span class="greeting-phrase" id="greetingPhrase"></span>
+        <span class="greeting-name" id="greetingName"></span>
+        <span class="greeting-cursor blink" id="greetingCursor"></span>
+        <div class="greeting-color-picker" id="greetingColors" style="display:none;"></div>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:12px;">
+        <div class="clock-time" id="clockTime">00:00</div>
+        <div class="clock-seconds" id="clockSec">:00</div>
+      </div>
     </div>
-    <div style="flex:1;"></div>
     <div class="clock-right">
       <div class="clock-date" id="clockDate">—</div>
       <div class="clock-day" id="clockDay">—</div>
@@ -950,28 +990,234 @@ const CONFIG = {
 //  SEARCH ENGINES
 // ══════════════════════════════
 const ENGINES = [
-  { id: 'ddg',    name: 'DDG',          url: 'https://duckduckgo.com/?q=',         prefix: 'ddg' },
-  { id: 'google', name: 'Google',       url: 'https://google.com/search?q=',       prefix: 'g' },
-  { id: 'brave',  name: 'Brave',        url: 'https://search.brave.com/search?q=', prefix: 'b' },
-  { id: 'yt',     name: 'YouTube',      url: 'https://youtube.com/results?search_query=', prefix: 'yt' },
-  { id: 'gh',     name: 'GitHub',       url: 'https://github.com/search?q=',       prefix: 'gh' },
-  { id: 'reddit', name: 'Reddit',       url: 'https://reddit.com/search/?q=',      prefix: 'r' },
-  { id: 'claude', name: 'Claude',       url: 'https://claude.ai',                  prefix: 'ai', isAI: true, direct: true },
-  { id: 'chatgpt',name: 'ChatGPT',      url: 'https://chatgpt.com',                prefix: 'gpt', isAI: true, direct: true },
-  { id: 'perp',   name: 'Perplexity',   url: 'https://perplexity.ai/?q=',          prefix: 'pp', isAI: true },
-  { id: 'wiki',   name: 'Wikipedia',    url: 'https://en.wikipedia.org/w/index.php?search=', prefix: 'w' },
-  { id: 'arch',   name: 'Arch Wiki',    url: 'https://wiki.archlinux.org/index.php?search=', prefix: 'aw' },
+  // ── VISIBLE BUTTONS (shown in search bar) ──
+  { id:'ddg',    nick:'d',      name:'DDG',         url:'https://duckduckgo.com/?q=',                                        show:true },
+  { id:'google', nick:'g',      name:'Google',       url:'https://www.google.com/search?q=',                                 show:true },
+  { id:'brave',  nick:'br',     name:'Brave',        url:'https://search.brave.com/search?q=',                               show:true },
+  { id:'yt',     nick:'yt',     name:'YouTube',      url:'https://www.youtube.com/results?search_query=',                    show:true },
+  { id:'gh',     nick:'git',    name:'GitHub',       url:'https://github.com/search?q=',                                     show:true },
+  { id:'r',      nick:'r',      name:'Reddit',       url:'https://new.reddit.com/search/?q=',                                show:true },
+  { id:'claude', nick:'ai',     name:'Claude ✦',     url:'https://claude.ai',                                                show:true, direct:true },
+  { id:'chatgpt',nick:'cgpt',   name:'ChatGPT ✦',    url:'https://chat.openai.com/',                                         show:true, direct:true },
+  { id:'perp',   nick:'pp',     name:'Perplexity ✦', url:'https://perplexity.ai/?q=',                                        show:true },
+  { id:'wiki',   nick:'w',      name:'Wikipedia',    url:'https://en.wikipedia.org/wiki/Special:Search?search=',            show:true },
+
+  // ── HIDDEN ENGINES — triggered by nickname prefix only ──
+  { id:'d2',     nick:'ddg',    name:'DuckDuckGo',   url:'https://duckduckgo.com/?q=' },
+  { id:'bi',     nick:'bi',     name:'Bing',         url:'https://www.bing.com/search?q=' },
+  { id:'y',      nick:'y',      name:'Yahoo',        url:'https://us.search.yahoo.com/search?p=' },
+  { id:'ya',     nick:'ya',     name:'Yandex',       url:'https://yandex.com/search/?text=' },
+  { id:'e',      nick:'e',      name:'Ecosia',       url:'https://www.ecosia.org/search?q=' },
+  { id:'s',      nick:'s',      name:'Startpage',    url:'https://www.startpage.com/do/search?q=' },
+  { id:'k',      nick:'k',      name:'Kagi',         url:'https://kagi.com/search?q=' },
+  { id:'ka',     nick:'ka',     name:'Kagi2',        url:'https://kagi.com/search?q=' },
+  { id:'q',      nick:'q',      name:'Qwant',        url:'https://www.qwant.com/?q=' },
+  { id:'qw',     nick:'qw',     name:'Qwant2',       url:'https://www.qwant.com/?q=' },
+  { id:'srx',    nick:'srx',    name:'Searx',        url:'https://searx.fmac.xyz/search?q=' },
+  { id:'sx',     nick:'sx',     name:'Searx2',       url:'https://searx.tiekoetter.com/search?q=' },
+  { id:'sx1',    nick:'sx1',    name:'Searx3',       url:'https://searx.tiekoetter.com/search?q=' },
+  { id:'sc',     nick:'sc',     name:'Swisscows',    url:'https://swisscows.com/en/web?query=' },
+  { id:'ps',     nick:'ps',     name:'Presearch',    url:'https://presearch.com/search?q=' },
+  { id:'gd',     nick:'gd',     name:'Google Dork',  url:'https://google.com/search?q=' },
+  { id:'dork',   nick:'dork',   name:'Dorksearch',   url:'https://google.com/search?q=' },
+  { id:'gi',     nick:'gi',     name:'Google Images',url:'https://www.google.com/search?tbm=isch&q=' },
+  { id:'gm',     nick:'gm',     name:'Google Maps',  url:'https://www.google.com/maps/place/' },
+  { id:'ge',     nick:'ge',     name:'Google Earth', url:'https://earth.google.com/web/search/' },
+  { id:'gt',     nick:'gt',     name:'Google Trans', url:'https://translate.google.com/?sl=auto&tl=en&text=' },
+  { id:'gp',     nick:'gp',     name:'Google Patents',url:'https://patents.google.com/?q=' },
+  { id:'gv',     nick:'gv',     name:'Google Voice', url:'https://voice.google.com/search?q=' },
+  { id:'gs',     nick:'gs',     name:'Street View',  url:'https://www.google.com/maps/place/' },
+  { id:'drive',  nick:'drive',  name:'Google Drive', url:'https://drive.google.com/drive/search?q=' },
+  { id:'god',    nick:'god',    name:'Google Drive2',url:'https://drive.google.com/drive/search?q=' },
+  { id:'g2',     nick:'g2',     name:'Google2',      url:'https://www.google.com/search?q=' },
+  { id:'g3',     nick:'g3',     name:'Google3',      url:'https://www.google.com/search?q=' },
+  { id:'am',     nick:'am',     name:'Amazon',       url:'https://www.amazon.com/s?field-keywords=' },
+  { id:'ama',    nick:'ama',    name:'Amazon2',      url:'https://www.amazon.com/s?field-keywords=' },
+  { id:'ae',     nick:'ae',     name:'AliExpress',   url:'https://best.aliexpress.com/search?keywords=' },
+  { id:'aliex',  nick:'aliexpress',name:'AliExpress2',url:'https://best.aliexpress.com/search?keywords=' },
+  { id:'eb',     nick:'eb',     name:'eBay',         url:'https://www.ebay.com/sch/i.html?_nkw=' },
+  { id:'ne',     nick:'ne',     name:'Newegg',       url:'https://www.newegg.com/p/pl?d=' },
+  { id:'newegg', nick:'newegg', name:'Newegg2',      url:'https://www.newegg.com/p/pl?d=' },
+  { id:'et',     nick:'et',     name:'Etsy',         url:'https://www.etsy.com/search?q=' },
+  { id:'mer',    nick:'mer',    name:'Mercari',      url:'https://www.mercari.com/search/?keyword=' },
+  { id:'off',    nick:'off',    name:'OfferUp',      url:'https://offerup.com/search?q=' },
+  { id:'ou',     nick:'ou',     name:'OfferUp2',     url:'https://offerup.com/search?q=' },
+  { id:'cl',     nick:'cl',     name:'Craigslist',   url:'https://houston.craigslist.org/search/?query=' },
+  { id:'cra',    nick:'cra',    name:'Craigslist2',  url:'https://houston.craigslist.org/search/?query=' },
+  { id:'fbm',    nick:'fbm',    name:'FB Marketplace',url:'https://www.facebook.com/marketplace/houston/search?query=' },
+  { id:'tem',    nick:'tem',    name:'Temu',         url:'https://www.temu.com/search_result.html?search_key=' },
+  { id:'temu',   nick:'temu',   name:'Temu2',        url:'https://www.temu.com/search_result.html?search_key=' },
+  { id:'5m',     nick:'5m',     name:'5miles',       url:'https://www.5miles.com/cq/houston_tx/' },
+  { id:'mc',     nick:'mc',     name:'MicroCenter',  url:'https://www.microcenter.com/search/search_results.aspx?Ntt=' },
+  { id:'mic',    nick:'mic',    name:'MicroCenter2', url:'https://www.microcenter.com/search/search_results.aspx?Ntt=' },
+  { id:'parts',  nick:'parts',  name:'McMaster',     url:'https://www.mcmaster.com/?SrchEntryWebPart_InpBox=' },
+  { id:'sk',     nick:'sk',     name:'ShirtKiller',  url:'https://shirtkiller.com/search?q=' },
+  { id:'rev',    nick:'rev',    name:'Reverb',       url:'https://reverb.com/marketplace?query=' },
+  { id:'st',     nick:'st',     name:'Steam',        url:'https://store.steampowered.com/search/?term=' },
+  { id:'it',     nick:'it',     name:'itch.io',      url:'https://itch.io/search?q=' },
+  { id:'gr',     nick:'gr',     name:'Gumroad',      url:'https://gumroad.com/?query=' },
+  { id:'git1',   nick:'git1',   name:'GitHub2',      url:'https://github.com/search?q=' },
+  { id:'gf',     nick:'gf',     name:'GreasyFork',   url:'https://greasyfork.org/en/scripts?q=' },
+  { id:'cp',     nick:'cp',     name:'Chrome Store', url:'https://chrome.google.com/webstore/search/' },
+  { id:'plug',   nick:'plug',   name:'Chrome Store2',url:'https://chrome.google.com/webstore/search/' },
+  { id:'mg',     nick:'mg',     name:'MajorGeeks',   url:'https://www.majorgeeks.com/content/page/mg_search.html?q=' },
+  { id:'ch',     nick:'ch',     name:'Cheat.sh',     url:'https://cheat.sh/?topic=' },
+  { id:'aw',     nick:'aw',     name:'Arch Wiki',    url:'https://wiki.archlinux.org/index.php?search=' },
+  { id:'wik',    nick:'wik',    name:'Wikipedia2',   url:'https://en.wikipedia.org/wiki/Special:Search?search=' },
+  { id:'wiki',   nick:'wiki',   name:'Wikipedia3',   url:'https://en.wikipedia.org/wiki/Special:Search?search=' },
+  { id:'fan',    nick:'fan',    name:'Fandom',       url:'https://www.fandom.com/?s=' },
+  { id:'enc',    nick:'enc',    name:'Encyclopedia', url:'https://encyclopedia.thefreedictionary.com/_/search.aspx?tab=16&Word=' },
+  { id:'ed',     nick:'ed',     name:'Ency Dramatica',url:'https://encyclopediadramatica.online/index.php?title=Special%3ASearch&search=' },
+  { id:'def',    nick:'def',    name:'Dictionary',   url:'https://encyclopedia.thefreedictionary.com/_/search.aspx?tab=16&Word=' },
+  { id:'def1',   nick:'def1',   name:'Merriam-Webster',url:'https://www.merriam-webster.com/dictionary/' },
+  { id:'thes',   nick:'thes',   name:'Thesaurus',    url:'https://www.merriam-webster.com/thesaurus/' },
+  { id:'ud',     nick:'ud',     name:'Urban Dict',   url:'https://www.urbandictionary.com/define.php?term=' },
+  { id:'urb',    nick:'urb',    name:'Urban Dict2',  url:'https://www.urbandictionary.com/define.php?term=' },
+  { id:'med',    nick:'med',    name:'Medical Dict',url:'https://medical-dictionary.thefreedictionary.com/' },
+  { id:'alt',    nick:'alt',    name:'AlternativeTo',url:'https://alternativeto.net/browse/search?q=' },
+  { id:'imdb',   nick:'imdb',   name:'IMDB',         url:'https://www.imdb.com/find?q=' },
+  { id:'tmdb',   nick:'tmdb',   name:'TMDB',         url:'https://www.themoviedb.org/search?query=' },
+  { id:'rt',     nick:'rt',     name:'Rotten Tomatoes',url:'https://www.rottentomatoes.com/m/' },
+  { id:'lb',     nick:'lb',     name:'Letterboxd',   url:'https://letterboxd.com/search/?q=' },
+  { id:'stream', nick:'stream', name:'JustWatch',    url:'https://www.justwatch.com/us/search?q=' },
+  { id:'ani',    nick:'ani',    name:'AniWatch',     url:'https://aniwatchtv.to/search?keyword=' },
+  { id:'ani2',   nick:'ani2',   name:'HiAnime',      url:'https://hianime.to/search?keyword=' },
+  { id:'hd',     nick:'hd',     name:'HDToday',      url:'https://hdtoday.tv/home?keyword=' },
+  { id:'bf',     nick:'bf',     name:'Bflix',        url:'https://bflix.pw/home?keyword=' },
+  { id:'bf1',    nick:'bf1',    name:'Bflix2',       url:'https://bflix.gg/search/' },
+  { id:'bf2',    nick:'bf2',    name:'Bflix3',       url:'https://bflix.la/browser?keyword=' },
+  { id:'bfl',    nick:'bfl',    name:'Bflix4',       url:'https://bflix.to/filter?keyword=' },
+  { id:'fbox',   nick:'fbox',   name:'Fbox',         url:'https://fbox.to/filter?keyword=' },
+  { id:'cro',    nick:'cro',    name:'Crocovid',     url:'https://crocovid.com/search/?type=title&query=' },
+  { id:'croc',   nick:'croc',   name:'Crocovid2',    url:'http://crocovid.com/search/?type=title&query=' },
+  { id:'tu',     nick:'tu',     name:'Tubi',         url:'https://tubitv.com/search/' },
+  { id:'ef',     nick:'ef',     name:'Effed Movies', url:'https://www.effedupmovies.com/search/' },
+  { id:'gro',    nick:'gro',    name:'Grok ✦',       url:'https://grok.com/?q=' },
+  { id:'fb',     nick:'fb',     name:'Facebook',     url:'https://www.facebook.com/search/top?q=' },
+  { id:'ins',    nick:'ins',    name:'Instagram',    url:'https://instagram.com/' },
+  { id:'inst',   nick:'inst',   name:'Instagram2',   url:'https://www.gramfind.com/test.php?q=' },
+  { id:'tw',     nick:'tw',     name:'Twitter/X',    url:'https://twitter.com/search?q=' },
+  { id:'x',      nick:'x',      name:'X',            url:'https://twitter.com/search?q=' },
+  { id:'tik',    nick:'tik',    name:'TikTok',       url:'https://www.tiktok.com/search?q=' },
+  { id:'tt',     nick:'tt',     name:'TikTok2',      url:'https://www.tiktok.com/search?q=' },
+  { id:'twi',    nick:'twi',    name:'Twitch',       url:'https://www.twitch.tv/search?term=' },
+  { id:'tum',    nick:'tum',    name:'Tumblr',       url:'https://www.tumblr.com/search?q=' },
+  { id:'tum1',   nick:'tum1',   name:'Tumblr2',      url:'https://www.tumblr.com/search?q=' },
+  { id:'dis',    nick:'dis',    name:'Discord',      url:'https://disboard.org/search?keyword=' },
+  { id:'dis1',   nick:'dis1',   name:'Discord2',     url:'https://discordtop.com/search/' },
+  { id:'sb',     nick:'sb',     name:'SocialBlade',  url:'https://socialblade.com/search/search?query=' },
+  { id:'social', nick:'social', name:'SocialSearch', url:'https://www.social-searcher.com/social-buzz?q5=' },
+  { id:'un',     nick:'un',     name:'CheckUsernames',url:'https://checkusernames.com/?username=' },
+  { id:'my',     nick:'my',     name:'Myspace',      url:'https://myspace.com/?q=' },
+  { id:'vk',     nick:'vk',     name:'VK Video',     url:'https://vk.com/video?q=' },
+  { id:'yt2mp3', nick:'yt2mp3', name:'YT→MP3',       url:'https://9convert.com/en/216-youtube-to-mp3?query=' },
+  { id:'yt2mp4', nick:'yt2mp4', name:'YT→MP4',       url:'https://9convert.com/en/198-youtube-to-mp4?query=' },
+  { id:'ytdl2',  nick:'ytdl2',  name:'YT Download',  url:'https://9convert.com/en244?query=' },
+  { id:'ytdl',   nick:'ytdl',   name:'YT Download2', url:'https://youtubeto.org/en/',             direct:true },
+  { id:'yts',    nick:'yts',    name:'YT Captions',  url:'https://filmot.com/search/%s/1?gridView=1' },
+  { id:'ytc',    nick:'ytc',    name:'YT Caption2',  url:'https://filmot.com/search/%s/1?gridView=1' },
+  { id:'yth',    nick:'yth',    name:'YT History',   url:'https://www.youtube.com/feed/history?query=' },
+  { id:'ytpl',   nick:'ytpl',   name:'YT Playlists', url:'https://www.youtube.com/feed/playlists', direct:true },
+  { id:'ytp',    nick:'ytp',    name:'YT Thumbnail', url:'https://youtube-thumbnail-grabber.com/?url=' },
+  { id:'yttn',   nick:'yttn',   name:'YT Thumb2',    url:'https://youtube-thumbnail-grabber.com/?url=' },
+  { id:'ytvf',   nick:'ytvf',   name:'YT Finder',    url:'https://findyoutubevideo.thetechrobo.ca/noscript_load.html?d=' },
+  { id:'vim',    nick:'vim',    name:'Vimeo',         url:'https://vimeo.com/search?q=' },
+  { id:'dai',    nick:'dai',    name:'Dailymotion',  url:'https://www.dailymotion.com/search/%s/videos' },
+  { id:'dm',     nick:'dm',     name:'Dailymotion2', url:'https://www.dailymotion.com/us?search=' },
+  { id:'dm1',    nick:'dm1',    name:'Dailymotion3', url:'https://www.dailymotion.com/search/%s/videos' },
+  { id:'bc',     nick:'bc',     name:'Bitchute',     url:'https://www.bitchute.com/search/?query=' },
+  { id:'bit',    nick:'bit',    name:'Bitchute2',    url:'https://www.bitchute.com/search/?query=' },
+  { id:'ws',     nick:'ws',     name:'WorldStar',    url:'https://worldstarhiphop.com/videos/search.php?s=' },
+  { id:'w0',     nick:'w0',     name:'W0BM',         url:'https://w0bm.com/index?q=' },
+  { id:'lr',     nick:'lr',     name:'LeakedReality',url:'https://leakreality.com/search/videos/' },
+  { id:'ync',    nick:'ync',    name:'TheYNC',       url:'https://theync.com/search/%s/page1.html' },
+  { id:'cs',     nick:'cs',     name:'CrazyShit',    url:'https://crazyshit.com/search/?query=' },
+  { id:'sp',     nick:'sp',     name:'Spotify',      url:'https://open.spotify.com/search/' },
+  { id:'band',   nick:'band',   name:'Bandcamp',     url:'https://bandcamp.com/search?q=' },
+  { id:'disc',   nick:'disc',   name:'Discogs',      url:'https://www.discogs.com/search/?q=' },
+  { id:'da',     nick:'da',     name:'DeviantArt',   url:'https://www.deviantart.com/search?q=' },
+  { id:'dev',    nick:'dev',    name:'DeviantArt2',  url:'https://www.deviantart.com/search?q=' },
+  { id:'pin',    nick:'pin',    name:'Pinterest',    url:'https://www.pinterest.com/search/pins/?q=' },
+  { id:'gif',    nick:'gif',    name:'Giphy',        url:'https://giphy.com/search/' },
+  { id:'wall',   nick:'wall',   name:'Wallhaven',    url:'https://wallhaven.cc/search?q=' },
+  { id:'aa',     nick:'aa',     name:'Album Art',    url:'https://www.covercentury.com/index.php?p=search&s=' },
+  { id:'cover',  nick:'cover',  name:'Album Art2',   url:'https://www.covercentury.com/index.php?p=search&s=' },
+  { id:'emoji',  nick:'emoji',  name:'EmojiDB',      url:'https://emojidb.org/%s-emojis?utm_source=user_search' },
+  { id:'meme',   nick:'meme',   name:'KYM',          url:'https://knowyourmeme.com/search?q=' },
+  { id:'meme1',  nick:'meme1',  name:'KYM2',         url:'https://knowyourmeme.com/search?q=' },
+  { id:'memes',  nick:'memes',  name:'Me.me',        url:'https://me.me/?searchinput=' },
+  { id:'wo',     nick:'wo',     name:'WojakDB',      url:'https://wojakdb.com/posts/query=fat?search-text=' },
+  { id:'sho',    nick:'sho',    name:'Shodan',       url:'https://www.shodan.io/search?query=' },
+  { id:'sr',     nick:'sr',     name:'Similar Subs', url:'https://anvaka.github.io/redsim/#!?q=' },
+  { id:'ssr',    nick:'ssr',    name:'Sim Subs2',    url:'https://anvaka.github.io/redsim/#!?q=' },
+  { id:'ralt',   nick:'ralt',   name:'Sub Alts',     url:'https://anvaka.github.io/redsim/#!?q=' },
+  { id:'key',    nick:'key',    name:'iKeyword',     url:'https://ikeyword.net/keywordforsearch?keyword=' },
+  { id:'bgc',    nick:'bgc',    name:'PeekYou',      url:'https://www.peekyou.com/?fname=' },
+  { id:'phone',  nick:'phone',  name:'Phone Lookup', url:'https://www.numlookup.com/search?query=' },
+  { id:'hash',   nick:'#',      name:'Phone#',       url:'https://www.numlookup.com/search?query=' },
+  { id:'wp',     nick:'wp',     name:'White Pages',  url:'https://www.whitepages.com/name/' },
+  { id:'mp',     nick:'mp',     name:'Murderpedia',  url:'https://murderpedia.org/index-by-country.htm?search=' },
+  { id:'ip',     nick:'ip',     name:'My IP',        url:'https://whatismyipaddress.com/search-results?s=' },
+  { id:'ip2',    nick:'ip2',    name:'My IP2',       url:'https://whatismyipaddress.com/search-results?s=' },
+  { id:'down',   nick:'down',   name:'Is It Down',   url:'https://www.isitdownrightnow.com/downorjustme.php?url=' },
+  { id:'speed',  nick:'speed',  name:'Speedtest',    url:'https://www.speedtest.net', direct:true },
+  { id:'rain',   nick:'rain',   name:'Is It Raining',url:'https://www.isitrainingnow.com', direct:true },
+  { id:'ar',     nick:'ar',     name:'Archive.fo',   url:'https://archive.fo/submit/?url=' },
+  { id:'arc',    nick:'arc',    name:'Archive.org',  url:'https://archive.org/search.php?query=' },
+  { id:'wbm',    nick:'wbm',    name:'Wayback',      url:'https://web.archive.org/web/*/' },
+  { id:'way',    nick:'way',    name:'Wayback2',     url:'https://web.archive.org/web/*/' },
+  { id:'te',     nick:'te',     name:'TinEye',       url:'https://tineye.com/search?url=' },
+  { id:'imgtfy', nick:'imgtfy', name:'ImgTfy',       url:'https://imgtfy.app/?q=' },
+  { id:'di',     nick:'di',     name:'DDG Images',   url:'https://duckduckgo.com/?iax=images&ia=images&q=' },
+  { id:'db',     nick:'db',     name:'Dropbox',      url:'https://www.dropbox.com/search/personal?query=' },
+  { id:'od',     nick:'od',     name:'OneDrive',     url:'https://onedrive.live.com/?qt=search&q=' },
+  { id:'one',    nick:'one',    name:'OneDrive2',    url:'https://onedrive.live.com/?qt=search&q=' },
+  { id:'ol',     nick:'ol',     name:'Ololo',        url:'https://ololo.to/search.php?s=' },
+  { id:'yel',    nick:'yel',    name:'Yelp',         url:'https://www.yelp.com/search?find_desc=' },
+  { id:'yelp',   nick:'yelp',   name:'Yelp2',        url:'https://www.yelp.com/search?find_desc=' },
+  { id:'yl',     nick:'yl',     name:'Yelp3',        url:'https://www.yelp.com/search?find_desc=' },
+  { id:'fit',    nick:'fit',    name:'FitGirl',      url:'https://fitgirl-repacks.site/?s=' },
+  { id:'rep',    nick:'rep',    name:'Repack-Games', url:'https://repack-games.com/?s=' },
+  { id:'rp',     nick:'rp',     name:'RepackLab',    url:'https://repacklab.com/?s=' },
+  { id:'sol',    nick:'sol',    name:'SolidTorrents',url:'https://solidtorrents.net/search?q=' },
+  { id:'tor',    nick:'tor',    name:'Torrentz2',    url:'https://torrentz2.is/search?=' },
+  { id:'tor2',   nick:'tor2',   name:'TorrentFinder',url:'https://torrent-finder.com/?q=' },
+  { id:'tor3',   nick:'tor3',   name:'TorrentFind2', url:'https://torrent-finder.com/?q=' },
+  { id:'t1337',  nick:'1337',   name:'1337x',        url:'https://www.1337x.to/srch?search=' },
+  { id:'4ch',    nick:'4ch',    name:'4chan Search',  url:'https://4chansearch.com/?q=&query=' },
+  { id:'4ch1',   nick:'4ch1',   name:'4chan Search2', url:'https://4chansearch.com/?q=&query=' },
+  { id:'apk',    nick:'apk',    name:'APKs',         url:'https://modyolo.com/?s=' },
+  { id:'apk2',   nick:'apk2',   name:'APKMagic',     url:'https://apkmagic.com.ar/?s=' },
+  { id:'fbv',    nick:'fbv',    name:'FB Video',     url:'https://fload.app/?url=' },
+  { id:'ttdl',   nick:'ttdl',   name:'TikTok DL',    url:'https://snaptik.app/abc.php?url=' },
+  { id:'ttvd',   nick:'ttvd',   name:'TikTok DL2',   url:'https://getultravid.com/?url=' },
+  { id:'pytv',   nick:'pytv',   name:'PreserveTube', url:'https://preservetube.com/save?url=' },
+  { id:'pytc',   nick:'pytc',   name:'PrvTube Chan', url:'https://preservetube.com/savechannel?url=' },
+  { id:'pytcs',  nick:'pytcs',  name:'PrvTube Srch', url:'https://api.preservetube.com/search/channel?url=' },
+  { id:'ph',     nick:'ph',     name:'Pornhub',      url:'https://www.pornhub.com/video/search?search=' },
+  { id:'xn',     nick:'xn',     name:'XNXX',         url:'https://www.xnxx.com/?k=' },
+  { id:'noodz',  nick:'noodz',  name:'Coomer',       url:'https://coomer.su/artists?q=' },
+  { id:'pop',    nick:'pop',    name:'Popping',      url:'https://www.reddit.com/user/4ltered_5tates/m/popping_and_picking/', direct:true },
+  { id:'bbg',    nick:'bbg',    name:'Red Bar BBG',  url:'https://www.facebook.com/groups/159324387476208/', direct:true },
+  { id:'chat',   nick:'chat',   name:'Weboasis Chat',url:'https://chat.weboasis.app/home', direct:true },
+  { id:'web',    nick:'web',    name:'Weboasis',     url:'https://weboas.is', direct:true },
 ];
 
 let activeEngine = 0;
 
+// visible engines for buttons
+const VISIBLE_ENGINES = ENGINES.filter(e => e.show);
+// nick → engine lookup map for prefix search
+const NICK_MAP = {};
+ENGINES.forEach(e => { if (e.nick) NICK_MAP[e.nick.toLowerCase()] = e; });
+
 function buildEngines() {
   const el = document.getElementById('engineList');
-  ENGINES.forEach((e, i) => {
+  VISIBLE_ENGINES.forEach((e, i) => {
     const btn = document.createElement('button');
     btn.className = 'engine-btn' + (i === 0 ? ' active' : '');
-    btn.textContent = e.name + (e.isAI ? ' ✦' : '');
-    btn.title = e.prefix + ': ' + e.url;
+    btn.textContent = e.name;
+    btn.title = 'nick: ' + e.nick;
     btn.addEventListener('click', () => setEngine(i));
     el.appendChild(btn);
   });
@@ -980,15 +1226,34 @@ function buildEngines() {
 function setEngine(i) {
   activeEngine = i;
   document.querySelectorAll('.engine-btn').forEach((b, j) => b.classList.toggle('active', j === i));
-  const e = ENGINES[i];
-  document.getElementById('searchPrefix').textContent = e.isAI ? '✦_' : '>_';
-  document.getElementById('searchInput').placeholder = e.isAI
-    ? 'open ' + e.name + ' (no search query)...'
-    : 'search ' + e.name.toLowerCase() + '...';
+  const e = VISIBLE_ENGINES[i];
+  document.getElementById('searchPrefix').textContent = e.direct ? '✦_' : '>_';
+  document.getElementById('searchInput').placeholder = e.direct
+    ? 'open ' + e.name + '...'
+    : 'search ' + e.name.toLowerCase().replace(' ✦','') + '...';
 }
 
 function doSearch(query) {
-  const e = ENGINES[activeEngine];
+  // ── prefix detection: "nick rest of query" ──
+  const parts = query.split(' ');
+  if (parts.length >= 2) {
+    const maybeNick = parts[0].toLowerCase();
+    if (NICK_MAP[maybeNick]) {
+      const engine = NICK_MAP[maybeNick];
+      const rest = parts.slice(1).join(' ');
+      if (!rest && !engine.direct) return;
+      const url = engine.direct ? engine.url : engine.url + encodeURIComponent(rest);
+      window.open(url, '_blank');
+      return;
+    }
+  }
+  // ── single word that's an exact nick with no query (direct engines) ──
+  if (parts.length === 1 && NICK_MAP[parts[0].toLowerCase()]) {
+    const engine = NICK_MAP[parts[0].toLowerCase()];
+    if (engine.direct) { window.open(engine.url, '_blank'); return; }
+  }
+  // ── fallback: use active engine ──
+  const e = VISIBLE_ENGINES[activeEngine];
   if (!query && !e.direct) return;
   const url = e.direct ? e.url : e.url + encodeURIComponent(query);
   window.open(url, '_blank');
@@ -999,7 +1264,20 @@ document.getElementById('searchInput').addEventListener('keydown', e => {
   if (e.key === 'Escape') { e.target.value = ''; }
   if (e.key === 'Tab') {
     e.preventDefault();
-    setEngine((activeEngine + 1) % ENGINES.length);
+    setEngine((activeEngine + 1) % VISIBLE_ENGINES.length);
+  }
+});
+
+// live prefix hint — show which engine will be used as you type
+document.getElementById('searchInput').addEventListener('input', e => {
+  const val = e.target.value;
+  const parts = val.split(' ');
+  if (parts.length >= 2 && NICK_MAP[parts[0].toLowerCase()]) {
+    const eng = NICK_MAP[parts[0].toLowerCase()];
+    document.getElementById('searchPrefix').textContent = eng.name.replace(' ✦','') + ':';
+  } else {
+    const active = VISIBLE_ENGINES[activeEngine];
+    document.getElementById('searchPrefix').textContent = active.direct ? '✦_' : '>_';
   }
 });
 
@@ -1047,6 +1325,130 @@ function updateUptime() {
   document.getElementById('uptimeDisp').textContent =
     'session ' + String(h).padStart(2,'0') + ':' + String(min).padStart(2,'0') + ':' + String(s).padStart(2,'0');
 }
+
+// ══════════════════════════════
+//  GREETING — typewriter + editable + color picker
+// ══════════════════════════════
+const GREETING_COLORS = [
+  { name:'teal',   val:'#7ecfb3' },
+  { name:'blue',   val:'#61afef' },
+  { name:'purple', val:'#c678dd' },
+  { name:'yellow', val:'#e5c07b' },
+  { name:'red',    val:'#e06c75' },
+  { name:'white',  val:'#c9c9c9' },
+];
+
+const greetDefaults = {
+  phrase: 'hello,',
+  name:   '4lt_',
+  color:  '#7ecfb3',
+};
+
+let greetData = JSON.parse(localStorage.getItem('sp_greet') || 'null') || {...greetDefaults};
+
+const gPhrase  = document.getElementById('greetingPhrase');
+const gName    = document.getElementById('greetingName');
+const gCursor  = document.getElementById('greetingCursor');
+const gColors  = document.getElementById('greetingColors');
+
+// apply color
+function greetApplyColor(color) {
+  greetData.color = color;
+  gName.style.color = color;
+  gCursor.style.color = color;
+  localStorage.setItem('sp_greet', JSON.stringify(greetData));
+  document.querySelectorAll('.gc-swatch').forEach(s => {
+    s.classList.toggle('active', s.dataset.color === color);
+  });
+}
+
+// build color swatches
+GREETING_COLORS.forEach(c => {
+  const sw = document.createElement('span');
+  sw.className = 'gc-swatch' + (greetData.color === c.val ? ' active' : '');
+  sw.style.background = c.val;
+  sw.dataset.color = c.val;
+  sw.title = c.name;
+  sw.addEventListener('click', e => { e.stopPropagation(); greetApplyColor(c.val); });
+  gColors.appendChild(sw);
+});
+
+// typewriter animation
+function typewriter(fullPhrase, fullName, done) {
+  gPhrase.textContent = '';
+  gName.textContent = '';
+  gCursor.classList.remove('blink');
+
+  const full = fullPhrase + ' ' + fullName;
+  let i = 0;
+  const tick = setInterval(() => {
+    if (i <= fullPhrase.length) {
+      gPhrase.textContent = full.slice(0, i);
+    } else {
+      gPhrase.textContent = fullPhrase;
+      gName.textContent = full.slice(fullPhrase.length + 1, i);
+    }
+    i++;
+    if (i > full.length) {
+      clearInterval(tick);
+      gPhrase.textContent = fullPhrase;
+      gName.textContent = fullName;
+      gCursor.classList.add('blink');
+      if (done) done();
+    }
+  }, 55);
+}
+
+// inline edit helper
+function greetStartEdit(target, current, onDone) {
+  gColors.style.display = 'none';
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.className = 'greeting-edit-input';
+  inp.value = current;
+  inp.style.width = Math.max(60, current.length * 9) + 'px';
+  target.replaceWith(inp);
+  inp.focus();
+  inp.select();
+  const finish = () => {
+    const val = inp.value.trim() || current;
+    onDone(val);
+    inp.replaceWith(target);
+    target.textContent = val;
+  };
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); finish(); }
+    if (e.key === 'Escape') { inp.replaceWith(target); }
+  });
+  inp.addEventListener('blur', finish);
+}
+
+// click phrase to edit
+gPhrase.addEventListener('click', () => {
+  greetStartEdit(gPhrase, greetData.phrase, val => {
+    greetData.phrase = val;
+    localStorage.setItem('sp_greet', JSON.stringify(greetData));
+  });
+});
+
+// click name to edit + show colors
+gName.addEventListener('click', () => {
+  gColors.style.display = 'flex';
+  greetStartEdit(gName, greetData.name, val => {
+    greetData.name = val;
+    localStorage.setItem('sp_greet', JSON.stringify(greetData));
+    gColors.style.display = 'none';
+  });
+});
+
+// hide color picker on outside click
+document.addEventListener('click', e => {
+  if (!e.target.closest('#greetingWrap')) gColors.style.display = 'none';
+});
+
+// init
+greetApplyColor(greetData.color);
+typewriter(greetData.phrase, greetData.name);
 
 document.getElementById('sbKernel').textContent = CONFIG.kernel_version;
 updateClock();
