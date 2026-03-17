@@ -1368,11 +1368,13 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 
 function updateClock() {
   const now = new Date();
-  const h = String(now.getHours()).padStart(2,'0');
+  const raw = now.getHours();
+  const h = String(raw % 12 || 12);
   const m = String(now.getMinutes()).padStart(2,'0');
   const s = String(now.getSeconds()).padStart(2,'0');
+  const ampm = raw < 12 ? 'am' : 'pm';
   document.getElementById('clockTime').textContent = h + ':' + m;
-  document.getElementById('clockSec').textContent = ':' + s;
+  document.getElementById('clockSec').textContent = ':' + s + ' ' + ampm;
   document.getElementById('clockDate').textContent =
     DAYS[now.getDay()].slice(0,3) + ', ' + now.getDate() + ' ' + MONTHS[now.getMonth()] + ' ' + now.getFullYear();
   document.getElementById('clockDay').textContent = 'week ' + getWeek(now);
