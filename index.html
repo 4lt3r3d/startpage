@@ -147,22 +147,24 @@
     min-width: 60px;
     max-width: 180px;
   }
-  .greeting-color-picker {
+  .greeting-dots {
     display: flex;
     gap: 5px;
     align-items: center;
-    margin-left: 2px;
+    margin-top: 6px;
   }
-  .gc-swatch {
-    width: 10px; height: 10px;
+  .greeting-color-dots { display:flex; gap:5px; align-items:center; }
+  .gc-dot {
+    width: 6px; height: 6px;
     border-radius: 50%;
     cursor: pointer;
     border: 1px solid transparent;
     transition: transform 0.12s, border-color 0.12s;
     flex-shrink: 0;
+    opacity: 0.7;
   }
-  .gc-swatch:hover { transform: scale(1.3); }
-  .gc-swatch.active { border-color: #fff; transform: scale(1.2); }
+  .gc-dot:hover { transform: scale(1.4); opacity: 1; }
+  .gc-dot.active { border-color: rgba(255,255,255,0.6); transform: scale(1.2); opacity: 1; }
 
 
   .clock-panel {
@@ -209,6 +211,23 @@
     font-family: var(--mono);
   }
   .uptime-badge span { color: var(--accent); }
+  .accent-dots {
+    display: flex;
+    gap: 5px;
+    margin-top: 7px;
+    align-items: center;
+  }
+  .accent-dot {
+    width: 6px; height: 6px;
+    border-radius: 1px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: transform 0.12s, border-color 0.12s, opacity 0.12s;
+    opacity: 0.55;
+    flex-shrink: 0;
+  }
+  .accent-dot:hover { transform: scale(1.35); opacity: 0.9; }
+  .accent-dot.active { border-color: rgba(255,255,255,0.6); opacity: 1; transform: scale(1.2); }
 
   /* ── SEARCH ── */
   .search-panel {
@@ -488,6 +507,29 @@
   }
   .cat-tab:hover { border-color: var(--border2); color: var(--text); }
   .cat-tab.active { background: var(--accent3); border-color: var(--accent); color: var(--accent); }
+  .cat-ctx {
+    position: fixed;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 4px;
+    min-width: 120px;
+    z-index: 1001;
+    display: none;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .cat-ctx.visible { display: block; }
+  .cat-ctx-item {
+    font-size: 11px;
+    padding: 6px 10px;
+    color: var(--text2);
+    cursor: pointer;
+    border-radius: 3px;
+    display: flex; align-items: center; gap: 7px;
+    transition: background 0.1s;
+  }
+  .cat-ctx-item:hover { background: var(--bg3); color: var(--text); }
+  .cat-ctx-item.danger:hover { color: var(--red); }
   .bookmark-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
@@ -592,24 +634,26 @@
   }
   .sp-btn {
     background: none; border: none; cursor: pointer;
-    color: var(--text2); font-size: 16px;
+    color: var(--text2) !important; font-size: 16px;
     transition: color 0.15s; padding: 4px;
     display: flex; align-items: center;
-    outline: none;
+    outline: none !important;
+    -webkit-tap-highlight-color: transparent;
   }
-  .sp-btn:focus { outline: none; }
-  .sp-btn:hover { color: var(--text); }
+  .sp-btn:focus, .sp-btn:focus-visible, .sp-btn:active { outline: none !important; box-shadow: none !important; color: var(--text2) !important; }
+  .sp-btn:hover { color: var(--text) !important; }
   .sp-btn.play {
     width: 32px; height: 32px;
-    background: var(--accent);
+    background: var(--accent) !important;
     border-radius: 50%;
-    color: #0d0d0d;
+    color: #0d0d0d !important;
     font-size: 14px;
     display: flex; align-items: center; justify-content: center;
-    outline: none;
+    outline: none !important;
+    -webkit-tap-highlight-color: transparent;
   }
-  .sp-btn.play:focus { outline: none; }
-  .sp-btn.play:hover { background: var(--accent2); color: #0d0d0d; }
+  .sp-btn.play:focus, .sp-btn.play:focus-visible, .sp-btn.play:active { outline: none !important; box-shadow: none !important; background: var(--accent) !important; color: #0d0d0d !important; }
+  .sp-btn.play:hover { background: var(--accent2) !important; color: #0d0d0d !important; }
   .sp-volume { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
   .sp-vol-icon { font-size: 12px; color: var(--text3); }
   .sp-vol-slider {
@@ -775,7 +819,6 @@
         <span class="greeting-phrase" id="greetingPhrase"></span>
         <span class="greeting-name" id="greetingName"></span>
         <span class="greeting-cursor blink" id="greetingCursor"></span>
-        <div class="greeting-color-picker" id="greetingColors" style="display:none;"></div>
       </div>
       <div style="display:flex;align-items:baseline;gap:12px;">
         <div class="clock-time" id="clockTime">00:00</div>
@@ -783,6 +826,7 @@
       </div>
     </div>
     <div class="clock-right">
+      <div class="greeting-color-dots" id="greetingDots" style="justify-content:flex-end;margin-bottom:5px;"></div>
       <div class="clock-date" id="clockDate">—</div>
       <div class="clock-day" id="clockDay">—</div>
       <div class="uptime-badge">arch linux — <span id="uptimeDisp">calculating...</span></div>
@@ -959,6 +1003,26 @@
   <div class="ctx-sep"></div>
   <div class="ctx-item" id="ctxEdit" style="display:none">✎ &nbsp;edit</div>
   <div class="ctx-item" id="ctxRemove" style="display:none">✕ &nbsp;remove</div>
+</div>
+
+<!-- ── CATEGORY CONTEXT MENU ── -->
+<div class="ctx-menu" id="catCtxMenu">
+  <div class="ctx-item" id="catCtxEdit">✎ &nbsp;rename</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" id="catCtxRemove" style="color:var(--red)">✕ &nbsp;remove category</div>
+</div>
+
+<!-- ── CATEGORY CONTEXT MENU ── -->
+<div class="ctx-menu" id="catCtxMenu">
+  <div class="ctx-item" id="catCtxRename">✎ &nbsp;rename</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" id="catCtxRemove" style="color:var(--red)">✕ &nbsp;remove category</div>
+</div>
+
+<!-- ── CATEGORY CONTEXT MENU ── -->
+<div class="cat-ctx" id="catCtxMenu">
+  <div class="cat-ctx-item" id="catCtxEdit">✎ &nbsp;rename</div>
+  <div class="cat-ctx-item danger" id="catCtxRemove">✕ &nbsp;remove</div>
 </div>
 
 <!-- ── MODAL ── -->
@@ -1334,12 +1398,12 @@ function updateUptime() {
 //  GREETING — typewriter + editable + color picker
 // ══════════════════════════════
 const GREETING_COLORS = [
-  { name:'teal',   val:'#7ecfb3' },
-  { name:'blue',   val:'#61afef' },
-  { name:'purple', val:'#c678dd' },
-  { name:'yellow', val:'#e5c07b' },
-  { name:'red',    val:'#e06c75' },
-  { name:'white',  val:'#c9c9c9' },
+  { name:'red',    val:'#c97b7b' },
+  { name:'yellow', val:'#c9a96e' },
+  { name:'green',  val:'#7ecfb3' },
+  { name:'blue',   val:'#7aaed6' },
+  { name:'purple', val:'#a98bcf' },
+  { name:'pink',   val:'#cf8baf' },
 ];
 
 const greetDefaults = {
@@ -1353,28 +1417,41 @@ let greetData = JSON.parse(localStorage.getItem('sp_greet') || 'null') || {...gr
 const gPhrase  = document.getElementById('greetingPhrase');
 const gName    = document.getElementById('greetingName');
 const gCursor  = document.getElementById('greetingCursor');
-const gColors  = document.getElementById('greetingColors');
+const gDots = document.getElementById('greetingDots');
 
-// apply color
+// apply color — updates global --accent CSS variable so entire page recolors
 function greetApplyColor(color) {
   greetData.color = color;
+  // derive a slightly darker shade for --accent2
+  const darken = (hex, amt) => {
+    const n = parseInt(hex.slice(1), 16);
+    const r = Math.max(0, (n >> 16) - amt);
+    const g = Math.max(0, ((n >> 8) & 0xff) - amt);
+    const b = Math.max(0, (n & 0xff) - amt);
+    return '#' + [r,g,b].map(x => x.toString(16).padStart(2,'0')).join('');
+  };
+  const accent2 = darken(color, 30);
+  const accentBg = color + '14'; // ~8% opacity for accent3
+  document.documentElement.style.setProperty('--accent', color);
+  document.documentElement.style.setProperty('--accent2', accent2);
+  document.documentElement.style.setProperty('--accent3', accentBg);
   gName.style.color = color;
   gCursor.style.color = color;
   localStorage.setItem('sp_greet', JSON.stringify(greetData));
-  document.querySelectorAll('.gc-swatch').forEach(s => {
+  document.querySelectorAll('.gc-dot').forEach(s => {
     s.classList.toggle('active', s.dataset.color === color);
   });
 }
 
-// build color swatches
+// build color dots under uptime
 GREETING_COLORS.forEach(c => {
-  const sw = document.createElement('span');
-  sw.className = 'gc-swatch' + (greetData.color === c.val ? ' active' : '');
-  sw.style.background = c.val;
-  sw.dataset.color = c.val;
-  sw.title = c.name;
-  sw.addEventListener('click', e => { e.stopPropagation(); greetApplyColor(c.val); });
-  gColors.appendChild(sw);
+  const dot = document.createElement('span');
+  dot.className = 'gc-dot' + (greetData.color === c.val ? ' active' : '');
+  dot.style.background = c.val;
+  dot.dataset.color = c.val;
+  dot.title = c.name;
+  dot.addEventListener('click', e => { e.stopPropagation(); greetApplyColor(c.val); });
+  gDots.appendChild(dot);
 });
 
 // typewriter animation
@@ -1403,9 +1480,8 @@ function typewriter(fullPhrase, fullName, done) {
   }, 55);
 }
 
-// inline edit helper — keepColors = true keeps swatches visible while editing name
-function greetStartEdit(target, current, onDone, keepColors) {
-  if (!keepColors) gColors.style.display = 'none';
+// inline edit helper
+function greetStartEdit(target, current, onDone) {
   const inp = document.createElement('input');
   inp.type = 'text';
   inp.className = 'greeting-edit-input';
@@ -1425,7 +1501,7 @@ function greetStartEdit(target, current, onDone, keepColors) {
   };
   inp.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); finish(); }
-    if (e.key === 'Escape') { done = true; inp.replaceWith(target); gColors.style.display = 'none'; }
+    if (e.key === 'Escape') { done = true; inp.replaceWith(target); }
   });
   inp.addEventListener('blur', finish);
 }
@@ -1438,23 +1514,48 @@ gPhrase.addEventListener('click', () => {
   });
 });
 
-// click name to edit + show colors, keep them visible during edit
+// click name to edit
 gName.addEventListener('click', () => {
-  gColors.style.display = 'flex';
   greetStartEdit(gName, greetData.name, val => {
     greetData.name = val;
     localStorage.setItem('sp_greet', JSON.stringify(greetData));
-    gColors.style.display = 'none';
-  }, true);
+  });
 });
 
-// hide color picker on outside click
-document.addEventListener('click', e => {
-  if (!e.target.closest('#greetingWrap')) gColors.style.display = 'none';
-});
+// ── Accent color dots (in clock panel) ──
+const ACCENT_COLORS = [
+  { name:'teal',   val:'#7ecfb3' },
+  { name:'red',    val:'#e06c75' },
+  { name:'yellow', val:'#e5c07b' },
+  { name:'blue',   val:'#61afef' },
+  { name:'purple', val:'#c678dd' },
+  { name:'pink',   val:'#d4789c' },
+];
+
+function buildAccentDots() {
+  const el = document.getElementById('accentDots');
+  if (!el) return;
+  el.innerHTML = '';
+  ACCENT_COLORS.forEach(c => {
+    const dot = document.createElement('span');
+    dot.className = 'accent-dot' + (greetData.color === c.val ? ' active' : '');
+    dot.style.background = c.val;
+    dot.title = c.name;
+    dot.dataset.color = c.val;
+    dot.addEventListener('click', e => {
+      e.stopPropagation();
+      greetData.color = c.val;
+      localStorage.setItem('sp_greet', JSON.stringify(greetData));
+      greetApplyColor(c.val);
+      document.querySelectorAll('.accent-dot').forEach(d => d.classList.toggle('active', d.dataset.color === c.val));
+    });
+    el.appendChild(dot);
+  });
+}
 
 // init
 greetApplyColor(greetData.color);
+buildAccentDots();
 typewriter(greetData.phrase, greetData.name);
 
 document.getElementById('sbKernel').textContent = CONFIG.kernel_version;
@@ -1629,6 +1730,48 @@ let activeCategory = Object.keys(bookmarks)[0];
 
 function saveBookmarks() { localStorage.setItem('sp_bookmarks', JSON.stringify(bookmarks)); }
 
+// ── Category context menu ──
+let catCtxTarget = null;
+const catCtxMenu = document.createElement('div');
+catCtxMenu.className = 'ctx-menu';
+catCtxMenu.id = 'catCtxMenu';
+catCtxMenu.innerHTML = `
+  <div class="ctx-item" id="catCtxEdit">✎ &nbsp;rename</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" id="catCtxRemove" style="color:var(--red)">✕ &nbsp;remove</div>
+`;
+document.body.appendChild(catCtxMenu);
+
+catCtxMenu.querySelector('#catCtxEdit').addEventListener('click', () => {
+  if (!catCtxTarget) return;
+  const newName = prompt('rename category:', catCtxTarget);
+  if (!newName || !newName.trim()) return;
+  const newKey = newName.trim().toLowerCase().replace(/\s+/g,'-');
+  if (newKey === catCtxTarget) return;
+  if (bookmarks[newKey]) { alert('category already exists'); return; }
+  const entries = bookmarks[catCtxTarget];
+  const keys = Object.keys(bookmarks);
+  const newBookmarks = {};
+  keys.forEach(k => { newBookmarks[k === catCtxTarget ? newKey : k] = bookmarks[k]; });
+  bookmarks = newBookmarks;
+  if (activeCategory === catCtxTarget) activeCategory = newKey;
+  saveBookmarks(); buildCategoryTabs(); renderBookmarks();
+});
+
+catCtxMenu.querySelector('#catCtxRemove').addEventListener('click', () => {
+  if (!catCtxTarget) return;
+  if (!confirm('remove category "' + catCtxTarget + '" and all its bookmarks?')) return;
+  delete bookmarks[catCtxTarget];
+  const remaining = Object.keys(bookmarks);
+  activeCategory = remaining[0] || '';
+  if (!activeCategory) bookmarks['general'] = [];
+  saveBookmarks(); buildCategoryTabs(); renderBookmarks();
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#catCtxMenu')) catCtxMenu.classList.remove('visible');
+});
+
 function buildCategoryTabs() {
   const el = document.getElementById('categoryTabs');
   el.innerHTML = '';
@@ -1650,6 +1793,14 @@ function buildCategoryTabs() {
     btn.className = 'cat-tab' + (cat === activeCategory ? ' active' : '');
     btn.textContent = cat;
     btn.addEventListener('click', () => { activeCategory = cat; buildCategoryTabs(); renderBookmarks(); });
+    btn.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      catCtxTarget = cat;
+      catCtxMenu.style.left = Math.min(e.clientX, window.innerWidth - 160) + 'px';
+      catCtxMenu.style.top = Math.min(e.clientY, window.innerHeight - 80) + 'px';
+      catCtxMenu.classList.add('visible');
+    });
     el.appendChild(btn);
   });
   el.appendChild(addBtn);
@@ -1685,6 +1836,14 @@ renderBookmarks();
 const ctxMenu = document.getElementById('ctxMenu');
 let ctxTarget = null;
 
+function showCtxOnCat(e, cat) {
+  ctxTarget = { type: 'cat', cat };
+  document.getElementById('ctxAdd').style.display = 'none';
+  document.getElementById('ctxEdit').style.display = '';
+  document.getElementById('ctxRemove').style.display = '';
+  posCtx(e.clientX, e.clientY);
+}
+
 function showCtxOnBm(e, idx) {
   ctxTarget = { type: 'bm', idx };
   document.getElementById('ctxAdd').style.display = '';
@@ -1714,15 +1873,35 @@ document.addEventListener('click', () => ctxMenu.classList.remove('visible'));
 
 document.getElementById('ctxAdd').addEventListener('click', () => { openModal(); });
 document.getElementById('ctxEdit').addEventListener('click', () => {
-  if (ctxTarget && ctxTarget.type === 'bm') {
+  if (!ctxTarget) return;
+  if (ctxTarget.type === 'bm') {
     const bm = bookmarks[activeCategory][ctxTarget.idx];
     openModal(bm, ctxTarget.idx);
+  } else if (ctxTarget.type === 'cat') {
+    const newName = prompt('rename category:', ctxTarget.cat);
+    if (newName && newName.trim() && newName.trim() !== ctxTarget.cat) {
+      const key = newName.trim().toLowerCase().replace(/\s+/g,'-');
+      if (!bookmarks[key]) {
+        bookmarks[key] = bookmarks[ctxTarget.cat];
+        delete bookmarks[ctxTarget.cat];
+        if (activeCategory === ctxTarget.cat) activeCategory = key;
+        saveBookmarks(); buildCategoryTabs(); renderBookmarks();
+      }
+    }
   }
 });
 document.getElementById('ctxRemove').addEventListener('click', () => {
-  if (ctxTarget && ctxTarget.type === 'bm') {
+  if (!ctxTarget) return;
+  if (ctxTarget.type === 'bm') {
     bookmarks[activeCategory].splice(ctxTarget.idx, 1);
     saveBookmarks(); renderBookmarks();
+  } else if (ctxTarget.type === 'cat') {
+    const keys = Object.keys(bookmarks);
+    if (keys.length <= 1) return; // keep at least one category
+    if (!confirm('remove category "' + ctxTarget.cat + '" and all its bookmarks?')) return;
+    delete bookmarks[ctxTarget.cat];
+    if (activeCategory === ctxTarget.cat) activeCategory = Object.keys(bookmarks)[0];
+    saveBookmarks(); buildCategoryTabs(); renderBookmarks();
   }
 });
 
@@ -1961,6 +2140,8 @@ function spStartPoll() {
 }
 
 // ── Controls — send to whatever device is active ──
+['spPlay','spPrev','spNext','spLogout'].forEach(id => { const el = document.getElementById(id); if (el) { el.setAttribute('tabindex','-1'); el.addEventListener('mousedown', e => e.preventDefault()); } });
+
 document.getElementById('spPlay').addEventListener('click', async () => {
   if (!spToken) return;
   const data = await spApi('/me/player');
