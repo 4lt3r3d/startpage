@@ -1,5 +1,5 @@
 # startpage
-startpage includes  
+[startpage includes]  
 - customizable greeting 
 - to do list
 - notes
@@ -8,7 +8,8 @@ startpage includes
 - AI prompting from search bar
 - system stats
 - date & time
-features to come
+
+[features to come]
 - art tools for quick editing
 - custom backgrounds
 - Google Earth Pro embed
