@@ -595,7 +595,9 @@
     color: var(--text2); font-size: 16px;
     transition: color 0.15s; padding: 4px;
     display: flex; align-items: center;
+    outline: none;
   }
+  .sp-btn:focus { outline: none; }
   .sp-btn:hover { color: var(--text); }
   .sp-btn.play {
     width: 32px; height: 32px;
@@ -604,7 +606,9 @@
     color: #0d0d0d;
     font-size: 14px;
     display: flex; align-items: center; justify-content: center;
+    outline: none;
   }
+  .sp-btn.play:focus { outline: none; }
   .sp-btn.play:hover { background: var(--accent2); color: #0d0d0d; }
   .sp-volume { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
   .sp-vol-icon { font-size: 12px; color: var(--text3); }
@@ -1399,9 +1403,9 @@ function typewriter(fullPhrase, fullName, done) {
   }, 55);
 }
 
-// inline edit helper
-function greetStartEdit(target, current, onDone) {
-  gColors.style.display = 'none';
+// inline edit helper — keepColors = true keeps swatches visible while editing name
+function greetStartEdit(target, current, onDone, keepColors) {
+  if (!keepColors) gColors.style.display = 'none';
   const inp = document.createElement('input');
   inp.type = 'text';
   inp.className = 'greeting-edit-input';
@@ -1410,7 +1414,10 @@ function greetStartEdit(target, current, onDone) {
   target.replaceWith(inp);
   inp.focus();
   inp.select();
+  let done = false;
   const finish = () => {
+    if (done) return;
+    done = true;
     const val = inp.value.trim() || current;
     onDone(val);
     inp.replaceWith(target);
@@ -1418,7 +1425,7 @@ function greetStartEdit(target, current, onDone) {
   };
   inp.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); finish(); }
-    if (e.key === 'Escape') { inp.replaceWith(target); }
+    if (e.key === 'Escape') { done = true; inp.replaceWith(target); gColors.style.display = 'none'; }
   });
   inp.addEventListener('blur', finish);
 }
@@ -1431,14 +1438,14 @@ gPhrase.addEventListener('click', () => {
   });
 });
 
-// click name to edit + show colors
+// click name to edit + show colors, keep them visible during edit
 gName.addEventListener('click', () => {
   gColors.style.display = 'flex';
   greetStartEdit(gName, greetData.name, val => {
     greetData.name = val;
     localStorage.setItem('sp_greet', JSON.stringify(greetData));
     gColors.style.display = 'none';
-  });
+  }, true);
 });
 
 // hide color picker on outside click
@@ -1918,11 +1925,16 @@ function spRender(data) {
   spLocalDur = item.duration_ms || 1;
   spLocalPaused = !isPlaying;
 
-  // album art — only update if changed
+  // album art — track by track URI so it always updates on song change
   const artUrl = item.album?.images?.[0]?.url || '';
-  if (artUrl && artUrl !== spLastArt) {
-    spLastArt = artUrl;
-    document.getElementById('spArt').innerHTML = `<img src="${artUrl}" alt="" style="width:100%;height:100%;object-fit:cover;">`;
+  const trackId = item.uri || artUrl;
+  if (artUrl && trackId !== spLastArt) {
+    spLastArt = trackId;
+    const img = new Image();
+    img.onload = () => {
+      document.getElementById('spArt').innerHTML = `<img src="${artUrl}" alt="" style="width:100%;height:100%;object-fit:cover;">`;
+    };
+    img.src = artUrl;
   }
 }
 
