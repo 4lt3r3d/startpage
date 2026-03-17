@@ -854,22 +854,23 @@
           </div>
         </div>
         <button class="sp-connect-btn" id="spLoginBtn">connect spotify</button>
-        <div style="font-size:9px;color:var(--text3);margin-top:8px;">requires spotify premium</div>
+        <div style="font-size:9px;color:var(--text3);margin-top:8px;">plays via your desktop or phone</div>
       </div>
 
-      <!-- LOGGED IN PLAYER -->
+      <!-- NOW PLAYING -->
       <div id="spPlayer" style="display:none;">
         <div class="spotify-art" id="spArt">
-          <div class="spotify-art-placeholder">
+          <div class="spotify-art-placeholder" id="spArtPlaceholder">
             <div class="vinyl" id="vinyl2"><div class="vinyl-center"></div></div>
-            <div style="font-size:10px;color:var(--text3);">loading...</div>
+            <div style="font-size:10px;color:var(--text3);">nothing playing</div>
           </div>
         </div>
         <div class="spotify-info">
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <div style="overflow:hidden;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+            <div style="overflow:hidden;flex:1;">
               <div class="sp-track" id="spTrack">—</div>
               <div class="sp-artist" id="spArtist">—</div>
+              <div style="font-size:9px;color:var(--text3);margin-top:2px;" id="spDevice">—</div>
             </div>
             <button class="sp-btn" id="spLogout" title="Disconnect" style="font-size:10px;color:var(--text3);flex-shrink:0;">✕</button>
           </div>
@@ -880,15 +881,9 @@
             <div class="sp-time"><span id="spCurrent">0:00</span><span id="spTotal">0:00</span></div>
           </div>
           <div class="sp-controls">
-            <button class="sp-btn" id="spShuffle" title="Shuffle">⇌</button>
             <button class="sp-btn" id="spPrev" title="Previous">⏮</button>
             <button class="sp-btn play" id="spPlay" title="Play/Pause">▶</button>
             <button class="sp-btn" id="spNext" title="Next">⏭</button>
-            <button class="sp-btn" id="spRepeat" title="Repeat">↻</button>
-          </div>
-          <div class="sp-volume">
-            <span class="sp-vol-icon">♪</span>
-            <input type="range" class="sp-vol-slider" id="spVolume" min="0" max="100" value="70">
           </div>
         </div>
       </div>
@@ -1359,17 +1354,18 @@ document.addEventListener('keydown', e => {
 });
 
 // ══════════════════════════════
-//  SPOTIFY — OAuth + Web Playback SDK
+//  SPOTIFY — lightweight now-playing widget
 // ══════════════════════════════
-const SP_CLIENT_ID   = '3503d36f9e64490e85dda8441662771d';
-const SP_REDIRECT    = 'https://4lt3r3d.github.io/startpage/';
-const SP_SCOPES      = 'streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state user-read-currently-playing';
+const SP_CLIENT_ID = '3503d36f9e64490e85dda8441662771d';
+const SP_REDIRECT  = 'https://4lt3r3d.github.io/startpage/';
+const SP_SCOPES    = 'user-read-email user-read-private user-read-playback-state user-modify-playback-state user-read-currently-playing';
 
 let spToken = null;
-let spPlayer = null;
-let spDeviceId = null;
-let spState = null;
 let spPollTimer = null;
+let spLocalPos = 0;
+let spLocalDur = 1;
+let spLocalPaused = true;
+let spLastArt = '';
 
 // ── Token helpers ──
 function spSaveToken(token, expiry) {
@@ -1422,7 +1418,6 @@ async function spHandleCallback() {
   if (!code) return false;
   const verifier = localStorage.getItem('sp_verifier');
   if (!verifier) return false;
-  // exchange code for token
   const body = new URLSearchParams({
     client_id: SP_CLIENT_ID,
     grant_type: 'authorization_code',
@@ -1440,7 +1435,6 @@ async function spHandleCallback() {
     if (data.access_token) {
       spSaveToken(data.access_token, Date.now() + data.expires_in * 1000);
       localStorage.setItem('sp_refresh', data.refresh_token);
-      // clean URL
       window.history.replaceState({}, '', window.location.pathname);
       return true;
     }
@@ -1474,172 +1468,122 @@ async function spRefresh() {
   return false;
 }
 
-// ── API call helper ──
+// ── API helper ──
 async function spApi(endpoint, method='GET', body=null) {
   if (!spToken) return null;
+  // auto-refresh if near expiry
+  const expiry = parseInt(localStorage.getItem('sp_token_expiry') || '0');
+  if (Date.now() > expiry - 60000) {
+    const ok = await spRefresh();
+    if (!ok) { spShowLogin(); return null; }
+  }
   const opts = { method, headers: { 'Authorization': 'Bearer ' + spToken } };
   if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
-  const res = await fetch('https://api.spotify.com/v1' + endpoint, opts);
-  if (res.status === 401) { await spRefresh(); return null; }
-  if (res.status === 204 || res.status === 202) return {};
-  try { return await res.json(); } catch { return {}; }
+  try {
+    const res = await fetch('https://api.spotify.com/v1' + endpoint, opts);
+    if (res.status === 401) { await spRefresh(); return null; }
+    if (res.status === 204 || res.status === 202 || res.status === 200 && res.headers.get('content-length') === '0') return {};
+    return await res.json();
+  } catch { return null; }
 }
 
-// ── Init Web Playback SDK ──
-function spInitSDK() {
-  window.onSpotifyWebPlaybackSDKReady = () => {
-    spPlayer = new Spotify.Player({
-      name: 'startpage',
-      getOAuthToken: cb => {
-        const t = spLoadToken();
-        if (t) { cb(t); return; }
-        spRefresh().then(() => cb(spLoadToken()));
-      },
-      volume: 0.7,
-    });
-
-    spPlayer.addListener('ready', ({ device_id }) => {
-      spDeviceId = device_id;
-      spTransferPlayback(device_id);
-    });
-
-    spPlayer.addListener('player_state_changed', state => {
-      if (!state) return;
-      spState = state;
-      spRenderState(state);
-    });
-
-    spPlayer.addListener('initialization_error', ({ message }) => console.error('SP init error', message));
-    spPlayer.addListener('authentication_error', ({ message }) => { console.error('SP auth error', message); spClearToken(); spShowLogin(); });
-    spPlayer.addListener('account_error', ({ message }) => console.error('SP account error', message));
-
-    spPlayer.connect();
-  };
-
-  const script = document.createElement('script');
-  script.src = 'https://sdk.scdn.co/spotify-player.js';
-  document.head.appendChild(script);
-}
-
-async function spTransferPlayback(deviceId) {
-  await spApi('/me/player', 'PUT', { device_ids: [deviceId], play: false });
-  spStartPoll();
-}
-
-// ── Render state ──
-function spRenderState(state) {
-  if (!state) return;
-  const track = state.track_window.current_track;
-  document.getElementById('spTrack').textContent = track.name;
-  document.getElementById('spArtist').textContent = track.artists.map(a => a.name).join(', ');
-
-  // album art
-  const artUrl = track.album.images[0]?.url;
-  const artEl = document.getElementById('spArt');
-  if (artUrl) {
-    artEl.innerHTML = `<img src="${artUrl}" alt="album art" style="width:100%;height:100%;object-fit:cover;">`;
-  }
-
-  // progress
-  const dur = state.duration;
-  const pos = state.position;
-  const pct = dur > 0 ? (pos / dur * 100) : 0;
-  document.getElementById('spProgress').style.width = pct + '%';
-  document.getElementById('spCurrent').textContent = spFmtTime(pos);
-  document.getElementById('spTotal').textContent = spFmtTime(dur);
-
-  // play/pause
-  document.getElementById('spPlay').textContent = state.paused ? '▶' : '⏸';
-
-  // vinyl spin
-  const vinyl = document.getElementById('vinyl2');
-  if (vinyl) vinyl.style.setProperty('--vinyl-state', state.paused ? 'paused' : 'running');
-
-  // shuffle/repeat
-  document.getElementById('spShuffle').style.color = state.shuffle ? '#1db954' : '';
-  document.getElementById('spRepeat').style.color = state.repeat_mode > 0 ? '#1db954' : '';
-}
-
-function spFmtTime(ms) {
+// ── Format time ──
+function spFmt(ms) {
   const s = Math.floor(ms / 1000);
   return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 }
 
-// ── Poll progress (smooth bar) ──
-let spLastPoll = 0;
-let spLocalPos = 0;
-let spLocalDur = 1;
-let spLocalPaused = true;
+// ── Render now playing ──
+function spRender(data) {
+  if (!data || !data.item) {
+    document.getElementById('spTrack').textContent = 'nothing playing';
+    document.getElementById('spArtist').textContent = '—';
+    document.getElementById('spDevice').textContent = '—';
+    document.getElementById('spPlay').textContent = '▶';
+    document.getElementById('vinyl2').style.setProperty('--vinyl-state', 'paused');
+    return;
+  }
+  const item = data.item;
+  const isPlaying = data.is_playing;
+
+  document.getElementById('spTrack').textContent = item.name;
+  document.getElementById('spArtist').textContent = item.artists.map(a => a.name).join(', ');
+  document.getElementById('spDevice').textContent = data.device ? '▸ ' + data.device.name : '';
+  document.getElementById('spPlay').textContent = isPlaying ? '⏸' : '▶';
+  document.getElementById('vinyl2').style.setProperty('--vinyl-state', isPlaying ? 'running' : 'paused');
+
+  spLocalPos = data.progress_ms || 0;
+  spLocalDur = item.duration_ms || 1;
+  spLocalPaused = !isPlaying;
+
+  // album art — only update if changed
+  const artUrl = item.album?.images?.[0]?.url || '';
+  if (artUrl && artUrl !== spLastArt) {
+    spLastArt = artUrl;
+    document.getElementById('spArt').innerHTML = `<img src="${artUrl}" alt="" style="width:100%;height:100%;object-fit:cover;">`;
+  }
+}
+
+// ── Poll Spotify every 5s ──
+async function spPoll() {
+  const data = await spApi('/me/player');
+  if (data) spRender(data);
+}
 
 function spStartPoll() {
+  spPoll();
   if (spPollTimer) clearInterval(spPollTimer);
-  spPollTimer = setInterval(async () => {
-    if (!spToken) return;
-    const data = await spApi('/me/player');
-    if (!data || !data.item) return;
-    spLocalPos = data.progress_ms;
-    spLocalDur = data.item.duration_ms;
-    spLocalPaused = !data.is_playing;
-    // update track info if player state hasn't fired
-    document.getElementById('spTrack').textContent = data.item.name;
-    document.getElementById('spArtist').textContent = data.item.artists.map(a => a.name).join(', ');
-    const artUrl = data.item.album?.images[0]?.url;
-    if (artUrl) {
-      const artEl = document.getElementById('spArt');
-      if (!artEl.querySelector('img')) {
-        artEl.innerHTML = `<img src="${artUrl}" alt="album art" style="width:100%;height:100%;object-fit:cover;">`;
-      } else {
-        const img = artEl.querySelector('img');
-        if (img.src !== artUrl) img.src = artUrl;
-      }
-    }
-    document.getElementById('spPlay').textContent = data.is_playing ? '⏸' : '▶';
-  }, 5000);
-
+  spPollTimer = setInterval(spPoll, 5000);
   // smooth progress tick
   setInterval(() => {
     if (!spLocalPaused && spLocalDur > 0) {
-      spLocalPos = Math.min(spLocalPos + 250, spLocalDur);
+      spLocalPos = Math.min(spLocalPos + 500, spLocalDur);
       const pct = spLocalPos / spLocalDur * 100;
-      document.getElementById('spProgress').style.width = pct + '%';
-      document.getElementById('spCurrent').textContent = spFmtTime(spLocalPos);
-      document.getElementById('spTotal').textContent = spFmtTime(spLocalDur);
+      document.getElementById('spProgress').style.width = pct.toFixed(2) + '%';
+      document.getElementById('spCurrent').textContent = spFmt(spLocalPos);
+      document.getElementById('spTotal').textContent = spFmt(spLocalDur);
     }
-  }, 250);
+  }, 500);
 }
 
-// ── Controls ──
-document.getElementById('spPlay').addEventListener('click', () => { if (spPlayer) spPlayer.togglePlay(); });
-document.getElementById('spPrev').addEventListener('click', () => { if (spPlayer) spPlayer.previousTrack(); });
-document.getElementById('spNext').addEventListener('click', () => { if (spPlayer) spPlayer.nextTrack(); });
-document.getElementById('spShuffle').addEventListener('click', async () => {
-  if (!spState) return;
-  await spApi('/me/player/shuffle?state=' + !spState.shuffle, 'PUT');
-});
-document.getElementById('spRepeat').addEventListener('click', async () => {
-  if (!spState) return;
-  const modes = ['off','context','track'];
-  const next = modes[(spState.repeat_mode + 1) % 3];
-  await spApi('/me/player/repeat?state=' + next, 'PUT');
-});
-document.getElementById('spVolume').addEventListener('input', e => {
-  if (spPlayer) spPlayer.setVolume(e.target.value / 100);
-});
-document.getElementById('spProgressBg').addEventListener('click', async e => {
-  const rect = e.currentTarget.getBoundingClientRect();
-  const pct = (e.clientX - rect.left) / rect.width;
-  if (spPlayer && spState) {
-    await spPlayer.seek(Math.floor(pct * spState.duration));
+// ── Controls — send to whatever device is active ──
+document.getElementById('spPlay').addEventListener('click', async () => {
+  if (!spToken) return;
+  const data = await spApi('/me/player');
+  if (!data) return;
+  if (data.is_playing) {
+    await spApi('/me/player/pause', 'PUT');
+    spLocalPaused = true;
+    document.getElementById('spPlay').textContent = '▶';
+    document.getElementById('vinyl2').style.setProperty('--vinyl-state', 'paused');
+  } else {
+    await spApi('/me/player/play', 'PUT');
+    spLocalPaused = false;
+    document.getElementById('spPlay').textContent = '⏸';
+    document.getElementById('vinyl2').style.setProperty('--vinyl-state', 'running');
   }
+  setTimeout(spPoll, 500);
 });
+
+document.getElementById('spPrev').addEventListener('click', async () => {
+  await spApi('/me/player/previous', 'POST');
+  setTimeout(spPoll, 600);
+});
+
+document.getElementById('spNext').addEventListener('click', async () => {
+  await spApi('/me/player/next', 'POST');
+  setTimeout(spPoll, 600);
+});
+
 document.getElementById('spLogout').addEventListener('click', () => {
-  if (spPlayer) spPlayer.disconnect();
+  clearInterval(spPollTimer);
   spClearToken();
   localStorage.removeItem('sp_refresh');
+  spLastArt = '';
   spShowLogin();
 });
 
-// ── Show/hide views ──
+// ── Show/hide ──
 function spShowLogin() {
   document.getElementById('spLogin').style.display = '';
   document.getElementById('spPlayer').style.display = 'none';
@@ -1653,24 +1597,20 @@ document.getElementById('spLoginBtn').addEventListener('click', spLogin);
 
 // ── Boot ──
 async function spBoot() {
-  // handle OAuth callback
   if (window.location.search.includes('code=')) {
     const ok = await spHandleCallback();
-    if (ok) { spToken = spLoadToken(); spShowPlayer(); spInitSDK(); return; }
+    if (ok) { spToken = spLoadToken(); spShowPlayer(); spStartPoll(); return; }
   }
-  // check stored token
   spToken = spLoadToken();
-  if (spToken) { spShowPlayer(); spInitSDK(); return; }
-  // try refresh
+  if (spToken) { spShowPlayer(); spStartPoll(); return; }
   if (localStorage.getItem('sp_refresh')) {
     const ok = await spRefresh();
-    if (ok) { spToken = spLoadToken(); spShowPlayer(); spInitSDK(); return; }
+    if (ok) { spToken = spLoadToken(); spShowPlayer(); spStartPoll(); return; }
   }
   spShowLogin();
 }
 
 spBoot();
-
 // ══════════════════════════════
 //  QUICK LINKS
 // ══════════════════════════════
