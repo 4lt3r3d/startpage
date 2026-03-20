@@ -727,6 +727,39 @@
     user-select: none;
   }
   .sb-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .bg-preset {
+    aspect-ratio: 16/9;
+    border-radius: var(--radius);
+    border: 2px solid var(--border);
+    cursor: pointer;
+    overflow: hidden;
+    transition: border-color 0.15s, transform 0.12s;
+    position: relative;
+    font-size: 9px;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: 0.06em;
+  }
+  .bg-preset:hover { border-color: var(--accent); transform: scale(1.03); }
+  .bg-preset.active { border-color: var(--accent); }
+  .bg-preset img { width:100%;height:100%;object-fit:cover;position:absolute;inset:0; }
+  .bg-preset span { position:relative;z-index:1;text-shadow:0 1px 3px rgba(0,0,0,0.8); }
+  body.has-bg .layout { position: relative; z-index: 1; }
+  body.has-bg::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background-image: var(--bg-image);
+    background-size: cover;
+    background-position: center;
+  }
+  body.has-bg .panel,
+  body.has-bg .clock-panel,
+  body.has-bg .search-panel,
+  body.has-bg .statusbar {
+    background: rgba(13,13,13,0.82);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
   .sb-item { display: flex; align-items: center; gap: 5px; }
   .sb-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
 
@@ -1007,6 +1040,7 @@
       <div class="sb-item"><span>shell: <span style="color:var(--text2)">zsh</span></span></div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
+      <button class="sb-btn" id="bgBtn" title="Change background">wallpaper</button>
       <button class="sb-btn" id="exportBtn" title="Export all data">export</button>
       <label class="sb-btn" id="importLabel" title="Import data">import<input type="file" id="importFile" accept=".json" style="display:none;"></label>
       <span style="color:var(--text3);">startpage v1.0</span>
@@ -1053,11 +1087,37 @@
     <input type="text" id="bmUrl" placeholder="https://github.com">
     <label>ICON (emoji)</label>
     <input type="text" id="bmIcon" placeholder="🐙" maxlength="4">
+    <label>NICKNAME <span style="color:var(--text3);font-size:9px;letter-spacing:0;">— optional · type this in search bar to open directly</span></label>
+    <input type="text" id="bmNick" placeholder="gh" maxlength="20" style="font-family:var(--mono);">
     <label>CATEGORY</label>
     <select id="bmCat"></select>
     <div class="modal-btns">
       <button class="modal-btn" id="modalCancel">cancel</button>
       <button class="modal-btn primary" id="modalSave">save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── BACKGROUND PICKER ── -->
+<div class="modal-overlay" id="bgOverlay">
+  <div class="modal" style="width:420px;max-width:95vw;">
+    <h3>background</h3>
+    <div id="bgPresets" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;"></div>
+    <div style="border-top:1px solid var(--border);padding-top:12px;">
+      <label>UPLOAD IMAGE / GIF / WEBP</label>
+      <label class="modal-btn" style="display:block;text-align:center;cursor:pointer;margin-top:4px;">
+        choose file
+        <input type="file" id="bgUpload" accept="image/*,.gif,.webp" style="display:none;">
+      </label>
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px;">
+      <label>IMAGE URL</label>
+      <input type="text" id="bgUrl" placeholder="https://..." style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;outline:none;caret-color:var(--accent);margin-top:4px;">
+    </div>
+    <div class="modal-btns" style="margin-top:12px;">
+      <button class="modal-btn" id="bgClear">clear bg</button>
+      <button class="modal-btn" id="bgCancel">cancel</button>
+      <button class="modal-btn primary" id="bgApply">apply</button>
     </div>
   </div>
 </div>
@@ -1949,6 +2009,7 @@ function openModal(bm, idx) {
   document.getElementById('bmName').value = bm ? bm.name : '';
   document.getElementById('bmUrl').value = bm ? bm.url : '';
   document.getElementById('bmIcon').value = bm ? bm.icon : '🔗';
+  document.getElementById('bmNick').value = bm ? (bm.nick || '') : '';
   document.getElementById('bmCat').value = activeCategory;
   document.getElementById('modalOverlay').classList.add('visible');
   document.getElementById('bmName').focus();
@@ -1959,13 +2020,39 @@ document.getElementById('modalOverlay').addEventListener('click', e => { if (e.t
 
 document.getElementById('modalSave').addEventListener('click', () => {
   const name = document.getElementById('bmName').value.trim();
-  const url = document.getElementById('bmUrl').value.trim();
+  const url  = document.getElementById('bmUrl').value.trim();
   const icon = document.getElementById('bmIcon').value.trim() || '🔗';
-  const cat = document.getElementById('bmCat').value;
+  const nick = document.getElementById('bmNick').value.trim().toLowerCase().replace(/\s+/g,'');
+  const cat  = document.getElementById('bmCat').value;
   if (!name || !url) return;
   const bm = { name, url, icon };
-  if (editIdx != null) { bookmarks[activeCategory][editIdx] = bm; }
-  else { if (!bookmarks[cat]) bookmarks[cat] = []; bookmarks[cat].push(bm); activeCategory = cat; }
+  if (nick) bm.nick = nick;
+
+  // remove old engine entry for this bookmark if editing
+  if (editIdx != null) {
+    const old = bookmarks[activeCategory][editIdx];
+    if (old.nick) {
+      const idx2 = ENGINES.findIndex(e => e.id === 'bm_' + old.nick);
+      if (idx2 > -1) ENGINES.splice(idx2, 1);
+      delete NICK_MAP[old.nick];
+    }
+    bookmarks[activeCategory][editIdx] = bm;
+  } else {
+    if (!bookmarks[cat]) bookmarks[cat] = [];
+    bookmarks[cat].push(bm);
+    activeCategory = cat;
+  }
+
+  // register nick as a search engine
+  if (nick) {
+    const searchUrl = url.includes('%s') ? url.replace('%s','') : url + (url.includes('?') ? '&q=' : '?q=');
+    const engine = { id: 'bm_' + nick, nick, name, url: searchUrl };
+    const existing = ENGINES.findIndex(e => e.id === 'bm_' + nick);
+    if (existing > -1) ENGINES[existing] = engine;
+    else ENGINES.push(engine);
+    NICK_MAP[nick] = engine;
+  }
+
   saveBookmarks(); buildCategoryTabs(); renderBookmarks();
   document.getElementById('modalOverlay').classList.remove('visible');
 });
@@ -2263,6 +2350,99 @@ QUICK.forEach(q => {
 });
 
 // ══════════════════════════════
+//  BACKGROUND PICKER
+// ══════════════════════════════
+const BG_PRESETS = [
+  { id:'none',    label:'default',    style:'background:#0d0d0d;' },
+  { id:'grid',    label:'grid',       style:'background:#0d0d0d;background-image:linear-gradient(rgba(126,207,179,0.07) 1px,transparent 1px),linear-gradient(90deg,rgba(126,207,179,0.07) 1px,transparent 1px);background-size:40px 40px;' },
+  { id:'noise',   label:'scanlines',  style:'background:#0d0d0d;background-image:repeating-linear-gradient(0deg,rgba(0,0,0,0.15),rgba(0,0,0,0.15) 1px,transparent 1px,transparent 2px);' },
+  { id:'dots',    label:'dots',       style:'background:#0d0d0d;background-image:radial-gradient(rgba(126,207,179,0.15) 1px,transparent 1px);background-size:24px 24px;' },
+  { id:'dark1',   label:'deep space', style:'background:linear-gradient(135deg,#0a0a12 0%,#0d0d18 50%,#080810 100%);' },
+  { id:'sunset',  label:'dusk',       style:'background:linear-gradient(160deg,#0d0d0d 0%,#1a0d1a 40%,#0d0d1a 100%);' },
+];
+
+let bgData = JSON.parse(localStorage.getItem('sp_bg') || '{"id":"none","custom":null}');
+
+function applyBg(data) {
+  bgData = data;
+  localStorage.setItem('sp_bg', JSON.stringify(data));
+  if (data.custom) {
+    // custom image/gif/url
+    document.body.classList.add('has-bg');
+    document.body.style.cssText = '';
+    document.documentElement.style.setProperty('--bg-image', 'url("' + data.custom + '")');
+    // for animated gifs we use a real <video>-style bg via ::before
+  } else if (data.id === 'none') {
+    document.body.classList.remove('has-bg');
+    document.body.style.cssText = '';
+    document.documentElement.style.removeProperty('--bg-image');
+  } else {
+    const preset = BG_PRESETS.find(p => p.id === data.id);
+    if (preset) {
+      document.body.classList.remove('has-bg');
+      document.body.setAttribute('style', preset.style);
+    }
+  }
+  document.querySelectorAll('.bg-preset').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === (data.custom ? 'custom' : data.id));
+  });
+}
+
+// build presets grid
+const presetsEl = document.getElementById('bgPresets');
+BG_PRESETS.forEach(p => {
+  const div = document.createElement('div');
+  div.className = 'bg-preset' + (bgData.id === p.id && !bgData.custom ? ' active' : '');
+  div.dataset.id = p.id;
+  div.setAttribute('style', p.style + 'min-height:60px;');
+  div.innerHTML = '<span>' + p.label + '</span>';
+  div.addEventListener('click', () => applyBg({ id: p.id, custom: null }));
+  presetsEl.appendChild(div);
+});
+
+// file upload (supports gif, webp, jpg, png)
+document.getElementById('bgUpload').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = evt => {
+    bgData.custom = evt.target.result;
+    bgData.id = 'custom';
+    document.querySelectorAll('.bg-preset').forEach(el => el.classList.remove('active'));
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+});
+
+document.getElementById('bgBtn').addEventListener('click', () => {
+  document.getElementById('bgOverlay').classList.add('visible');
+  // reset url field
+  document.getElementById('bgUrl').value = bgData.custom && bgData.custom.startsWith('http') ? bgData.custom : '';
+});
+document.getElementById('bgCancel').addEventListener('click', () => {
+  document.getElementById('bgOverlay').classList.remove('visible');
+});
+document.getElementById('bgOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('bgOverlay')) document.getElementById('bgOverlay').classList.remove('visible');
+});
+document.getElementById('bgClear').addEventListener('click', () => {
+  applyBg({ id: 'none', custom: null });
+  document.getElementById('bgOverlay').classList.remove('visible');
+});
+document.getElementById('bgApply').addEventListener('click', () => {
+  const urlVal = document.getElementById('bgUrl').value.trim();
+  if (urlVal) {
+    applyBg({ id: 'custom', custom: urlVal });
+  } else if (bgData.custom) {
+    applyBg(bgData);
+  }
+  document.getElementById('bgOverlay').classList.remove('visible');
+});
+
+// apply saved bg on load
+applyBg(bgData);
+
+// ══════════════════════════════
 //  IMPORT / EXPORT
 // ══════════════════════════════
 document.getElementById('exportBtn').addEventListener('click', () => {
@@ -2270,6 +2450,7 @@ document.getElementById('exportBtn').addEventListener('click', () => {
     version: '1.0',
     exported: new Date().toISOString(),
     bookmarks:  JSON.parse(localStorage.getItem('sp_bookmarks') || '{}'),
+    bg:         JSON.parse(localStorage.getItem('sp_bg')        || '{}'),
     todos:      JSON.parse(localStorage.getItem('sp_todos')     || '[]'),
     notes:      localStorage.getItem('sp_notes')  || '',
     greet:      JSON.parse(localStorage.getItem('sp_greet')     || '{}'),
@@ -2293,6 +2474,7 @@ document.getElementById('importFile').addEventListener('change', e => {
       if (data.bookmarks) localStorage.setItem('sp_bookmarks', JSON.stringify(data.bookmarks));
       if (data.todos)     localStorage.setItem('sp_todos',     JSON.stringify(data.todos));
       if (data.notes !== undefined) localStorage.setItem('sp_notes', data.notes);
+      if (data.bg)        localStorage.setItem('sp_bg',    JSON.stringify(data.bg));
       if (data.greet)     localStorage.setItem('sp_greet',     JSON.stringify(data.greet));
       // reload to apply everything
       window.location.reload();
