@@ -44,7 +44,7 @@
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
   ::selection { background: rgba(126,207,179,0.2); }
- 
+
   /* ── LAYOUT ── */
   .layout {
     display: grid;
@@ -57,7 +57,7 @@
     padding: 20px;
     gap: 16px;
   }
- 
+
   /* ── PANEL BASE ── */
   .panel {
     background: var(--bg1);
@@ -92,7 +92,7 @@
     background: var(--accent);
     flex-shrink: 0;
   }
- 
+
   /* ── GREETING ── */
   .greeting-wrap {
     display: flex;
@@ -165,8 +165,8 @@
   }
   .gc-dot:hover { transform: scale(1.4); opacity: 1; }
   .gc-dot.active { border-color: rgba(255,255,255,0.6); transform: scale(1.2); opacity: 1; }
- 
- 
+
+
   .clock-panel {
     grid-column: 1 / 4;
     display: flex;
@@ -228,7 +228,7 @@
   }
   .accent-dot:hover { transform: scale(1.35); opacity: 0.9; }
   .accent-dot.active { border-color: rgba(255,255,255,0.6); opacity: 1; transform: scale(1.2); }
- 
+
   /* ── SEARCH ── */
   .search-panel {
     grid-column: 1 / 4;
@@ -303,7 +303,7 @@
     font-family: var(--mono);
     font-size: 10px;
   }
- 
+
   /* ── LOCK BUTTON ── */
   .bm-lock-btn {
     background: none; border: none; cursor: pointer;
@@ -334,7 +334,7 @@
     transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
   }
   .lock-body { transition: stroke 0.2s; }
- 
+
   /* ── DRAG AND DROP ── */
   .cat-tab.dragging { opacity: 0.4; cursor: grabbing !important; }
   .cat-tab.drag-over { outline: 1px dashed var(--accent); outline-offset: 2px; }
@@ -344,10 +344,10 @@
   .bm-item.drag-over { outline: 2px dashed var(--accent); outline-offset: 2px; border-radius: var(--radius); }
   .bm-item[draggable="true"] { cursor: pointer; }
   .bm-item[draggable="true"]:active { cursor: grabbing; }
- 
+
   /* ── LEFT COLUMN ── */
   .left-col { grid-column: 1; display: flex; flex-direction: column; gap: 16px; }
- 
+
   /* ── STATS ── */
   .stat-row {
     margin-bottom: 10px;
@@ -407,7 +407,7 @@
     padding-top: 8px;
   }
   .api-note a { color: var(--accent); text-decoration: none; }
- 
+
   /* ── TODO ── */
   .todo-input-row {
     display: flex;
@@ -500,7 +500,7 @@
   }
   .todo-clear { cursor: pointer; }
   .todo-clear:hover { color: var(--red); }
- 
+
   /* ── NOTES ── */
   #notesArea {
     width: 100%;
@@ -522,10 +522,10 @@
   #notesArea:focus { border-color: var(--accent); }
   #notesArea::placeholder { color: var(--text3); }
   .notes-footer { font-size: 10px; color: var(--text3); margin-top: 5px; }
- 
+
   /* ── MIDDLE COLUMN ── */
   .mid-col { grid-column: 2; display: flex; flex-direction: column; gap: 16px; }
- 
+
   /* ── BOOKMARKS ── */
   .category-tabs {
     display: flex;
@@ -619,10 +619,10 @@
     word-break: break-word;
   }
   .bm-item:hover .bm-name { color: var(--text); }
- 
+
   /* ── RIGHT COLUMN ── */
   .right-col { grid-column: 3; display: flex; flex-direction: column; gap: 16px; }
- 
+
   /* ── SPOTIFY ── */
   .spotify-panel { padding: 0; overflow: hidden; }
   .spotify-art {
@@ -718,9 +718,9 @@
     transition: background 0.15s, transform 0.1s;
   }
   .sp-connect-btn:hover { background: #1ed760; transform: scale(1.02); }
- 
- 
- 
+
+
+
   /* ── QUICK LINKS (right) ── */
   .quick-links { display: flex; flex-direction: column; gap: 4px; }
   .ql-item {
@@ -738,7 +738,7 @@
   .ql-label { flex: 1; }
   .ql-arrow { font-size: 10px; color: var(--text3); opacity: 0; transition: opacity 0.12s; }
   .ql-item:hover .ql-arrow { opacity: 1; }
- 
+
   /* ── STATUS BAR ── */
   .statusbar {
     grid-column: 1 / 4;
@@ -837,7 +837,7 @@
   }
   body.has-anim #bgCanvas { display: block; }
   body.has-anim .layout { position: relative; z-index: 1; }
- 
+
   body.has-anim .panel,
   body.has-anim .clock-panel,
   body.has-anim .search-panel,
@@ -846,11 +846,11 @@
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
   }
- 
+
   body.has-anim { background: #0d0d0d; }
- 
+
   #bgAiPrompt:focus, #bgUrl:focus { border-color: var(--accent); }
- 
+
     body.has-bg .panel,
   body.has-bg .clock-panel,
   body.has-bg .search-panel,
@@ -861,7 +861,7 @@
   }
   .sb-item { display: flex; align-items: center; gap: 5px; }
   .sb-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
- 
+
   /* ── CONTEXT MENU ── */
   .ctx-menu {
     position: fixed;
@@ -886,7 +886,7 @@
   }
   .ctx-item:hover { background: var(--bg3); color: var(--text); }
   .ctx-sep { height: 1px; background: var(--border); margin: 3px 0; }
- 
+
   /* ── MODAL (add bookmark) ── */
   .modal-overlay {
     position: fixed; inset: 0;
@@ -936,11 +936,45 @@
   .modal-btn.primary { background: var(--accent3); border-color: var(--accent); color: var(--accent); }
   .modal-btn:hover { color: var(--text); border-color: var(--border2); }
   .modal-btn.primary:hover { background: rgba(126,207,179,0.18); }
- 
+
+  /* ── WIDGET DRAG ── */
+  .drag-handle {
+    cursor: grab;
+    color: var(--text3);
+    font-size: 14px;
+    padding: 0 4px 0 0;
+    flex-shrink: 0;
+    transition: color 0.15s;
+    user-select: none;
+    display: none; /* hidden when locked */
+  }
+  .drag-handle:hover { color: var(--accent); }
+  .drag-handle:active { cursor: grabbing; }
+  body.widgets-unlocked .drag-handle { display: inline; }
+  .widget.dragging { opacity: 0.4; }
+  .widget.drag-target { outline: 2px dashed var(--accent); outline-offset: 3px; }
+
+  /* ── ENGINE OVERLAY ── */
+  .engine-entry {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+    cursor: pointer;
+    transition: border-color 0.12s, background 0.12s;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .engine-entry:hover { border-color: var(--accent); background: var(--accent3); }
+  .engine-entry .en-nick { font-family:var(--mono);font-size:11px;font-weight:600;color:var(--accent); }
+  .engine-entry .en-name { font-size:10px;color:var(--text2); }
+  #engineOverlaySearch:focus { border-color:var(--accent); }
+
   /* ── MISC ── */
   .fade-in { animation: fadeIn 0.3s ease; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
- 
+
   @media (max-width: 900px) {
     .layout { grid-template-columns: 1fr 1fr; }
     .clock-panel, .search-panel, .statusbar { grid-column: 1 / 3; }
@@ -955,11 +989,11 @@
 </style>
 </head>
 <body>
- 
+
 <canvas id="bgCanvas"></canvas>
- 
+
 <div class="layout" id="layout">
- 
+
   <!-- ── CLOCK BAR ── -->
   <div class="clock-panel fade-in">
     <div style="flex:1;">
@@ -980,7 +1014,7 @@
       <div class="uptime-badge">arch linux — <span id="uptimeDisp">calculating...</span></div>
     </div>
   </div>
- 
+
   <!-- ── SEARCH ── -->
   <div class="panel search-panel fade-in">
     <div class="search-engines" id="engineList"></div>
@@ -992,13 +1026,13 @@
       <kbd>Enter</kbd> search &nbsp;·&nbsp; <kbd>Tab</kbd> cycle engines &nbsp;·&nbsp; <kbd>/</kbd> focus search &nbsp;·&nbsp; <kbd>Esc</kbd> clear
     </div>
   </div>
- 
+
   <!-- ── LEFT COLUMN ── -->
   <div class="left-col fade-in">
- 
+
     <!-- STATS -->
-    <div class="panel" id="statsPanel">
-      <div class="panel-title"><span class="dot"></span>system stats</div>
+    <div class="panel widget" id="widget-stats" draggable="false">
+      <div class="panel-title widget-title"><span class="drag-handle" title="drag to move">⠿</span><span class="dot"></span>system stats</div>
       <div id="statsContent">
         <div class="stat-row">
           <div class="stat-header">
@@ -1039,10 +1073,10 @@
         </div>
       </div>
     </div>
- 
+
     <!-- TODO -->
-    <div class="panel" id="todoPanel">
-      <div class="panel-title"><span class="dot" style="background:var(--yellow);"></span>todo</div>
+    <div class="panel widget" id="widget-todo" draggable="false">
+      <div class="panel-title widget-title"><span class="drag-handle" title="drag to move">⠿</span><span class="dot" style="background:var(--yellow);"></span>todo</div>
       <div class="todo-input-row">
         <input type="text" id="todoInput" placeholder="add task..." maxlength="120">
         <div class="todo-add-btn" id="todoAddBtn" title="Add (Enter)">+</div>
@@ -1053,21 +1087,21 @@
         <span class="todo-clear" id="todoClear">clear done</span>
       </div>
     </div>
- 
+
     <!-- NOTES -->
-    <div class="panel">
-      <div class="panel-title"><span class="dot" style="background:var(--purple);"></span>scratch pad</div>
+    <div class="panel widget" id="widget-notes" draggable="false">
+      <div class="panel-title widget-title"><span class="drag-handle" title="drag to move">⠿</span><span class="dot" style="background:var(--purple);"></span>scratch pad</div>
       <textarea id="notesArea" placeholder="// notes, ideas, commands..."></textarea>
       <div class="notes-footer" id="notesSaved">auto-saved</div>
     </div>
- 
+
   </div>
- 
+
   <!-- ── MIDDLE COLUMN (bookmarks) ── -->
   <div class="mid-col fade-in">
-    <div class="panel" style="flex:1;">
-      <div class="panel-title" style="justify-content:space-between;">
-        <span style="display:flex;align-items:center;gap:6px;"><span class="dot"></span>bookmarks</span>
+    <div class="panel widget" id="widget-bookmarks" style="flex:1;" draggable="false">
+      <div class="panel-title widget-title" style="justify-content:space-between;">
+        <span style="display:flex;align-items:center;gap:6px;"><span class="drag-handle" title="drag to move">⠿</span><span class="dot"></span>bookmarks</span>
         <button class="bm-lock-btn" id="bmLockBtn" title="Lock/unlock layout">
           <svg id="lockSvg" viewBox="0 0 24 26" width="13" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="13" width="18" height="11" rx="2" ry="2" class="lock-body"></rect>
@@ -1085,14 +1119,14 @@
       </div>
     </div>
   </div>
- 
+
   <!-- ── RIGHT COLUMN ── -->
   <div class="right-col fade-in">
- 
+
     <!-- SPOTIFY -->
-    <div class="panel spotify-panel">
-      <div class="panel-title" style="padding:14px 14px 0;"><span class="dot" style="background:#1db954;"></span>spotify</div>
- 
+    <div class="panel spotify-panel widget" id="widget-spotify" draggable="false">
+      <div class="panel-title widget-title" style="padding:14px 14px 0;"><span class="drag-handle" title="drag to move">⠿</span><span class="dot" style="background:#1db954;"></span>spotify</div>
+
       <!-- NOT LOGGED IN -->
       <div id="spLogin" style="padding:14px; text-align:center;">
         <div class="spotify-art" style="margin-bottom:12px;">
@@ -1103,7 +1137,7 @@
         <button class="sp-connect-btn" id="spLoginBtn">connect spotify</button>
         <div style="font-size:9px;color:var(--text3);margin-top:8px;">plays via your desktop or phone</div>
       </div>
- 
+
       <!-- NOW PLAYING -->
       <div id="spPlayer" style="display:none;">
         <div class="spotify-art" id="spArt">
@@ -1135,15 +1169,15 @@
         </div>
       </div>
     </div>
- 
+
     <!-- QUICK LINKS -->
-    <div class="panel">
-      <div class="panel-title"><span class="dot" style="background:var(--blue);"></span>quick access</div>
+    <div class="panel widget" id="widget-quicklinks" draggable="false">
+      <div class="panel-title widget-title"><span class="drag-handle" title="drag to move">⠿</span><span class="dot" style="background:var(--blue);"></span>quick access</div>
       <div class="quick-links" id="quickLinks"></div>
     </div>
- 
+
   </div>
- 
+
   <!-- ── STATUS BAR ── -->
   <div class="statusbar">
     <div class="sb-left">
@@ -1152,15 +1186,28 @@
       <div class="sb-item"><span>shell: <span style="color:var(--text2)">zsh</span></span></div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
+      <button class="sb-btn" id="layoutLockBtn" title="Lock/unlock widget positions">⠿ unlock widgets</button>
       <button class="sb-btn" id="bgBtn" title="Change background">wallpaper</button>
       <button class="sb-btn" id="exportBtn" title="Export all data">export</button>
       <label class="sb-btn" id="importLabel" title="Import data">import<input type="file" id="importFile" accept=".json" style="display:none;"></label>
       <span style="color:var(--text3);">startpage v1.0</span>
     </div>
   </div>
- 
+
 </div>
- 
+
+<!-- ── ENGINE OVERLAY ── -->
+<div id="engineOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9000;overflow-y:auto;padding:40px 20px;">
+  <div style="max-width:700px;margin:0 auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text2);letter-spacing:0.1em;">ALL SEARCH ENGINES &nbsp;<span style="color:var(--text3);">— type nick + space + query to use</span></div>
+      <button id="engineOverlayClose" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:4px;">✕</button>
+    </div>
+    <input type="text" id="engineOverlaySearch" placeholder="filter by name or nick..." style="width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:8px 12px;outline:none;caret-color:var(--accent);margin-bottom:14px;box-sizing:border-box;">
+    <div id="engineOverlayList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;"></div>
+  </div>
+</div>
+
 <!-- ── CONTEXT MENU ── -->
 <div class="ctx-menu" id="ctxMenu">
   <div class="ctx-item" id="ctxAdd">＋ &nbsp;add bookmark</div>
@@ -1168,27 +1215,27 @@
   <div class="ctx-item" id="ctxEdit" style="display:none">✎ &nbsp;edit</div>
   <div class="ctx-item" id="ctxRemove" style="display:none">✕ &nbsp;remove</div>
 </div>
- 
+
 <!-- ── CATEGORY CONTEXT MENU ── -->
 <div class="ctx-menu" id="catCtxMenu">
   <div class="ctx-item" id="catCtxEdit">✎ &nbsp;rename</div>
   <div class="ctx-sep"></div>
   <div class="ctx-item" id="catCtxRemove" style="color:var(--red)">✕ &nbsp;remove category</div>
 </div>
- 
+
 <!-- ── CATEGORY CONTEXT MENU ── -->
 <div class="ctx-menu" id="catCtxMenu">
   <div class="ctx-item" id="catCtxRename">✎ &nbsp;rename</div>
   <div class="ctx-sep"></div>
   <div class="ctx-item" id="catCtxRemove" style="color:var(--red)">✕ &nbsp;remove category</div>
 </div>
- 
+
 <!-- ── CATEGORY CONTEXT MENU ── -->
 <div class="cat-ctx" id="catCtxMenu">
   <div class="cat-ctx-item" id="catCtxEdit">✎ &nbsp;rename</div>
   <div class="cat-ctx-item danger" id="catCtxRemove">✕ &nbsp;remove</div>
 </div>
- 
+
 <!-- ── MODAL ── -->
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal">
@@ -1209,12 +1256,12 @@
     </div>
   </div>
 </div>
- 
+
 <!-- ── BACKGROUND PICKER ── -->
 <div class="modal-overlay" id="bgOverlay">
   <div class="modal" style="width:480px;max-width:96vw;max-height:90vh;overflow-y:auto;">
     <h3 style="margin-bottom:14px;">wallpaper</h3>
- 
+
     <!-- TABS -->
     <div style="display:flex;gap:4px;margin-bottom:14px;" id="bgTabs">
       <button class="bg-tab active" data-tab="static">static</button>
@@ -1222,17 +1269,17 @@
       <button class="bg-tab" data-tab="custom">custom</button>
       <button class="bg-tab" data-tab="ai">ai generate</button>
     </div>
- 
+
     <!-- STATIC TAB -->
     <div id="bgTab-static" class="bg-tab-content">
       <div id="bgPresets" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;"></div>
     </div>
- 
+
     <!-- ANIMATED TAB -->
     <div id="bgTab-animated" class="bg-tab-content" style="display:none;">
       <div id="bgAnimPresets" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;"></div>
     </div>
- 
+
     <!-- CUSTOM TAB -->
     <div id="bgTab-custom" class="bg-tab-content" style="display:none;">
       <label>UPLOAD IMAGE / GIF / WEBP / MP4</label>
@@ -1244,7 +1291,7 @@
       <input type="text" id="bgUrl" placeholder="https://example.com/bg.gif" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;outline:none;caret-color:var(--accent);margin-top:4px;box-sizing:border-box;">
       <button class="modal-btn primary" id="bgApply" style="margin-top:10px;width:100%;">apply url</button>
     </div>
- 
+
     <!-- AI TAB -->
     <div id="bgTab-ai" class="bg-tab-content" style="display:none;">
       <label>DESCRIBE YOUR WALLPAPER</label>
@@ -1273,14 +1320,14 @@
         <button class="modal-btn primary" id="bgAiApply" style="width:100%;margin-top:6px;">set as wallpaper</button>
       </div>
     </div>
- 
+
     <div class="modal-btns" style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
       <button class="modal-btn" id="bgClear">clear</button>
       <button class="modal-btn" id="bgCancel">close</button>
     </div>
   </div>
 </div>
- 
+
 <script>
 // ══════════════════════════════
 //  CONFIG — edit this section
@@ -1290,7 +1337,10 @@ const CONFIG = {
   stats_api: 'http://localhost:61208/api/3', // Glances API endpoint
   kernel_version: '6.8.1-arch1-1',
 };
- 
+
+// ── Lock state — declared early so buildEngines can reference it ──
+let bmLocked = localStorage.getItem('sp_bm_locked') === 'true';
+
 // ══════════════════════════════
 //  SEARCH ENGINES
 // ══════════════════════════════
@@ -1306,7 +1356,7 @@ const ENGINES = [
   { id:'chatgpt',nick:'cgpt',   name:'ChatGPT ✦',    url:'https://chat.openai.com/',                                         show:true, direct:true },
   { id:'perp',   nick:'pp',     name:'Perplexity ✦', url:'https://perplexity.ai/?q=',                                        show:true },
   { id:'wiki',   nick:'w',      name:'Wikipedia',    url:'https://en.wikipedia.org/wiki/Special:Search?search=',            show:true },
- 
+
   // ── HIDDEN ENGINES — triggered by nickname prefix only ──
   { id:'d2',     nick:'ddg',    name:'DuckDuckGo',   url:'https://duckduckgo.com/?q=' },
   { id:'bi',     nick:'bi',     name:'Bing',         url:'https://www.bing.com/search?q=' },
@@ -1507,27 +1557,206 @@ const ENGINES = [
   { id:'chat',   nick:'chat',   name:'Weboasis Chat',url:'https://chat.weboasis.app/home', direct:true },
   { id:'web',    nick:'web',    name:'Weboasis',     url:'https://weboas.is', direct:true },
 ];
- 
+
 let activeEngine = 0;
- 
+
 // visible engines for buttons
 const VISIBLE_ENGINES = ENGINES.filter(e => e.show);
 // nick → engine lookup map for prefix search
 const NICK_MAP = {};
 ENGINES.forEach(e => { if (e.nick) NICK_MAP[e.nick.toLowerCase()] = e; });
- 
+
+// ── engine edit modal helpers ──
+function openEngineEditModal(engine, isVisible, onSave, onDelete) {
+  // reuse the bookmark modal structure with different fields
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay visible';
+  overlay.style.zIndex = '10000';
+  // Convert plain base URL to %s format for display
+  function toDisplayUrl(url) {
+    if (!url) return '';
+    if (url.includes('%s')) return url;
+    // plain base URL — append %s
+    if (url.endsWith('=') || url.endsWith('/') || url.endsWith('?') || url.endsWith('&')) return url + '%s';
+    return url + '%s';
+  }
+
+  const displayUrl = engine ? toDisplayUrl(engine.url) : '';
+
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>${engine ? 'edit engine' : 'add engine'}</h3>
+      <label>NAME</label>
+      <input type="text" id="eeN" value="${escHtml(engine ? engine.name : '')}" placeholder="Google" maxlength="30">
+      <label>NICKNAME &nbsp;<span style="color:var(--text3);font-size:9px;letter-spacing:0;">type this in search bar before your query</span></label>
+      <input type="text" id="eeNick" value="${escHtml(engine ? engine.nick : '')}" placeholder="g" maxlength="20" style="font-family:var(--mono);">
+      <label>URL &nbsp;<span style="color:var(--text3);font-size:9px;letter-spacing:0;">replace the search query part with <span style="color:var(--accent);font-family:var(--mono);">%s</span> — e.g. <span style="color:var(--accent);font-family:var(--mono);">https://google.com/search?q=%s</span></span></label>
+      <input type="text" id="eeUrl" value="${escHtml(displayUrl)}" placeholder="https://google.com/search?q=%s" style="font-family:var(--mono);font-size:11px;">
+
+      ${engine ? '<div class="modal-btns" style="justify-content:flex-start;margin-bottom:0;padding-bottom:0;border:none;"><button class="modal-btn" id="eeDelete" style="color:var(--red);border-color:var(--red);">✕ delete</button></div>' : ''}
+      <div class="modal-btns">
+        <button class="modal-btn" id="eeCancel">cancel</button>
+        <button class="modal-btn primary" id="eeSave">save</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#eeN').focus();
+
+  overlay.querySelector('#eeSave').addEventListener('click', () => {
+    const name = overlay.querySelector('#eeN').value.trim();
+    const nick = overlay.querySelector('#eeNick').value.trim().toLowerCase();
+    let url    = overlay.querySelector('#eeUrl').value.trim();
+    if (!name || !nick || !url) return;
+    // normalize: if no %s and not a direct URL, append %s
+    if (!url.includes('%s') && (url.includes('?') || url.includes('search') || url.includes('query') || url.includes('q='))) {
+      if (url.endsWith('=') || url.endsWith('/') || url.endsWith('?') || url.endsWith('&')) url += '%s';
+    }
+    onSave({ name, nick, url });
+    overlay.remove();
+  });
+  overlay.querySelector('#eeCancel').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  if (engine) overlay.querySelector('#eeDelete').addEventListener('click', () => { onDelete(); overlay.remove(); });
+}
+
+// ── engine ctx menu ──
+let engineCtxMenu = null;
+function showEngineCtx(e, engine, isVisible, idx) {
+  e.preventDefault();
+  if (engineCtxMenu) engineCtxMenu.remove();
+  if (bmLocked) return;
+  engineCtxMenu = document.createElement('div');
+  engineCtxMenu.className = 'ctx-menu visible';
+  engineCtxMenu.style.left = Math.min(e.clientX, window.innerWidth - 160) + 'px';
+  engineCtxMenu.style.top = Math.min(e.clientY, window.innerHeight - 90) + 'px';
+  engineCtxMenu.style.zIndex = '10001';
+  engineCtxMenu.innerHTML = `
+    <div class="ctx-item" id="eeCtxEdit">✎ &nbsp;edit</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" id="eeCtxDel" style="color:var(--red)">✕ &nbsp;delete</div>`;
+  document.body.appendChild(engineCtxMenu);
+
+  engineCtxMenu.querySelector('#eeCtxEdit').addEventListener('click', () => {
+    engineCtxMenu.remove();
+    openEngineEditModal(engine, isVisible, (updated) => {
+      // update in ENGINES array
+      const i = ENGINES.findIndex(en => en.id === engine.id);
+      if (i > -1) {
+        delete NICK_MAP[ENGINES[i].nick.toLowerCase()];
+        ENGINES[i] = { ...ENGINES[i], ...updated };
+        NICK_MAP[updated.nick.toLowerCase()] = ENGINES[i];
+      }
+      rebuildVisibleEngines();
+      buildEngines();
+      buildEngineOverlay();
+      saveEngines();
+    }, () => {});
+  });
+
+  engineCtxMenu.querySelector('#eeCtxDel').addEventListener('click', () => {
+    engineCtxMenu.remove();
+    if (!confirm('delete engine "' + engine.name + '"?')) return;
+    delete NICK_MAP[engine.nick.toLowerCase()];
+    const i = ENGINES.findIndex(en => en.id === engine.id);
+    if (i > -1) ENGINES.splice(i, 1);
+    rebuildVisibleEngines();
+    buildEngines();
+    buildEngineOverlay();
+    saveEngines();
+  });
+
+  setTimeout(() => document.addEventListener('click', () => { if (engineCtxMenu) engineCtxMenu.remove(); }, { once: true }), 10);
+}
+
+function rebuildVisibleEngines() {
+  VISIBLE_ENGINES.length = 0;
+  ENGINES.filter(e => e.show).forEach(e => VISIBLE_ENGINES.push(e));
+}
+
+function saveEngines() {
+  // save custom engine additions/edits to localStorage
+  const custom = ENGINES.filter(e => e._custom || e._edited);
+  localStorage.setItem('sp_engines_custom', JSON.stringify(custom));
+}
+
+// ── engine drag state ──
+let engineDragSrc = null;
+
 function buildEngines() {
   const el = document.getElementById('engineList');
+  el.innerHTML = '';
   VISIBLE_ENGINES.forEach((e, i) => {
     const btn = document.createElement('button');
     btn.className = 'engine-btn' + (i === 0 ? ' active' : '');
     btn.textContent = e.name;
     btn.title = 'nick: ' + e.nick;
+    btn.dataset.idx = i;
     btn.addEventListener('click', () => setEngine(i));
+    btn.addEventListener('contextmenu', ev => showEngineCtx(ev, e, true, i));
+
+    // drag to reorder (only when unlocked)
+    if (!bmLocked) {
+      btn.draggable = true;
+      btn.style.cursor = 'pointer';
+      btn.addEventListener('mousedown', () => { btn.style.cursor = 'grabbing'; });
+      btn.addEventListener('mouseup', () => { btn.style.cursor = 'pointer'; });
+      btn.addEventListener('dragstart', ev => {
+        engineDragSrc = i;
+        btn.classList.add('dragging');
+        ev.dataTransfer.effectAllowed = 'move';
+        ev.dataTransfer.setData('text/plain', String(i));
+      });
+      btn.addEventListener('dragend', () => {
+        btn.classList.remove('dragging');
+        engineDragSrc = null;
+      });
+      btn.addEventListener('dragover', ev => {
+        ev.preventDefault();
+        btn.style.outline = '1px dashed var(--accent)';
+      });
+      btn.addEventListener('dragleave', () => { btn.style.outline = ''; });
+      btn.addEventListener('drop', ev => {
+        ev.preventDefault();
+        btn.style.outline = '';
+        if (engineDragSrc === null || engineDragSrc === i) return;
+        const moved = VISIBLE_ENGINES.splice(engineDragSrc, 1)[0];
+        VISIBLE_ENGINES.splice(i, 0, moved);
+        // mirror order in main ENGINES array
+        const visIds = new Set(VISIBLE_ENGINES.map(e => e.id));
+        const nonVis = ENGINES.filter(e => !visIds.has(e.id));
+        ENGINES.length = 0;
+        VISIBLE_ENGINES.forEach(e => ENGINES.push(e));
+        nonVis.forEach(e => ENGINES.push(e));
+        buildEngines();
+        if (activeEngine >= VISIBLE_ENGINES.length) activeEngine = 0;
+        setEngine(activeEngine);
+      });
+    }
     el.appendChild(btn);
   });
+
+  // add "+" button to add new visible engine when unlocked
+  if (!bmLocked) {
+    const addBtn = document.createElement('button');
+    addBtn.className = 'engine-btn';
+    addBtn.textContent = '+';
+    addBtn.title = 'add engine';
+    addBtn.style.color = 'var(--text3)';
+    addBtn.addEventListener('click', () => {
+      openEngineEditModal(null, true, (newEng) => {
+        const id = 'custom_' + Date.now();
+        const engine = { id, show: true, _custom: true, direct: !newEng.url.includes('%s') && !newEng.url.includes('?q='), ...newEng };
+        ENGINES.unshift(engine);
+        NICK_MAP[newEng.nick.toLowerCase()] = engine;
+        rebuildVisibleEngines();
+        buildEngines();
+        saveEngines();
+      }, () => {});
+    });
+    el.appendChild(addBtn);
+  }
 }
- 
+
 function setEngine(i) {
   activeEngine = i;
   document.querySelectorAll('.engine-btn').forEach((b, j) => b.classList.toggle('active', j === i));
@@ -1537,7 +1766,7 @@ function setEngine(i) {
     ? 'open ' + e.name + '...'
     : 'search ' + e.name.toLowerCase().replace(' ✦','') + '...';
 }
- 
+
 function doSearch(query) {
   // ── prefix detection: "nick rest of query" ──
   const parts = query.split(' ');
@@ -1547,7 +1776,9 @@ function doSearch(query) {
       const engine = NICK_MAP[maybeNick];
       const rest = parts.slice(1).join(' ');
       if (!rest && !engine.direct) return;
-      const url = engine.direct ? engine.url : engine.url + encodeURIComponent(rest);
+      const url = engine.direct ? engine.url
+        : engine.url.includes('%s') ? engine.url.replace('%s', encodeURIComponent(rest))
+        : engine.url + encodeURIComponent(rest);
       window.open(url, '_blank');
       return;
     }
@@ -1560,10 +1791,12 @@ function doSearch(query) {
   // ── fallback: use active engine ──
   const e = VISIBLE_ENGINES[activeEngine];
   if (!query && !e.direct) return;
-  const url = e.direct ? e.url : e.url + encodeURIComponent(query);
+  const url = e.direct ? e.url
+    : e.url.includes('%s') ? e.url.replace('%s', encodeURIComponent(query))
+    : e.url + encodeURIComponent(query);
   window.open(url, '_blank');
 }
- 
+
 document.getElementById('searchInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') { doSearch(e.target.value.trim()); }
   if (e.key === 'Escape') { e.target.value = ''; }
@@ -1572,7 +1805,7 @@ document.getElementById('searchInput').addEventListener('keydown', e => {
     setEngine((activeEngine + 1) % VISIBLE_ENGINES.length);
   }
 });
- 
+
 // live prefix hint — show which engine will be used as you type
 document.getElementById('searchInput').addEventListener('input', e => {
   const val = e.target.value;
@@ -1585,7 +1818,7 @@ document.getElementById('searchInput').addEventListener('input', e => {
     document.getElementById('searchPrefix').textContent = active.direct ? '✦_' : '>_';
   }
 });
- 
+
 document.addEventListener('keydown', e => {
   if (e.key === '/' && document.activeElement !== document.getElementById('searchInput')
     && document.activeElement !== document.getElementById('todoInput')
@@ -1594,15 +1827,15 @@ document.addEventListener('keydown', e => {
     document.getElementById('searchInput').focus();
   }
 });
- 
+
 buildEngines();
- 
+
 // ══════════════════════════════
 //  CLOCK
 // ══════════════════════════════
 const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
- 
+
 function updateClock() {
   const now = new Date();
   const raw = now.getHours();
@@ -1616,12 +1849,12 @@ function updateClock() {
     DAYS[now.getDay()].slice(0,3) + ', ' + now.getDate() + ' ' + MONTHS[now.getMonth()] + ' ' + now.getFullYear();
   document.getElementById('clockDay').textContent = 'week ' + getWeek(now);
 }
- 
+
 function getWeek(d) {
   const onejan = new Date(d.getFullYear(), 0, 1);
   return Math.ceil((((d - onejan) / 86400000) + onejan.getDay() + 1) / 7);
 }
- 
+
 function updateUptime() {
   const start = parseInt(localStorage.getItem('startpage_session') || Date.now());
   if (!localStorage.getItem('startpage_session')) localStorage.setItem('startpage_session', start);
@@ -1632,7 +1865,7 @@ function updateUptime() {
   document.getElementById('uptimeDisp').textContent =
     'session ' + String(h).padStart(2,'0') + ':' + String(min).padStart(2,'0') + ':' + String(s).padStart(2,'0');
 }
- 
+
 // ══════════════════════════════
 //  GREETING — typewriter + editable + color picker
 // ══════════════════════════════
@@ -1644,20 +1877,20 @@ const GREETING_COLORS = [
   { name:'purple', val:'#a98bcf' },
   { name:'pink',   val:'#cf8baf' },
 ];
- 
+
 const greetDefaults = {
   phrase: 'hello,',
   name:   '4lt_',
   color:  '#7ecfb3',
 };
- 
+
 let greetData = JSON.parse(localStorage.getItem('sp_greet') || 'null') || {...greetDefaults};
- 
+
 const gPhrase  = document.getElementById('greetingPhrase');
 const gName    = document.getElementById('greetingName');
 const gCursor  = document.getElementById('greetingCursor');
 const gDots = document.getElementById('greetingDots');
- 
+
 // apply color — updates global --accent CSS variable so entire page recolors
 function greetApplyColor(color) {
   greetData.color = color;
@@ -1681,7 +1914,7 @@ function greetApplyColor(color) {
     s.classList.toggle('active', s.dataset.color === color);
   });
 }
- 
+
 // build color dots under uptime
 GREETING_COLORS.forEach(c => {
   const dot = document.createElement('span');
@@ -1692,13 +1925,13 @@ GREETING_COLORS.forEach(c => {
   dot.addEventListener('click', e => { e.stopPropagation(); greetApplyColor(c.val); });
   gDots.appendChild(dot);
 });
- 
+
 // typewriter animation
 function typewriter(fullPhrase, fullName, done) {
   gPhrase.textContent = '';
   gName.textContent = '';
   gCursor.classList.remove('blink');
- 
+
   const full = fullPhrase + ' ' + fullName;
   let i = 0;
   const tick = setInterval(() => {
@@ -1718,7 +1951,7 @@ function typewriter(fullPhrase, fullName, done) {
     }
   }, 55);
 }
- 
+
 // inline edit helper
 function greetStartEdit(target, current, onDone) {
   const inp = document.createElement('input');
@@ -1744,7 +1977,7 @@ function greetStartEdit(target, current, onDone) {
   });
   inp.addEventListener('blur', finish);
 }
- 
+
 // click phrase to edit
 gPhrase.addEventListener('click', () => {
   greetStartEdit(gPhrase, greetData.phrase, val => {
@@ -1752,7 +1985,7 @@ gPhrase.addEventListener('click', () => {
     localStorage.setItem('sp_greet', JSON.stringify(greetData));
   });
 });
- 
+
 // click name to edit
 gName.addEventListener('click', () => {
   greetStartEdit(gName, greetData.name, val => {
@@ -1760,7 +1993,7 @@ gName.addEventListener('click', () => {
     localStorage.setItem('sp_greet', JSON.stringify(greetData));
   });
 });
- 
+
 // ── Accent color dots (in clock panel) ──
 const ACCENT_COLORS = [
   { name:'teal',   val:'#7ecfb3' },
@@ -1770,7 +2003,7 @@ const ACCENT_COLORS = [
   { name:'purple', val:'#c678dd' },
   { name:'pink',   val:'#d4789c' },
 ];
- 
+
 function buildAccentDots() {
   const el = document.getElementById('accentDots');
   if (!el) return;
@@ -1791,23 +2024,23 @@ function buildAccentDots() {
     el.appendChild(dot);
   });
 }
- 
+
 // init
 greetApplyColor(greetData.color);
 buildAccentDots();
 typewriter(greetData.phrase, greetData.name);
- 
+
 document.getElementById('sbKernel').textContent = CONFIG.kernel_version;
 updateClock();
 setInterval(updateClock, 1000);
 setInterval(updateUptime, 1000);
 updateUptime();
- 
+
 // ══════════════════════════════
 //  SYSTEM STATS (simulated / Glances API)
 // ══════════════════════════════
 let simStats = { cpu: 12, mem: 44, disk: 61, cpuT: 52, gpuT: 48, diskT: 38, boardT: 41 };
- 
+
 function renderStats(cpu, mem, disk, cpuT, gpuT, diskT, boardT, memUsed, memTotal, diskUsed, diskTotal) {
   document.getElementById('cpuVal').textContent = cpu + '%';
   document.getElementById('cpuBar').style.width = cpu + '%';
@@ -1825,7 +2058,7 @@ function renderStats(cpu, mem, disk, cpuT, gpuT, diskT, boardT, memUsed, memTota
   if (cpuT > 75) document.getElementById('cpuTemp').classList.add('hot');
   if (gpuT > 75) document.getElementById('gpuTemp').classList.add('hot');
 }
- 
+
 async function fetchStats() {
   try {
     const r = await fetch(CONFIG.stats_api + '/cpu');
@@ -1856,14 +2089,14 @@ async function fetchStats() {
 }
 fetchStats();
 setInterval(fetchStats, 3000);
- 
+
 // ══════════════════════════════
 //  TODO
 // ══════════════════════════════
 let todos = JSON.parse(localStorage.getItem('sp_todos') || '[]');
- 
+
 function saveTodos() { localStorage.setItem('sp_todos', JSON.stringify(todos)); }
- 
+
 function renderTodos() {
   const list = document.getElementById('todoList');
   list.innerHTML = '';
@@ -1878,19 +2111,19 @@ function renderTodos() {
   const remaining = todos.filter(t => !t.done).length;
   document.getElementById('todoCount').textContent = remaining + ' remaining';
 }
- 
+
 function addTodo(text) {
   if (!text.trim()) return;
   todos.unshift({ text: text.trim(), done: false });
   saveTodos(); renderTodos();
   document.getElementById('todoInput').value = '';
 }
- 
+
 document.getElementById('todoInput').addEventListener('keydown', e => { if (e.key === 'Enter') addTodo(e.target.value); });
 document.getElementById('todoAddBtn').addEventListener('click', () => addTodo(document.getElementById('todoInput').value));
 document.getElementById('todoClear').addEventListener('click', () => { todos = todos.filter(t => !t.done); saveTodos(); renderTodos(); });
 renderTodos();
- 
+
 // ══════════════════════════════
 //  NOTES
 // ══════════════════════════════
@@ -1905,7 +2138,7 @@ notesArea.addEventListener('input', () => {
     document.getElementById('notesSaved').textContent = 'saved ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
   }, 800);
 });
- 
+
 // ══════════════════════════════
 //  BOOKMARKS
 // ══════════════════════════════
@@ -1963,12 +2196,12 @@ const DEFAULT_BOOKMARKS = {
     { name: 'TheVerge',     url: 'https://theverge.com',         icon: '◤' },
   ],
 };
- 
+
 let bookmarks = JSON.parse(localStorage.getItem('sp_bookmarks') || 'null') || JSON.parse(JSON.stringify(DEFAULT_BOOKMARKS));
 let activeCategory = Object.keys(bookmarks)[0];
- 
+
 function saveBookmarks() { localStorage.setItem('sp_bookmarks', JSON.stringify(bookmarks)); }
- 
+
 // ── Category context menu ──
 let catCtxTarget = null;
 const catCtxMenu = document.createElement('div');
@@ -1980,7 +2213,7 @@ catCtxMenu.innerHTML = `
   <div class="ctx-item" id="catCtxRemove" style="color:var(--red)">✕ &nbsp;remove</div>
 `;
 document.body.appendChild(catCtxMenu);
- 
+
 catCtxMenu.querySelector('#catCtxEdit').addEventListener('click', () => {
   if (!catCtxTarget) return;
   const newName = prompt('rename category:', catCtxTarget);
@@ -1996,7 +2229,7 @@ catCtxMenu.querySelector('#catCtxEdit').addEventListener('click', () => {
   if (activeCategory === catCtxTarget) activeCategory = newKey;
   saveBookmarks(); buildCategoryTabs(); renderBookmarks();
 });
- 
+
 catCtxMenu.querySelector('#catCtxRemove').addEventListener('click', () => {
   if (!catCtxTarget) return;
   if (!confirm('remove category "' + catCtxTarget + '" and all its bookmarks?')) return;
@@ -2006,14 +2239,13 @@ catCtxMenu.querySelector('#catCtxRemove').addEventListener('click', () => {
   if (!activeCategory) bookmarks['general'] = [];
   saveBookmarks(); buildCategoryTabs(); renderBookmarks();
 });
- 
+
 document.addEventListener('click', e => {
   if (!e.target.closest('#catCtxMenu')) catCtxMenu.classList.remove('visible');
 });
- 
+
 // ── Lock state ──
-let bmLocked = localStorage.getItem('sp_bm_locked') === 'true';
- 
+
 function setBmLock(locked) {
   bmLocked = locked;
   localStorage.setItem('sp_bm_locked', locked);
@@ -2030,7 +2262,7 @@ function setBmLock(locked) {
   buildCategoryTabs();
   renderBookmarks();
 }
- 
+
 // ── Lock button click + sound ──
 document.getElementById('bmLockBtn').addEventListener('click', () => {
   const newLocked = !bmLocked;
@@ -2072,10 +2304,10 @@ document.getElementById('bmLockBtn').addEventListener('click', () => {
   } catch(e) {}
   setBmLock(newLocked);
 });
- 
+
 // ── Category drag state ──
 let catDragSrc = null;
- 
+
 function buildCategoryTabs() {
   const el = document.getElementById('categoryTabs');
   el.innerHTML = '';
@@ -2095,10 +2327,10 @@ function buildCategoryTabs() {
     const btn = document.createElement('button');
     btn.className = 'cat-tab' + (cat === activeCategory ? ' active' : '');
     btn.textContent = cat;
- 
+
     // click to select
     btn.addEventListener('click', () => { activeCategory = cat; buildCategoryTabs(); renderBookmarks(); });
- 
+
     // right-click context
     btn.addEventListener('contextmenu', e => {
       e.preventDefault(); e.stopPropagation();
@@ -2107,7 +2339,7 @@ function buildCategoryTabs() {
       catCtxMenu.style.top = Math.min(e.clientY, window.innerHeight - 80) + 'px';
       catCtxMenu.classList.add('visible');
     });
- 
+
     // drag to reorder (only when unlocked)
     if (!bmLocked) {
       btn.draggable = true;
@@ -2138,7 +2370,7 @@ function buildCategoryTabs() {
         renderBookmarks();
       });
     }
- 
+
     el.appendChild(btn);
   });
   el.appendChild(addBtn);
@@ -2146,10 +2378,10 @@ function buildCategoryTabs() {
   sel.innerHTML = '';
   cats.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
 }
- 
+
 // ── Bookmark drag state ──
 let bmDragSrc = null;
- 
+
 function renderBookmarks() {
   const grid = document.getElementById('bookmarkGrid');
   grid.innerHTML = '';
@@ -2163,7 +2395,7 @@ function renderBookmarks() {
     a.dataset.index = i;
     a.innerHTML = `<div class="bm-icon">${bm.icon || '\u{1F517}'}</div><div class="bm-name">${escHtml(bm.name)}</div>`;
     a.addEventListener('contextmenu', e => { e.preventDefault(); showCtxOnBm(e, i); });
- 
+
     // drag to reorder (only when unlocked)
     if (!bmLocked) {
       a.draggable = true;
@@ -2194,22 +2426,22 @@ function renderBookmarks() {
       // prevent accidental navigation when starting drag
       a.addEventListener('click', e => { if (bmDragSrc !== null) e.preventDefault(); });
     }
- 
+
     grid.appendChild(a);
   });
 }
- 
+
 buildCategoryTabs();
 renderBookmarks();
 // apply lock state on load
 setBmLock(bmLocked);
- 
+
 // ══════════════════════════════
 //  CONTEXT MENU
 // ══════════════════════════════
 const ctxMenu = document.getElementById('ctxMenu');
 let ctxTarget = null;
- 
+
 function showCtxOnCat(e, cat) {
   ctxTarget = { type: 'cat', cat };
   document.getElementById('ctxAdd').style.display = 'none';
@@ -2217,7 +2449,7 @@ function showCtxOnCat(e, cat) {
   document.getElementById('ctxRemove').style.display = '';
   posCtx(e.clientX, e.clientY);
 }
- 
+
 function showCtxOnBm(e, idx) {
   ctxTarget = { type: 'bm', idx };
   document.getElementById('ctxAdd').style.display = '';
@@ -2225,7 +2457,7 @@ function showCtxOnBm(e, idx) {
   document.getElementById('ctxRemove').style.display = '';
   posCtx(e.clientX, e.clientY);
 }
- 
+
 // right-click on grid OR empty panel area → add bookmark
 document.getElementById('bookmarkGrid').addEventListener('contextmenu', e => {
   if (!e.target.closest('.bm-item')) {
@@ -2237,7 +2469,7 @@ document.getElementById('bookmarkGrid').addEventListener('contextmenu', e => {
     posCtx(e.clientX, e.clientY);
   }
 });
- 
+
 // also catch right-clicks on the empty area below the grid inside the panel
 document.querySelector('.mid-col .panel').addEventListener('contextmenu', e => {
   if (!e.target.closest('.bm-item') && !e.target.closest('.category-tabs') && !e.target.closest('#bookmarkGrid')) {
@@ -2249,15 +2481,15 @@ document.querySelector('.mid-col .panel').addEventListener('contextmenu', e => {
     posCtx(e.clientX, e.clientY);
   }
 });
- 
+
 function posCtx(x, y) {
   ctxMenu.style.left = Math.min(x, window.innerWidth - 160) + 'px';
   ctxMenu.style.top = Math.min(y, window.innerHeight - 100) + 'px';
   ctxMenu.classList.add('visible');
 }
- 
+
 document.addEventListener('click', () => ctxMenu.classList.remove('visible'));
- 
+
 document.getElementById('ctxAdd').addEventListener('click', () => { openModal(); });
 document.getElementById('ctxEdit').addEventListener('click', () => {
   if (!ctxTarget) return;
@@ -2291,12 +2523,12 @@ document.getElementById('ctxRemove').addEventListener('click', () => {
     saveBookmarks(); buildCategoryTabs(); renderBookmarks();
   }
 });
- 
+
 // ══════════════════════════════
 //  MODAL
 // ══════════════════════════════
 let editIdx = null;
- 
+
 function openModal(bm, idx) {
   editIdx = idx != null ? idx : null;
   document.getElementById('modalTitle').textContent = bm ? 'edit bookmark' : 'add bookmark';
@@ -2308,10 +2540,10 @@ function openModal(bm, idx) {
   document.getElementById('modalOverlay').classList.add('visible');
   document.getElementById('bmName').focus();
 }
- 
+
 document.getElementById('modalCancel').addEventListener('click', () => document.getElementById('modalOverlay').classList.remove('visible'));
 document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target === document.getElementById('modalOverlay')) document.getElementById('modalOverlay').classList.remove('visible'); });
- 
+
 document.getElementById('modalSave').addEventListener('click', () => {
   const name = document.getElementById('bmName').value.trim();
   const url  = document.getElementById('bmUrl').value.trim();
@@ -2321,7 +2553,7 @@ document.getElementById('modalSave').addEventListener('click', () => {
   if (!name || !url) return;
   const bm = { name, url, icon };
   if (nick) bm.nick = nick;
- 
+
   // remove old engine entry for this bookmark if editing
   if (editIdx != null) {
     const old = bookmarks[activeCategory][editIdx];
@@ -2336,7 +2568,7 @@ document.getElementById('modalSave').addEventListener('click', () => {
     bookmarks[cat].push(bm);
     activeCategory = cat;
   }
- 
+
   // register nick as a search engine
   if (nick) {
     const searchUrl = url.includes('%s') ? url.replace('%s','') : url + (url.includes('?') ? '&q=' : '?q=');
@@ -2346,29 +2578,29 @@ document.getElementById('modalSave').addEventListener('click', () => {
     else ENGINES.push(engine);
     NICK_MAP[nick] = engine;
   }
- 
+
   saveBookmarks(); buildCategoryTabs(); renderBookmarks();
   document.getElementById('modalOverlay').classList.remove('visible');
 });
- 
+
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') document.getElementById('modalOverlay').classList.remove('visible');
 });
- 
+
 // ══════════════════════════════
 //  SPOTIFY — lightweight now-playing widget
 // ══════════════════════════════
 const SP_CLIENT_ID = '3503d36f9e64490e85dda8441662771d';
 const SP_REDIRECT  = 'https://4lt3r3d.github.io/startpage/';
 const SP_SCOPES    = 'user-read-email user-read-private user-read-playback-state user-modify-playback-state user-read-currently-playing';
- 
+
 let spToken = null;
 let spPollTimer = null;
 let spLocalPos = 0;
 let spLocalDur = 1;
 let spLocalPaused = true;
 let spLastArt = '';
- 
+
 // ── Token helpers ──
 function spSaveToken(token, expiry) {
   localStorage.setItem('sp_token', token);
@@ -2385,7 +2617,7 @@ function spClearToken() {
   localStorage.removeItem('sp_token_expiry');
   localStorage.removeItem('sp_verifier');
 }
- 
+
 // ── PKCE helpers ──
 function spRandString(len) {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -2396,7 +2628,7 @@ async function spChallenge(verifier) {
   const digest = await crypto.subtle.digest('SHA-256', data);
   return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
- 
+
 // ── Login ──
 async function spLogin() {
   const verifier = spRandString(64);
@@ -2412,7 +2644,7 @@ async function spLogin() {
   });
   window.location = 'https://accounts.spotify.com/authorize?' + params;
 }
- 
+
 // ── Handle callback ──
 async function spHandleCallback() {
   const params = new URLSearchParams(window.location.search);
@@ -2443,7 +2675,7 @@ async function spHandleCallback() {
   } catch(e) { console.error('SP token exchange failed', e); }
   return false;
 }
- 
+
 // ── Refresh token ──
 async function spRefresh() {
   const refresh = localStorage.getItem('sp_refresh');
@@ -2469,7 +2701,7 @@ async function spRefresh() {
   } catch(e) {}
   return false;
 }
- 
+
 // ── API helper ──
 async function spApi(endpoint, method='GET', body=null) {
   if (!spToken) return null;
@@ -2488,13 +2720,13 @@ async function spApi(endpoint, method='GET', body=null) {
     return await res.json();
   } catch { return null; }
 }
- 
+
 // ── Format time ──
 function spFmt(ms) {
   const s = Math.floor(ms / 1000);
   return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 }
- 
+
 // ── Render now playing ──
 function spRender(data) {
   if (!data || !data.item) {
@@ -2507,17 +2739,17 @@ function spRender(data) {
   }
   const item = data.item;
   const isPlaying = data.is_playing;
- 
+
   document.getElementById('spTrack').textContent = item.name;
   document.getElementById('spArtist').textContent = item.artists.map(a => a.name).join(', ');
   document.getElementById('spDevice').textContent = data.device ? '▸ ' + data.device.name : '';
   document.getElementById('spPlay').textContent = isPlaying ? '⏸' : '▶';
   document.getElementById('vinyl2').style.setProperty('--vinyl-state', isPlaying ? 'running' : 'paused');
- 
+
   spLocalPos = data.progress_ms || 0;
   spLocalDur = item.duration_ms || 1;
   spLocalPaused = !isPlaying;
- 
+
   // album art — track by track URI so it always updates on song change
   const artUrl = item.album?.images?.[0]?.url || '';
   const trackId = item.uri || artUrl;
@@ -2530,13 +2762,13 @@ function spRender(data) {
     img.src = artUrl;
   }
 }
- 
+
 // ── Poll Spotify every 5s ──
 async function spPoll() {
   const data = await spApi('/me/player');
   if (data) spRender(data);
 }
- 
+
 function spStartPoll() {
   spPoll();
   if (spPollTimer) clearInterval(spPollTimer);
@@ -2552,10 +2784,10 @@ function spStartPoll() {
     }
   }, 500);
 }
- 
+
 // ── Controls — send to whatever device is active ──
 ['spPlay','spPrev','spNext','spLogout'].forEach(id => { const el = document.getElementById(id); if (el) { el.setAttribute('tabindex','-1'); el.addEventListener('mousedown', e => e.preventDefault()); } });
- 
+
 document.getElementById('spPlay').addEventListener('click', async () => {
   if (!spToken) return;
   const data = await spApi('/me/player');
@@ -2573,17 +2805,17 @@ document.getElementById('spPlay').addEventListener('click', async () => {
   }
   setTimeout(spPoll, 500);
 });
- 
+
 document.getElementById('spPrev').addEventListener('click', async () => {
   await spApi('/me/player/previous', 'POST');
   setTimeout(spPoll, 600);
 });
- 
+
 document.getElementById('spNext').addEventListener('click', async () => {
   await spApi('/me/player/next', 'POST');
   setTimeout(spPoll, 600);
 });
- 
+
 document.getElementById('spLogout').addEventListener('click', () => {
   clearInterval(spPollTimer);
   spClearToken();
@@ -2591,7 +2823,7 @@ document.getElementById('spLogout').addEventListener('click', () => {
   spLastArt = '';
   spShowLogin();
 });
- 
+
 // ── Show/hide ──
 function spShowLogin() {
   document.getElementById('spLogin').style.display = '';
@@ -2601,9 +2833,9 @@ function spShowPlayer() {
   document.getElementById('spLogin').style.display = 'none';
   document.getElementById('spPlayer').style.display = '';
 }
- 
+
 document.getElementById('spLoginBtn').addEventListener('click', spLogin);
- 
+
 // ── Boot ──
 async function spBoot() {
   if (window.location.search.includes('code=')) {
@@ -2618,7 +2850,7 @@ async function spBoot() {
   }
   spShowLogin();
 }
- 
+
 spBoot();
 // ══════════════════════════════
 //  QUICK LINKS
@@ -2631,7 +2863,7 @@ const QUICK = [
   { icon: '💾', label: 'GitHub',     url: 'https://github.com' },
   { icon: '🛡', label: 'Bitwarden',  url: 'https://vault.bitwarden.com' },
 ];
- 
+
 const qlEl = document.getElementById('quickLinks');
 QUICK.forEach(q => {
   const a = document.createElement('a');
@@ -2642,7 +2874,7 @@ QUICK.forEach(q => {
   a.innerHTML = `<span class="ql-icon">${q.icon}</span><span class="ql-label">${q.label}</span><span class="ql-arrow">→</span>`;
   qlEl.appendChild(a);
 });
- 
+
 // ══════════════════════════════
 //  BACKGROUND PICKER
 // ══════════════════════════════
@@ -2654,7 +2886,7 @@ const BG_PRESETS = [
   { id:'space',  label:'deep space', style:'background:linear-gradient(135deg,#0a0a12 0%,#0d0d18 50%,#080810 100%);' },
   { id:'dusk',   label:'dusk',       style:'background:linear-gradient(160deg,#0d0d0d 0%,#1a0d1a 40%,#0d0d1a 100%);' },
 ];
- 
+
 const ANIM_PRESETS = [
   { id:'particles',     label:'particles' },
   { id:'aurora',        label:'aurora' },
@@ -2663,11 +2895,11 @@ const ANIM_PRESETS = [
   { id:'constellation', label:'constellation' },
   { id:'void',          label:'void' },
 ];
- 
+
 let bgData = JSON.parse(localStorage.getItem('sp_bg') || '{"id":"none","custom":null,"anim":null}');
 let animFrame = null;
 let animCtx = null;
- 
+
 // ── Tab switching ──
 document.querySelectorAll('.bg-tab').forEach(tab => {
   tab.addEventListener('click', () => {
@@ -2677,7 +2909,7 @@ document.querySelectorAll('.bg-tab').forEach(tab => {
     document.getElementById('bgTab-' + tab.dataset.tab).style.display = '';
   });
 });
- 
+
 // ── Static presets ──
 const presetsEl = document.getElementById('bgPresets');
 BG_PRESETS.forEach(p => {
@@ -2691,7 +2923,7 @@ BG_PRESETS.forEach(p => {
   div.addEventListener('click', () => applyBg({ id: p.id, custom: null, anim: null }));
   presetsEl.appendChild(div);
 });
- 
+
 // ── Animated presets — mini canvas previews ──
 const animPresetsEl = document.getElementById('bgAnimPresets');
 ANIM_PRESETS.forEach(p => {
@@ -2710,27 +2942,27 @@ ANIM_PRESETS.forEach(p => {
   // run mini preview animation
   runMiniAnim(cv, p.id);
 });
- 
+
 // ── Mini canvas previews (small versions of each animation) ──
 function runMiniAnim(canvas, type) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
   let frame = 0;
   let pts = [];
- 
+
   if (type === 'particles' || type === 'constellation') {
     for (let i = 0; i < 30; i++) pts.push({ x: Math.random()*w, y: Math.random()*h, vx:(Math.random()-.5)*.3, vy:(Math.random()-.5)*.3, r: Math.random()*1.5+.5 });
   }
   if (type === 'rain') {
     for (let i = 0; i < 40; i++) pts.push({ x: Math.random()*w, y: Math.random()*h, speed: Math.random()*2+1, len: Math.random()*8+4 });
   }
- 
+
   function tick() {
     ctx.clearRect(0,0,w,h);
     ctx.fillStyle = '#0d0d0d';
     ctx.fillRect(0,0,w,h);
     frame++;
- 
+
     if (type === 'particles') {
       pts.forEach(p => {
         p.x += p.vx; p.y += p.vy;
@@ -2745,7 +2977,7 @@ function runMiniAnim(canvas, type) {
           ctx.strokeStyle = 'rgba(126,207,179,'+(1-d/40)*0.3+')'; ctx.lineWidth=0.5; ctx.stroke(); }
       }));
     }
- 
+
     if (type === 'aurora') {
       const t = frame * 0.008;
       for (let i = 0; i < 3; i++) {
@@ -2763,7 +2995,7 @@ function runMiniAnim(canvas, type) {
         ctx.lineTo(w,h); ctx.closePath(); ctx.fill();
       }
     }
- 
+
     if (type === 'rain') {
       ctx.strokeStyle = 'rgba(126,207,179,0.3)'; ctx.lineWidth = 0.5;
       pts.forEach(p => {
@@ -2772,7 +3004,7 @@ function runMiniAnim(canvas, type) {
         ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x,p.y+p.len); ctx.stroke();
       });
     }
- 
+
     if (type === 'geometry') {
       const t = frame * 0.005;
       ctx.strokeStyle = 'rgba(126,207,179,0.25)'; ctx.lineWidth = 0.8;
@@ -2784,7 +3016,7 @@ function runMiniAnim(canvas, type) {
         ctx.stroke(); ctx.restore();
       });
     }
- 
+
     if (type === 'constellation') {
       pts.forEach(p => {
         p.x += p.vx; p.y += p.vy;
@@ -2799,7 +3031,7 @@ function runMiniAnim(canvas, type) {
           ctx.strokeStyle = 'rgba(200,200,255,'+(1-d/50)*0.2+')'; ctx.lineWidth=0.5; ctx.stroke(); }
       }));
     }
- 
+
     if (type === 'void') {
       const t = frame * 0.01;
       const grad = ctx.createRadialGradient(w*.5,h*.5,0,w*.5,h*.5,w*.6);
@@ -2815,12 +3047,12 @@ function runMiniAnim(canvas, type) {
         ctx.lineWidth = 1; ctx.stroke();
       }
     }
- 
+
     requestAnimationFrame(tick);
   }
   tick();
 }
- 
+
 // ── Full-screen animation engine ──
 function startFullAnim(type) {
   stopFullAnim();
@@ -2832,9 +3064,9 @@ function startFullAnim(type) {
   let frame = 0;
   const w = () => canvas.width, h = () => canvas.height;
   let pts = [];
- 
+
   window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; pts = []; initPts(); });
- 
+
   function initPts() {
     pts = [];
     if (type === 'particles' || type === 'constellation') {
@@ -2845,13 +3077,13 @@ function startFullAnim(type) {
     }
   }
   initPts();
- 
+
   function draw() {
     animFrame = requestAnimationFrame(draw);
     const W = w(), H = h();
     ctx2.clearRect(0,0,W,H);
     frame++;
- 
+
     if (type === 'particles') {
       pts.forEach(p => {
         p.x += p.vx; p.y += p.vy;
@@ -2866,7 +3098,7 @@ function startFullAnim(type) {
           ctx2.strokeStyle = 'rgba(126,207,179,'+(1-d/120)*0.15+')'; ctx2.lineWidth=1; ctx2.stroke(); }
       }));
     }
- 
+
     if (type === 'aurora') {
       const t = frame * 0.004;
       for (let i = 0; i < 4; i++) {
@@ -2884,7 +3116,7 @@ function startFullAnim(type) {
         ctx2.lineTo(W,H); ctx2.closePath(); ctx2.fill();
       }
     }
- 
+
     if (type === 'rain') {
       ctx2.lineWidth = 1;
       pts.forEach(p => {
@@ -2894,7 +3126,7 @@ function startFullAnim(type) {
         ctx2.strokeStyle = 'rgba(126,207,179,'+p.op+')'; ctx2.stroke();
       });
     }
- 
+
     if (type === 'geometry') {
       const t = frame * 0.003;
       const shapes = [
@@ -2913,7 +3145,7 @@ function startFullAnim(type) {
         ctx2.restore();
       });
     }
- 
+
     if (type === 'constellation') {
       pts.forEach(p => {
         p.x += p.vx; p.y += p.vy;
@@ -2928,7 +3160,7 @@ function startFullAnim(type) {
           ctx2.strokeStyle = 'rgba(200,210,255,'+(1-d/150)*0.12+')'; ctx2.lineWidth=0.8; ctx2.stroke(); }
       }));
     }
- 
+
     if (type === 'void') {
       const t = frame * 0.006;
       for (let i=0;i<5;i++) {
@@ -2945,23 +3177,23 @@ function startFullAnim(type) {
   }
   draw();
 }
- 
+
 function stopFullAnim() {
   if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
   document.body.classList.remove('has-anim');
 }
- 
+
 // ── Apply background ──
 function applyBg(data) {
   bgData = data;
   localStorage.setItem('sp_bg', JSON.stringify(data));
- 
+
   // stop animation
   stopFullAnim();
   document.body.classList.remove('has-bg');
   document.body.style.cssText = '';
   document.documentElement.style.removeProperty('--bg-image');
- 
+
   if (data.anim) {
     startFullAnim(data.anim);
   } else if (data.custom) {
@@ -2971,7 +3203,7 @@ function applyBg(data) {
     const preset = BG_PRESETS.find(p => p.id === data.id);
     if (preset) document.body.setAttribute('style', preset.style);
   }
- 
+
   // update active states
   document.querySelectorAll('.bg-preset').forEach(el => {
     el.style.borderColor = el.dataset.id === data.id && !data.custom && !data.anim ? 'var(--accent)' : 'var(--border)';
@@ -2980,7 +3212,7 @@ function applyBg(data) {
     el.classList.toggle('active', el.dataset.id === data.anim);
   });
 }
- 
+
 // ── File upload ──
 document.getElementById('bgUpload').addEventListener('change', e => {
   const file = e.target.files[0];
@@ -2993,12 +3225,12 @@ document.getElementById('bgUpload').addEventListener('change', e => {
   reader.readAsDataURL(file);
   e.target.value = '';
 });
- 
+
 document.getElementById('bgApply').addEventListener('click', () => {
   const urlVal = document.getElementById('bgUrl').value.trim();
   if (urlVal) { applyBg({ id:'custom', custom: urlVal, anim: null }); document.getElementById('bgOverlay').classList.remove('visible'); }
 });
- 
+
 document.getElementById('bgBtn').addEventListener('click', () => {
   document.getElementById('bgOverlay').classList.add('visible');
   document.getElementById('bgUrl').value = bgData.custom && bgData.custom.startsWith('http') ? bgData.custom : '';
@@ -3010,7 +3242,7 @@ document.getElementById('bgBtn').addEventListener('click', () => {
   document.querySelectorAll('.bg-tab-content').forEach(c => c.style.display = 'none');
   document.getElementById('bgTab-' + tab).style.display = '';
 });
- 
+
 document.getElementById('bgCancel').addEventListener('click', () => {
   document.getElementById('bgOverlay').classList.remove('visible');
 });
@@ -3021,7 +3253,7 @@ document.getElementById('bgClear').addEventListener('click', () => {
   applyBg({ id:'none', custom:null, anim:null });
   document.getElementById('bgOverlay').classList.remove('visible');
 });
- 
+
 // ── AI Wallpaper Generator (Pollinations.ai — free, no key needed) ──
 document.getElementById('bgAiGenerate').addEventListener('click', async () => {
   const prompt = document.getElementById('bgAiPrompt').value.trim();
@@ -3029,21 +3261,21 @@ document.getElementById('bgAiGenerate').addEventListener('click', async () => {
   const style = document.getElementById('bgAiStyle').value;
   const dims = document.getElementById('bgAiRatio').value.split('x');
   const W = parseInt(dims[0]), H = parseInt(dims[1]);
- 
+
   const statusEl = document.getElementById('bgAiStatus');
   const previewEl = document.getElementById('bgAiPreview');
   const imgEl = document.getElementById('bgAiImg');
   const btn = document.getElementById('bgAiGenerate');
- 
+
   btn.textContent = 'generating...';
   btn.disabled = true;
   statusEl.textContent = 'sending to pollinations.ai...';
   previewEl.style.display = 'none';
- 
+
   const fullPrompt = prompt + ', ' + style + ', desktop wallpaper, ultra wide, high resolution, no text, no watermark';
   const encoded = encodeURIComponent(fullPrompt);
   const url = 'https://image.pollinations.ai/prompt/' + encoded + '?width=' + W + '&height=' + H + '&nologo=true&seed=' + Math.floor(Math.random()*99999);
- 
+
   try {
     statusEl.textContent = 'generating image... (may take 15-30s)';
     imgEl.src = url;
@@ -3064,7 +3296,7 @@ document.getElementById('bgAiGenerate').addEventListener('click', async () => {
     btn.disabled = false;
   }
 });
- 
+
 document.getElementById('bgAiApply').addEventListener('click', () => {
   const url = document.getElementById('bgAiImg').src;
   if (url) {
@@ -3072,10 +3304,10 @@ document.getElementById('bgAiApply').addEventListener('click', () => {
     document.getElementById('bgOverlay').classList.remove('visible');
   }
 });
- 
+
 // apply saved bg on load
 applyBg(bgData);
- 
+
 // ══════════════════════════════
 //  IMPORT / EXPORT
 // ══════════════════════════════
@@ -3097,7 +3329,7 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   a.click();
   URL.revokeObjectURL(url);
 });
- 
+
 document.getElementById('importFile').addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;
@@ -3120,13 +3352,275 @@ document.getElementById('importFile').addEventListener('change', e => {
   // reset input so same file can be re-imported
   e.target.value = '';
 });
- 
+
 // ══════════════════════════════
 //  UTILS
 // ══════════════════════════════
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// ══════════════════════════════
+//  WIDGET DRAG & DROP
+// ══════════════════════════════
+let widgetsLocked = localStorage.getItem('sp_widgets_locked') !== 'false'; // locked by default
+let widgetDragSrc = null;
+
+// Save/restore widget order
+function saveWidgetOrder() {
+  const left = [...document.querySelectorAll('.left-col .widget')].map(w => w.id);
+  const right = [...document.querySelectorAll('.right-col .widget')].map(w => w.id);
+  localStorage.setItem('sp_widget_order', JSON.stringify({ left, right }));
+}
+
+function applyWidgetOrder() {
+  const saved = JSON.parse(localStorage.getItem('sp_widget_order') || 'null');
+  if (!saved) return;
+  const leftCol = document.querySelector('.left-col');
+  const rightCol = document.querySelector('.right-col');
+  // reorder left column
+  saved.left.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.parentElement === leftCol) leftCol.appendChild(el);
+  });
+  // reorder right column
+  saved.right.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.parentElement === rightCol) rightCol.appendChild(el);
+  });
+}
+
+function setWidgetsLocked(locked) {
+  widgetsLocked = locked;
+  localStorage.setItem('sp_widgets_locked', locked);
+  const btn = document.getElementById('layoutLockBtn');
+  if (locked) {
+    document.body.classList.remove('widgets-unlocked');
+    btn.textContent = '⠿ unlock widgets';
+    btn.style.color = '';
+  } else {
+    document.body.classList.add('widgets-unlocked');
+    btn.textContent = '⠿ lock widgets';
+    btn.style.color = 'var(--accent)';
+  }
+  // update draggable attr on all widgets
+  document.querySelectorAll('.widget').forEach(w => {
+    w.draggable = !locked;
+  });
+}
+
+function initWidgetDrag() {
+  document.querySelectorAll('.widget').forEach(widget => {
+    widget.addEventListener('dragstart', e => {
+      if (widgetsLocked) { e.preventDefault(); return; }
+      // only start drag from handle
+      if (!e.target.closest('.drag-handle')) { e.preventDefault(); return; }
+      widgetDragSrc = widget;
+      widget.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', widget.id);
+    });
+    widget.addEventListener('dragend', () => {
+      widget.classList.remove('dragging');
+      widgetDragSrc = null;
+      saveWidgetOrder();
+    });
+    widget.addEventListener('dragover', e => {
+      if (widgetsLocked || !widgetDragSrc || widgetDragSrc === widget) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      widget.classList.add('drag-target');
+    });
+    widget.addEventListener('dragleave', () => widget.classList.remove('drag-target'));
+    widget.addEventListener('drop', e => {
+      e.preventDefault();
+      widget.classList.remove('drag-target');
+      if (!widgetDragSrc || widgetDragSrc === widget) return;
+      const srcParent = widgetDragSrc.parentElement;
+      const tgtParent = widget.parentElement;
+      // swap or reorder within same column
+      if (srcParent === tgtParent) {
+        const children = [...srcParent.children];
+        const srcIdx = children.indexOf(widgetDragSrc);
+        const tgtIdx = children.indexOf(widget);
+        if (srcIdx < tgtIdx) srcParent.insertBefore(widgetDragSrc, widget.nextSibling);
+        else srcParent.insertBefore(widgetDragSrc, widget);
+      } else {
+        // move to different column
+        tgtParent.insertBefore(widgetDragSrc, widget);
+      }
+      saveWidgetOrder();
+    });
+  });
+}
+
+document.getElementById('layoutLockBtn').addEventListener('click', () => {
+  setWidgetsLocked(!widgetsLocked);
+});
+
+// init on load
+applyWidgetOrder();
+initWidgetDrag();
+setWidgetsLocked(widgetsLocked);
+
+// ══════════════════════════════
+//  ENGINE OVERLAY (backtick key)
+// ══════════════════════════════
+let overlayCurrentFilter = '';
+
+function buildEngineOverlay() {
+  const list = document.getElementById('engineOverlayList');
+
+  const sorted = [...ENGINES]
+    .filter(e => !e.show)
+    .filter(e => {
+      if (!overlayCurrentFilter) return true;
+      const f = overlayCurrentFilter.toLowerCase();
+      return e.nick.toLowerCase().includes(f) || e.name.toLowerCase().includes(f);
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  list.innerHTML = '';
+
+  sorted.forEach(e => {
+    const div = document.createElement('div');
+    div.className = 'engine-entry';
+    div.innerHTML = `<span class="en-nick">${escHtml(e.nick)}</span><span class="en-name">${escHtml(e.name)}</span>`;
+    div.title = 'click to use · right-click to edit';
+
+    // left click — use engine
+    div.addEventListener('click', () => {
+      const input = document.getElementById('searchInput');
+      input.value = e.nick + ' ';
+      input.focus();
+      document.getElementById('searchPrefix').textContent = e.name.replace(' ✦','') + ':';
+      closeEngineOverlay();
+    });
+
+    // right click — edit/delete (only when unlocked)
+    div.addEventListener('contextmenu', ev => {
+      ev.preventDefault();
+      if (bmLocked) return;
+      if (engineCtxMenu) engineCtxMenu.remove();
+      engineCtxMenu = document.createElement('div');
+      engineCtxMenu.className = 'ctx-menu visible';
+      engineCtxMenu.style.left = Math.min(ev.clientX, window.innerWidth - 160) + 'px';
+      engineCtxMenu.style.top = Math.min(ev.clientY, window.innerHeight - 90) + 'px';
+      engineCtxMenu.style.zIndex = '10002';
+      engineCtxMenu.innerHTML = `
+        <div class="ctx-item" id="eeCtxEdit2">✎ &nbsp;edit</div>
+        <div class="ctx-item" id="eeCtxPin">★ &nbsp;pin to bar</div>
+        <div class="ctx-sep"></div>
+        <div class="ctx-item" id="eeCtxDel2" style="color:var(--red)">✕ &nbsp;delete</div>`;
+      document.body.appendChild(engineCtxMenu);
+
+      engineCtxMenu.querySelector('#eeCtxEdit2').addEventListener('click', () => {
+        engineCtxMenu.remove();
+        openEngineEditModal(e, false, (updated) => {
+          const i = ENGINES.findIndex(en => en.id === e.id);
+          if (i > -1) {
+            delete NICK_MAP[ENGINES[i].nick.toLowerCase()];
+            Object.assign(ENGINES[i], updated);
+            NICK_MAP[updated.nick.toLowerCase()] = ENGINES[i];
+          }
+          buildEngineOverlay();
+          saveEngines();
+        }, () => {});
+      });
+
+      engineCtxMenu.querySelector('#eeCtxPin').addEventListener('click', () => {
+        engineCtxMenu.remove();
+        const i = ENGINES.findIndex(en => en.id === e.id);
+        if (i > -1) { ENGINES[i].show = true; ENGINES[i]._edited = true; }
+        rebuildVisibleEngines();
+        buildEngines();
+        buildEngineOverlay();
+        saveEngines();
+      });
+
+      engineCtxMenu.querySelector('#eeCtxDel2').addEventListener('click', () => {
+        engineCtxMenu.remove();
+        if (!confirm('delete "' + e.name + '"?')) return;
+        delete NICK_MAP[e.nick.toLowerCase()];
+        const i = ENGINES.findIndex(en => en.id === e.id);
+        if (i > -1) ENGINES.splice(i, 1);
+        buildEngineOverlay();
+        saveEngines();
+      });
+
+      setTimeout(() => document.addEventListener('click', () => { if (engineCtxMenu) engineCtxMenu.remove(); }, { once: true }), 10);
+    });
+
+    list.appendChild(div);
+  });
+
+  // add new engine button at end (when unlocked)
+  if (!bmLocked) {
+    const addDiv = document.createElement('div');
+    addDiv.className = 'engine-entry';
+    addDiv.style.justifyContent = 'center';
+    addDiv.innerHTML = '<span class="en-nick" style="color:var(--text3);">+</span><span class="en-name">add engine</span>';
+    addDiv.addEventListener('click', () => {
+      openEngineEditModal(null, false, (newEng) => {
+        const id = 'custom_' + Date.now();
+        const engine = { id, show: false, _custom: true, direct: false, ...newEng };
+        ENGINES.push(engine);
+        NICK_MAP[newEng.nick.toLowerCase()] = engine;
+        buildEngineOverlay();
+        saveEngines();
+      }, () => {});
+    });
+    list.appendChild(addDiv);
+  }
+
+  if (sorted.length === 0 && bmLocked) {
+    list.innerHTML = '<div style="color:var(--text3);font-size:11px;font-family:var(--mono);padding:12px;">no engines found</div>';
+  }
+}
+
+function openEngineOverlay() {
+  document.getElementById('engineOverlay').style.display = 'block';
+  const searchEl = document.getElementById('engineOverlaySearch');
+  searchEl.value = '';
+  overlayCurrentFilter = '';
+  buildEngineOverlay();
+  setTimeout(() => searchEl.focus(), 50);
+}
+
+function closeEngineOverlay() {
+  document.getElementById('engineOverlay').style.display = 'none';
+}
+
+document.getElementById('engineOverlaySearch').addEventListener('input', e => {
+  overlayCurrentFilter = e.target.value;
+  buildEngineOverlay();
+});
+
+document.getElementById('engineOverlayClose').addEventListener('click', closeEngineOverlay);
+document.getElementById('engineOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('engineOverlay')) closeEngineOverlay();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === '`') {
+    const tag = document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    e.preventDefault();
+    document.getElementById('engineOverlay').style.display === 'none' ? openEngineOverlay() : closeEngineOverlay();
+  }
+  if (e.key === 'Escape') {
+    closeEngineOverlay();
+    if (engineCtxMenu) engineCtxMenu.remove();
+  }
+});
+
+document.getElementById('engineOverlaySearch').addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeEngineOverlay();
+});
+
+document.querySelector('.search-hint').innerHTML +=
+  ' &nbsp;·&nbsp; <kbd>`</kbd> all engines';
+
 </script>
 </body>
 </html>
