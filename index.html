@@ -987,6 +987,30 @@
     .clock-panel, .search-panel, .left-col, .mid-col, .right-col, .statusbar { grid-column: 1; }
   }
 </style>
+  <!-- Firebase -->
+  <script type="module" id="fbModule">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+      from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+    import { getFirestore, doc, setDoc, getDoc, onSnapshot }
+      from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyClLell2HjuLE7R0pf3Ww9-WohyWG5cimE",
+      authDomain: "startpage-21891.firebaseapp.com",
+      projectId: "startpage-21891",
+      storageBucket: "startpage-21891.firebasestorage.app",
+      messagingSenderId: "955723301610",
+      appId: "1:955723301610:web:bec8835c55399990ad0d93"
+    };
+
+    const app  = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db   = getFirestore(app);
+
+    // expose to main script
+    window._fb = { auth, db, doc, setDoc, getDoc, onSnapshot, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged };
+  </script>
 </head>
 <body>
 
@@ -1190,6 +1214,12 @@
       <button class="sb-btn" id="bgBtn" title="Change background">wallpaper</button>
       <button class="sb-btn" id="exportBtn" title="Export all data">export</button>
       <label class="sb-btn" id="importLabel" title="Import data">import<input type="file" id="importFile" accept=".json" style="display:none;"></label>
+      <div id="fbAuthArea" style="display:flex;align-items:center;gap:8px;">
+        <button class="sb-btn" id="fbSignInBtn" style="display:none;">⟳ sign in</button>
+        <span id="fbUserInfo" style="font-size:10px;color:var(--text3);display:none;"></span>
+        <button class="sb-btn" id="fbSignOutBtn" style="display:none;">sign out</button>
+        <span id="fbSyncStatus" style="font-size:9px;color:var(--text3);letter-spacing:0.05em;"></span>
+      </div>
       <span style="color:var(--text3);">startpage v1.0</span>
     </div>
   </div>
@@ -3621,6 +3651,175 @@ document.getElementById('engineOverlaySearch').addEventListener('keydown', e => 
 document.querySelector('.search-hint').innerHTML +=
   ' &nbsp;·&nbsp; <kbd>`</kbd> all engines';
 
+
+// ══════════════════════════════
+//  FIREBASE SYNC
+// ══════════════════════════════
+let fbUser = null;
+let fbUnsubscribe = null;
+let fbSyncing = false;
+
+function fbSetStatus(msg, color) {
+  const el = document.getElementById('fbSyncStatus');
+  el.textContent = msg;
+  el.style.color = color || 'var(--text3)';
+}
+
+function fbGetData() {
+  return {
+    bookmarks: JSON.parse(localStorage.getItem('sp_bookmarks') || '{}'),
+    todos:     JSON.parse(localStorage.getItem('sp_todos')     || '[]'),
+    notes:     localStorage.getItem('sp_notes') || '',
+    greet:     JSON.parse(localStorage.getItem('sp_greet')     || '{}'),
+    bg:        JSON.parse(localStorage.getItem('sp_bg')        || '{}'),
+    accent:    document.documentElement.style.getPropertyValue('--accent') || '',
+    updated:   Date.now(),
+  };
+}
+
+function fbApplyData(data) {
+  if (!data) return;
+  if (data.bookmarks && Object.keys(data.bookmarks).length) {
+    localStorage.setItem('sp_bookmarks', JSON.stringify(data.bookmarks));
+    bookmarks = data.bookmarks;
+    buildCategoryTabs();
+    renderBookmarks();
+  }
+  if (data.todos) {
+    localStorage.setItem('sp_todos', JSON.stringify(data.todos));
+    todos = data.todos;
+    renderTodos();
+  }
+  if (data.notes !== undefined) {
+    localStorage.setItem('sp_notes', data.notes);
+    document.getElementById('notesArea').value = data.notes;
+  }
+  if (data.greet && data.greet.phrase) {
+    localStorage.setItem('sp_greet', JSON.stringify(data.greet));
+    greetData = data.greet;
+    greetApplyColor(greetData.color || '#7ecfb3');
+    document.getElementById('greetingPhrase').textContent = greetData.phrase;
+    document.getElementById('greetingName').textContent   = greetData.name;
+  }
+  if (data.bg) {
+    localStorage.setItem('sp_bg', JSON.stringify(data.bg));
+    applyBg(data.bg);
+  }
+  if (data.accent) {
+    greetApplyColor(data.accent);
+  }
+}
+
+async function fbPush() {
+  if (!fbUser || fbSyncing) return;
+  try {
+    const { db, doc, setDoc } = window._fb;
+    fbSyncing = true;
+    fbSetStatus('syncing...', 'var(--accent)');
+    await setDoc(doc(db, 'users', fbUser.uid), fbGetData());
+    fbSetStatus('synced ✓', 'var(--accent)');
+    setTimeout(() => fbSetStatus(''), 2000);
+  } catch(e) {
+    fbSetStatus('sync failed', 'var(--red)');
+    console.error('FB push error', e);
+  } finally {
+    fbSyncing = false;
+  }
+}
+
+function fbStartListening() {
+  if (fbUnsubscribe) fbUnsubscribe();
+  const { db, doc, onSnapshot } = window._fb;
+  fbUnsubscribe = onSnapshot(doc(db, 'users', fbUser.uid), snap => {
+    if (snap.exists()) {
+      const remote = snap.data();
+      const local  = fbGetData();
+      // only apply remote if it's newer
+      if (remote.updated && remote.updated > (local.updated || 0)) {
+        fbApplyData(remote);
+        fbSetStatus('synced ✓', 'var(--accent)');
+        setTimeout(() => fbSetStatus(''), 2000);
+      }
+    }
+  });
+}
+
+function fbOnSignIn(user) {
+  fbUser = user;
+  document.getElementById('fbSignInBtn').style.display  = 'none';
+  document.getElementById('fbSignOutBtn').style.display = '';
+  document.getElementById('fbUserInfo').style.display   = '';
+  document.getElementById('fbUserInfo').textContent     = user.displayName || user.email;
+  fbSetStatus('connecting...', 'var(--accent)');
+  fbStartListening();
+  // push local data up on first sign in
+  setTimeout(fbPush, 1500);
+}
+
+function fbOnSignOut() {
+  fbUser = null;
+  if (fbUnsubscribe) { fbUnsubscribe(); fbUnsubscribe = null; }
+  document.getElementById('fbSignInBtn').style.display  = '';
+  document.getElementById('fbSignOutBtn').style.display = 'none';
+  document.getElementById('fbUserInfo').style.display   = 'none';
+  fbSetStatus('');
+}
+
+// ── Patch save functions to also push to Firebase ──
+const _origSaveBookmarks = saveBookmarks;
+window.saveBookmarks = function() { _origSaveBookmarks(); fbPush(); };
+saveBookmarks = window.saveBookmarks;
+
+const _origSaveTodos = saveTodos;
+window.saveTodos = function() { _origSaveTodos(); fbPush(); };
+saveTodos = window.saveTodos;
+
+// patch notes autosave
+const notesAreaEl = document.getElementById('notesArea');
+notesAreaEl.addEventListener('input', () => {
+  clearTimeout(window._notesFbTimer);
+  window._notesFbTimer = setTimeout(fbPush, 2000);
+});
+
+// patch greeting save
+const _origGreetApply = greetApplyColor;
+greetApplyColor = function(color) {
+  _origGreetApply(color);
+  clearTimeout(window._greetFbTimer);
+  window._greetFbTimer = setTimeout(fbPush, 1000);
+};
+
+// ── Boot Firebase auth ──
+function fbInit() {
+  if (!window._fb) { setTimeout(fbInit, 200); return; }
+  const { auth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } = window._fb;
+
+  onAuthStateChanged(auth, user => {
+    if (user) fbOnSignIn(user);
+    else fbOnSignOut();
+  });
+
+  document.getElementById('fbSignInBtn').addEventListener('click', async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch(e) {
+      fbSetStatus('sign in failed', 'var(--red)');
+      console.error('FB signin error', e);
+    }
+  });
+
+  document.getElementById('fbSignOutBtn').addEventListener('click', async () => {
+    await signOut(auth);
+  });
+
+  // show sign in button
+  document.getElementById('fbSignInBtn').style.display = '';
+}
+
+fbInit();
+
 </script>
 </body>
 </html>
+
