@@ -176,6 +176,61 @@
     background: var(--bg1);
     border: 1px solid var(--border);
     border-radius: var(--radius2);
+    position: relative;
+    overflow: hidden;
+  }
+  #clockVizCanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    display: none;
+    opacity: 0.85;
+  }
+  .clock-panel.has-viz #clockVizCanvas { display: block; }
+  .clock-panel.has-viz > * { position: relative; z-index: 1; }
+  .clock-viz-btn {
+    position: absolute;
+    bottom: 8px; right: 10px;
+    background: none; border: none; cursor: pointer;
+    color: var(--text3); padding: 2px;
+    font-size: 11px; font-family: var(--mono);
+    letter-spacing: 0.06em;
+    transition: color 0.15s;
+    outline: none; z-index: 2;
+  }
+  .clock-viz-btn:hover { color: var(--accent); }
+  .clock-panel.has-viz .clock-viz-btn { color: var(--accent); }
+  .viz-mic-note {
+    font-size:9px; color:var(--text3); text-align:center;
+    margin-top:6px; line-height:1.5;
+  }
+  .viz-anim-grid {
+    display: grid;
+    grid-template-columns: repeat(3,1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .viz-preset {
+    aspect-ratio: 3/1;
+    border-radius: var(--radius);
+    border: 2px solid var(--border);
+    cursor: pointer;
+    overflow: hidden;
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    background: #0d0d0d;
+    transition: border-color 0.15s;
+    min-height: 50px;
+  }
+  .viz-preset:hover { border-color: var(--accent); }
+  .viz-preset.active { border-color: var(--accent); }
+  .viz-preset canvas { position:absolute;inset:0;width:100%;height:100%; }
+  .viz-preset .viz-label {
+    position:relative;z-index:1;font-size:9px;
+    color:rgba(255,255,255,0.6);letter-spacing:0.08em;
+    text-shadow:0 1px 3px rgba(0,0,0,0.9);
   }
   .clock-left { display: flex; align-items: baseline; gap: 12px; }
   .clock-time {
@@ -937,6 +992,23 @@
   .modal-btn:hover { color: var(--text); border-color: var(--border2); }
   .modal-btn.primary:hover { background: rgba(126,207,179,0.18); }
 
+  /* ── ENGINE OVERLAY BTN ── */
+  .engine-overlay-btn {
+    position: absolute;
+    top: 12px; right: 14px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text3);
+    padding: 3px;
+    display: flex; align-items: center;
+    transition: color 0.15s;
+    outline: none;
+    z-index: 2;
+  }
+  .engine-overlay-btn:hover { color: var(--accent); }
+  .engine-overlay-btn:focus { outline: none; }
+
   /* ── WIDGET DRAG ── */
   .drag-handle {
     cursor: grab;
@@ -1019,7 +1091,9 @@
 <div class="layout" id="layout">
 
   <!-- ── CLOCK BAR ── -->
-  <div class="clock-panel fade-in">
+  <div class="clock-panel fade-in" id="clockPanel">
+    <canvas id="clockVizCanvas"></canvas>
+    <button class="clock-viz-btn" id="clockVizBtn" title="Audio visualizer">◈ viz</button>
     <div style="flex:1;">
       <div class="greeting-wrap" id="greetingWrap">
         <span class="greeting-phrase" id="greetingPhrase"></span>
@@ -1040,7 +1114,13 @@
   </div>
 
   <!-- ── SEARCH ── -->
-  <div class="panel search-panel fade-in">
+  <div class="panel search-panel fade-in" style="position:relative;">
+    <button class="engine-overlay-btn" id="engineOverlayBtn" title="Browse all engines (`)">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="7"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+    </button>
     <div class="search-engines" id="engineList"></div>
     <div class="search-wrap">
       <span class="search-prefix" id="searchPrefix">&gt;_</span>
@@ -1211,6 +1291,7 @@
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <button class="sb-btn" id="layoutLockBtn" title="Lock/unlock widget positions">⠿ unlock widgets</button>
+      <button class="sb-btn" id="clockVizOpenBtn" title="Top widget visualizer">top widget</button>
       <button class="sb-btn" id="bgBtn" title="Change background">wallpaper</button>
       <button class="sb-btn" id="exportBtn" title="Export all data">export</button>
       <label class="sb-btn" id="importLabel" title="Import data">import<input type="file" id="importFile" accept=".json" style="display:none;"></label>
@@ -1235,6 +1316,73 @@
     </div>
     <input type="text" id="engineOverlaySearch" placeholder="filter by name or nick..." style="width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:8px 12px;outline:none;caret-color:var(--accent);margin-bottom:14px;box-sizing:border-box;">
     <div id="engineOverlayList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;"></div>
+  </div>
+</div>
+
+<!-- ── CLOCK VIZ MODAL ── -->
+<div class="modal-overlay" id="clockVizOverlay">
+  <div class="modal" style="width:480px;max-width:96vw;max-height:90vh;overflow-y:auto;">
+    <h3 style="margin-bottom:12px;">top widget</h3>
+
+    <!-- TABS -->
+    <div style="display:flex;gap:4px;margin-bottom:14px;" id="vizTabs">
+      <button class="bg-tab active" data-tab="audio">audio reactive</button>
+      <button class="bg-tab" data-tab="static">static</button>
+      <button class="bg-tab" data-tab="custom">custom</button>
+      <button class="bg-tab" data-tab="ai">ai generate</button>
+    </div>
+
+    <!-- AUDIO TAB -->
+    <div id="vizTab-audio" class="viz-tab-content">
+      <p class="viz-mic-note" style="margin-bottom:10px;">reacts to microphone — works with music playing through speakers nearby</p>
+      <div class="viz-anim-grid" id="vizPresets"></div>
+    </div>
+
+    <!-- STATIC TAB -->
+    <div id="vizTab-static" class="viz-tab-content" style="display:none;">
+      <div id="vizStaticPresets" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;"></div>
+    </div>
+
+    <!-- CUSTOM TAB -->
+    <div id="vizTab-custom" class="viz-tab-content" style="display:none;">
+      <label>UPLOAD IMAGE / GIF / WEBP</label>
+      <label class="modal-btn" style="display:block;text-align:center;cursor:pointer;margin-top:6px;padding:8px;">
+        choose file
+        <input type="file" id="vizUpload" accept="image/*,.gif,.webp" style="display:none;">
+      </label>
+      <label style="margin-top:12px;display:block;">IMAGE / GIF URL</label>
+      <input type="text" id="vizUrl" placeholder="https://example.com/bg.gif" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;outline:none;caret-color:var(--accent);margin-top:4px;box-sizing:border-box;">
+      <button class="modal-btn primary" id="vizApplyUrl" style="margin-top:10px;width:100%;">apply url</button>
+    </div>
+
+    <!-- AI TAB -->
+    <div id="vizTab-ai" class="viz-tab-content" style="display:none;">
+      <label>DESCRIBE YOUR BACKGROUND</label>
+      <textarea id="vizAiPrompt" placeholder="e.g. dark neon city skyline at night, ultra wide" style="width:100%;min-height:60px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px;padding:8px;outline:none;caret-color:var(--accent);resize:vertical;margin-top:6px;box-sizing:border-box;line-height:1.5;"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <select id="vizAiStyle" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px;padding:5px 8px;outline:none;">
+          <option value="dark cinematic">dark cinematic</option>
+          <option value="synthwave aesthetic">synthwave</option>
+          <option value="minimal dark abstract">minimal abstract</option>
+          <option value="cyberpunk city">cyberpunk</option>
+          <option value="deep space nebula">deep space</option>
+          <option value="dark fantasy landscape">dark fantasy</option>
+          <option value="glitch art digital">glitch art</option>
+          <option value="noir photography">noir</option>
+        </select>
+      </div>
+      <button class="modal-btn primary" id="vizAiGenerate" style="margin-top:10px;width:100%;">generate</button>
+      <div id="vizAiStatus" style="font-size:10px;color:var(--text3);margin-top:6px;text-align:center;min-height:14px;"></div>
+      <div id="vizAiPreview" style="margin-top:8px;border-radius:6px;overflow:hidden;display:none;">
+        <img id="vizAiImg" style="width:100%;display:block;border-radius:6px;" alt="generated">
+        <button class="modal-btn primary" id="vizAiApply" style="width:100%;margin-top:6px;">set as background</button>
+      </div>
+    </div>
+
+    <div class="modal-btns" style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+      <button class="modal-btn" id="clockVizClear">clear</button>
+      <button class="modal-btn" id="clockVizCancel">close</button>
+    </div>
   </div>
 </div>
 
@@ -1641,6 +1789,37 @@ function openEngineEditModal(engine, isVisible, onSave, onDelete) {
     if (!url.includes('%s') && (url.includes('?') || url.includes('search') || url.includes('query') || url.includes('q='))) {
       if (url.endsWith('=') || url.endsWith('/') || url.endsWith('?') || url.endsWith('&')) url += '%s';
     }
+
+    // ── Duplicate nick check ──
+    const existing = NICK_MAP[nick];
+    const isEditingSelf = engine && engine.nick.toLowerCase() === nick;
+    if (existing && !isEditingSelf) {
+      // nick is taken — ask if they want to add it to the quick bar instead
+      const existingName = existing.name;
+      const confirmAdd = confirm(`The nick "${nick}" is already used by "${existingName}".\n\nWould you like to add this URL to the quick bar with a different nick?\n\nOK = open form with URL pre-filled, Cancel = go back.`);
+      if (confirmAdd) {
+        overlay.remove();
+        // open a fresh modal with url pre-filled, nick cleared
+        openEngineEditModal(null, true, (newEng) => {
+          const id = 'custom_' + Date.now();
+          const eng = { id, show: true, _custom: true, direct: !newEng.url.includes('%s'), ...newEng };
+          ENGINES.unshift(eng);
+          NICK_MAP[newEng.nick.toLowerCase()] = eng;
+          rebuildVisibleEngines();
+          buildEngines();
+          saveEngines();
+        }, () => {});
+        // pre-fill the URL in the newly opened modal
+        setTimeout(() => {
+          const newUrlInput = document.querySelector('.modal-overlay #eeUrl');
+          const newNameInput = document.querySelector('.modal-overlay #eeN');
+          if (newUrlInput) newUrlInput.value = url;
+          if (newNameInput) newNameInput.value = name;
+        }, 50);
+      }
+      return;
+    }
+
     onSave({ name, nick, url });
     overlay.remove();
   });
@@ -1859,6 +2038,11 @@ document.addEventListener('keydown', e => {
 });
 
 buildEngines();
+
+// magnifying glass button opens engine overlay
+document.getElementById('engineOverlayBtn').addEventListener('click', () => {
+  openEngineOverlay();
+});
 
 // ══════════════════════════════
 //  CLOCK
@@ -3819,7 +4003,472 @@ function fbInit() {
 
 fbInit();
 
+
+// ══════════════════════════════
+//  CLOCK WIDGET AUDIO VISUALIZER
+// ══════════════════════════════
+const VIZ_PRESETS = [
+  { id:'waveform',     label:'waveform' },
+  { id:'eq',           label:'eq bars' },
+  { id:'topography',   label:'topography' },
+  { id:'fluid',        label:'fluid orbs' },
+  { id:'burst',        label:'particle burst' },
+  { id:'ring',         label:'spectrum ring' },
+];
+
+let vizActive = localStorage.getItem('sp_viz') || null;
+let vizAudioCtx = null;
+let vizAnalyser = null;
+let vizStream = null;
+let vizAnimFrame = null;
+let vizMiniAnims = [];
+
+// ── Mini preview canvases ──
+function runVizMiniPreview(canvas, type) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  let t = 0;
+  function tick() {
+    requestAnimationFrame(tick);
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#0d0d0d';
+    ctx.fillRect(0,0,W,H);
+    t += 0.05;
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#7ecfb3';
+
+    if (type === 'waveform') {
+      ctx.beginPath(); ctx.strokeStyle = accent; ctx.lineWidth = 1.5;
+      for (let x=0;x<W;x++) {
+        const y = H/2 + Math.sin((x/W)*Math.PI*4 + t)*H*0.3 + Math.sin((x/W)*Math.PI*8+t*1.3)*H*0.1;
+        x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+    }
+    if (type === 'eq') {
+      const bars = 12;
+      const bw = W/bars*0.6;
+      for (let i=0;i<bars;i++) {
+        const h = (Math.sin(t*2+i*0.8)+1)/2*H*0.85+4;
+        ctx.fillStyle = accent;
+        ctx.globalAlpha = 0.8;
+        ctx.fillRect(i*(W/bars)+W/bars*0.2, H-h, bw, h);
+      }
+      ctx.globalAlpha = 1;
+    }
+    if (type === 'topography') {
+      ctx.strokeStyle = accent; ctx.lineWidth = 0.8;
+      const lines = 8;
+      for (let l=0;l<lines;l++) {
+        const baseY = (l+1)/(lines+1)*H;
+        ctx.beginPath(); ctx.globalAlpha = 0.3+l/lines*0.5;
+        for (let x=0;x<=W;x+=2) {
+          const y = baseY - Math.max(0, Math.sin((x/W)*Math.PI*3+t+l*0.5)*H*0.2*(1-l/lines));
+          x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+        }
+        ctx.stroke();
+      }
+      ctx.globalAlpha=1;
+    }
+    if (type === 'fluid') {
+      const orbs = [{x:W*0.3,y:H*0.5,r:12},{x:W*0.6,y:H*0.4,r:10},{x:W*0.75,y:H*0.6,r:8}];
+      orbs.forEach((o,i) => {
+        o.x = W*(0.3+i*0.2) + Math.sin(t+i*2)*W*0.1;
+        o.y = H*0.5 + Math.cos(t*0.7+i)*H*0.25;
+        const g = ctx.createRadialGradient(o.x,o.y,0,o.x,o.y,o.r*(1+Math.sin(t+i)*0.3));
+        g.addColorStop(0,accent);
+        g.addColorStop(1,'transparent');
+        ctx.fillStyle=g; ctx.beginPath();
+        ctx.arc(o.x,o.y,o.r*(1+Math.sin(t+i)*0.3),0,Math.PI*2);
+        ctx.fill();
+      });
+    }
+    if (type === 'burst') {
+      for (let i=0;i<12;i++) {
+        const a = (i/12)*Math.PI*2 + t*0.3;
+        const r = 8 + Math.sin(t*2+i)*6;
+        const x = W/2 + Math.cos(a)*r*2;
+        const y = H/2 + Math.sin(a)*r;
+        ctx.beginPath(); ctx.arc(x,y,1.5,0,Math.PI*2);
+        ctx.fillStyle=accent; ctx.globalAlpha=0.6+Math.sin(t+i)*0.4; ctx.fill();
+      }
+      ctx.globalAlpha=1;
+    }
+    if (type === 'ring') {
+      const cx=W/2,cy=H/2,r=H*0.3;
+      for (let i=0;i<32;i++) {
+        const a=(i/32)*Math.PI*2;
+        const mag=(Math.sin(t*2+i*0.4)+1)/2*H*0.2+2;
+        ctx.beginPath();
+        ctx.moveTo(cx+Math.cos(a)*r, cy+Math.sin(a)*r);
+        ctx.lineTo(cx+Math.cos(a)*(r+mag), cy+Math.sin(a)*(r+mag));
+        ctx.strokeStyle=accent; ctx.lineWidth=2; ctx.globalAlpha=0.6+mag/H*0.4; ctx.stroke();
+      }
+      ctx.globalAlpha=1;
+    }
+  }
+  tick();
+}
+
+function buildVizPresets() {
+  const grid = document.getElementById('vizPresets');
+  grid.innerHTML='';
+  VIZ_PRESETS.forEach(p => {
+    const wrap = document.createElement('div');
+    wrap.className = 'viz-preset' + (vizActive===p.id?' active':'');
+    wrap.dataset.id = p.id;
+    const cv = document.createElement('canvas');
+    cv.width=180; cv.height=60;
+    const lbl = document.createElement('div');
+    lbl.className='viz-label'; lbl.textContent=p.label;
+    wrap.appendChild(cv); wrap.appendChild(lbl);
+    wrap.addEventListener('click', () => selectViz(p.id));
+    grid.appendChild(wrap);
+    runVizMiniPreview(cv, p.id);
+  });
+}
+
+// ── Mic + analyser setup ──
+async function startMic() {
+  if (vizAudioCtx) return true;
+  try {
+    vizStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    vizAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    vizAnalyser = vizAudioCtx.createAnalyser();
+    vizAnalyser.fftSize = 256;
+    vizAnalyser.smoothingTimeConstant = 0.8;
+    const src = vizAudioCtx.createMediaStreamSource(vizStream);
+    src.connect(vizAnalyser);
+    return true;
+  } catch(e) {
+    alert('Microphone access required for audio visualizer.\nPlease allow mic access and try again.');
+    return false;
+  }
+}
+
+function stopMic() {
+  if (vizAnimFrame) { cancelAnimationFrame(vizAnimFrame); vizAnimFrame=null; }
+  if (vizStream) { vizStream.getTracks().forEach(t=>t.stop()); vizStream=null; }
+  if (vizAudioCtx) { vizAudioCtx.close(); vizAudioCtx=null; }
+  vizAnalyser=null;
+}
+
+// ── Full canvas drawing ──
+function drawViz() {
+  vizAnimFrame = requestAnimationFrame(drawViz);
+  const canvas = document.getElementById('clockVizCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width = canvas.offsetWidth;
+  const H = canvas.height = canvas.offsetHeight;
+  ctx.clearRect(0,0,W,H);
+
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#7ecfb3';
+  const bufLen = vizAnalyser.frequencyBinCount;
+  const freqData = new Uint8Array(bufLen);
+  const timeData = new Uint8Array(bufLen);
+  vizAnalyser.getByteFrequencyData(freqData);
+  vizAnalyser.getByteTimeDomainData(timeData);
+  const avg = freqData.reduce((a,b)=>a+b,0)/bufLen/255;
+
+  if (vizActive === 'waveform') {
+    ctx.beginPath(); ctx.strokeStyle = accent; ctx.lineWidth = 2;
+    ctx.shadowColor = accent; ctx.shadowBlur = 8;
+    for (let i=0;i<bufLen;i++) {
+      const x=i/bufLen*W, y=(timeData[i]/128-1)*H*0.4+H/2;
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke(); ctx.shadowBlur=0;
+  }
+
+  if (vizActive === 'eq') {
+    const bars = 48;
+    const bw = W/bars*0.7;
+    for (let i=0;i<bars;i++) {
+      const idx = Math.floor(i/bars*bufLen*0.7);
+      const h = (freqData[idx]/255)*H*0.9+2;
+      const alpha = 0.4 + freqData[idx]/255*0.6;
+      ctx.fillStyle = accent;
+      ctx.globalAlpha = alpha;
+      ctx.fillRect(i*(W/bars)+W/bars*0.15, H-h, bw, h);
+      // peak dot
+      ctx.globalAlpha = alpha*0.5;
+      ctx.fillRect(i*(W/bars)+W/bars*0.15, H-h-3, bw, 2);
+    }
+    ctx.globalAlpha=1;
+  }
+
+  if (vizActive === 'topography') {
+    const lines = 12;
+    ctx.lineWidth = 1;
+    for (let l=0;l<lines;l++) {
+      const baseY = (l+1)/(lines+1)*H;
+      const alpha = 0.2 + (l/lines)*0.6;
+      ctx.strokeStyle = accent;
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      for (let x=0;x<=W;x+=3) {
+        const freqIdx = Math.floor(x/W*bufLen*0.8);
+        const mag = (freqData[freqIdx]/255) * H * 0.5 * (1-(l/lines)*0.5);
+        const y = baseY - mag;
+        x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+  }
+
+  if (vizActive === 'fluid') {
+    const t = Date.now()/1000;
+    const orbs = [
+      {bx:W*0.2, by:H*0.5, r:40},
+      {bx:W*0.5, by:H*0.5, r:50},
+      {bx:W*0.8, by:H*0.5, r:35},
+      {bx:W*0.35,by:H*0.5, r:30},
+      {bx:W*0.65,by:H*0.5, r:38},
+    ];
+    orbs.forEach((o,i) => {
+      const mag = freqData[Math.floor(i*bufLen/orbs.length)]/255;
+      const x = o.bx + Math.sin(t+i*1.3)*W*0.08*(1+avg);
+      const y = o.by + Math.cos(t*0.7+i*0.9)*H*0.3*(1+avg);
+      const r = o.r*(0.8+mag*1.2+avg*0.5);
+      const g = ctx.createRadialGradient(x,y,0,x,y,r);
+      g.addColorStop(0, accent + 'cc');
+      g.addColorStop(0.5, accent + '44');
+      g.addColorStop(1,'transparent');
+      ctx.fillStyle=g;
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    });
+  }
+
+  if (vizActive === 'burst') {
+    const t = Date.now()/1000;
+    const cx=W/2, cy=H/2;
+    const count = 60;
+    for (let i=0;i<count;i++) {
+      const a=(i/count)*Math.PI*2;
+      const freqIdx = Math.floor(i/count*bufLen*0.8);
+      const mag = (freqData[freqIdx]/255)*H*0.45+4;
+      const x=cx+Math.cos(a+t*0.1)*mag*1.5;
+      const y=cy+Math.sin(a+t*0.1)*mag*0.6;
+      const size=1.5+freqData[freqIdx]/255*3;
+      ctx.beginPath(); ctx.arc(x,y,size,0,Math.PI*2);
+      ctx.fillStyle=accent;
+      ctx.globalAlpha=0.3+freqData[freqIdx]/255*0.7;
+      ctx.fill();
+    }
+    ctx.globalAlpha=1;
+    // center pulse
+    const pg=ctx.createRadialGradient(cx,cy,0,cx,cy,avg*H*0.4);
+    pg.addColorStop(0,accent+'44'); pg.addColorStop(1,'transparent');
+    ctx.fillStyle=pg; ctx.beginPath(); ctx.arc(cx,cy,avg*H*0.4,0,Math.PI*2); ctx.fill();
+  }
+
+  if (vizActive === 'ring') {
+    const cx=W/2, cy=H/2;
+    const baseR = Math.min(W,H)*0.28;
+    const count = bufLen;
+    for (let i=0;i<count;i++) {
+      const a=(i/count)*Math.PI*2 - Math.PI/2;
+      const mag=(freqData[i]/255)*H*0.35+1;
+      ctx.beginPath();
+      ctx.moveTo(cx+Math.cos(a)*baseR, cy+Math.sin(a)*baseR);
+      ctx.lineTo(cx+Math.cos(a)*(baseR+mag), cy+Math.sin(a)*(baseR+mag));
+      ctx.strokeStyle=accent;
+      ctx.lineWidth=2;
+      ctx.globalAlpha=0.4+freqData[i]/255*0.6;
+      ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+    // inner glow
+    const ig=ctx.createRadialGradient(cx,cy,baseR*0.5,cx,cy,baseR);
+    ig.addColorStop(0,'transparent');
+    ig.addColorStop(1,accent+'22');
+    ctx.fillStyle=ig; ctx.beginPath(); ctx.arc(cx,cy,baseR,0,Math.PI*2); ctx.fill();
+  }
+}
+
+async function selectViz(id) {
+  document.querySelectorAll('.viz-preset').forEach(el=>el.classList.toggle('active',el.dataset.id===id));
+  if (vizActive===id) {
+    // toggle off
+    vizActive=null;
+    localStorage.removeItem('sp_viz');
+    stopMic();
+    document.getElementById('clockPanel').classList.remove('has-viz');
+    if (vizAnimFrame){cancelAnimationFrame(vizAnimFrame);vizAnimFrame=null;}
+    return;
+  }
+  const ok = await startMic();
+  if (!ok) return;
+  vizActive=id;
+  localStorage.setItem('sp_viz',id);
+  document.getElementById('clockPanel').classList.add('has-viz');
+  if (vizAnimFrame) cancelAnimationFrame(vizAnimFrame);
+  drawViz();
+}
+
+// ── Static presets for clock widget ──
+const VIZ_STATIC = [
+  { id:'vs_none',    label:'default',   style:'background:#0d0d0d;' },
+  { id:'vs_grid',    label:'grid',      style:'background:#0d0d0d;background-image:linear-gradient(rgba(126,207,179,0.07) 1px,transparent 1px),linear-gradient(90deg,rgba(126,207,179,0.07) 1px,transparent 1px);background-size:30px 30px;' },
+  { id:'vs_dots',    label:'dots',      style:'background:#0d0d0d;background-image:radial-gradient(rgba(126,207,179,0.15) 1px,transparent 1px);background-size:18px 18px;' },
+  { id:'vs_scan',    label:'scanlines', style:'background:#0d0d0d;background-image:repeating-linear-gradient(0deg,rgba(0,0,0,0.2),rgba(0,0,0,0.2) 1px,transparent 1px,transparent 3px);' },
+  { id:'vs_space',   label:'deep space',style:'background:linear-gradient(135deg,#0a0a12,#0d0d18,#080810);' },
+  { id:'vs_dusk',    label:'dusk',      style:'background:linear-gradient(160deg,#0d0d0d,#1a0d1a,#0d0d1a);' },
+];
+
+let vizCustomBg = JSON.parse(localStorage.getItem('sp_viz_custom') || 'null');
+let vizStaticId = localStorage.getItem('sp_viz_static') || null;
+
+function applyClockBg(data) {
+  const panel = document.getElementById('clockPanel');
+  // clear previous custom bg
+  panel.style.backgroundImage = '';
+  panel.style.background = '';
+  if (data && data.custom) {
+    panel.style.background = `url("${data.custom}") center/cover no-repeat`;
+    vizCustomBg = data;
+    localStorage.setItem('sp_viz_custom', JSON.stringify(data));
+    vizStaticId = null; localStorage.removeItem('sp_viz_static');
+  } else if (data && data.staticId) {
+    const preset = VIZ_STATIC.find(p=>p.id===data.staticId);
+    if (preset) { panel.setAttribute('style', panel.getAttribute('style') + ';' + preset.style); }
+    vizStaticId = data.staticId; localStorage.setItem('sp_viz_static', data.staticId);
+    vizCustomBg = null; localStorage.removeItem('sp_viz_custom');
+  } else {
+    // clear
+    panel.style.cssText = '';
+    vizCustomBg = null; vizStaticId = null;
+    localStorage.removeItem('sp_viz_custom'); localStorage.removeItem('sp_viz_static');
+  }
+  document.querySelectorAll('.viz-static-preset').forEach(el => {
+    el.style.borderColor = el.dataset.id === (data && data.staticId ? data.staticId : '') ? 'var(--accent)' : 'var(--border)';
+  });
+}
+
+function buildVizStaticPresets() {
+  const el = document.getElementById('vizStaticPresets');
+  el.innerHTML='';
+  VIZ_STATIC.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'viz-static-preset';
+    div.dataset.id = p.id;
+    div.setAttribute('style', p.style + 'min-height:50px;border-radius:6px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:9px;color:rgba(255,255,255,0.5);letter-spacing:0.08em;transition:border-color 0.15s;');
+    if (vizStaticId === p.id) div.style.borderColor = 'var(--accent)';
+    div.textContent = p.label;
+    div.addEventListener('click', () => applyClockBg({ staticId: p.id }));
+    el.appendChild(div);
+  });
+}
+
+function buildVizPresets() {
+  const grid = document.getElementById('vizPresets');
+  grid.innerHTML='';
+  VIZ_PRESETS.forEach(p => {
+    const wrap = document.createElement('div');
+    wrap.className = 'viz-preset' + (vizActive===p.id?' active':'');
+    wrap.dataset.id = p.id;
+    const cv = document.createElement('canvas');
+    cv.width=180; cv.height=60;
+    const lbl = document.createElement('div');
+    lbl.className='viz-label'; lbl.textContent=p.label;
+    wrap.appendChild(cv); wrap.appendChild(lbl);
+    wrap.addEventListener('click', () => selectViz(p.id));
+    grid.appendChild(wrap);
+    runVizMiniPreview(cv, p.id);
+  });
+}
+
+// open modal
+function openVizModal() {
+  buildVizPresets();
+  buildVizStaticPresets();
+  document.getElementById('clockVizOverlay').classList.add('visible');
+  // tab switching
+  document.querySelectorAll('#vizTabs .bg-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('#vizTabs .bg-tab').forEach(t=>t.classList.remove('active'));
+      document.querySelectorAll('.viz-tab-content').forEach(c=>c.style.display='none');
+      tab.classList.add('active');
+      document.getElementById('vizTab-' + tab.dataset.tab).style.display='';
+    });
+  });
+  // restore correct tab
+  const activeTab = vizActive ? 'audio' : (vizCustomBg ? 'custom' : (vizStaticId ? 'static' : 'audio'));
+  document.querySelectorAll('#vizTabs .bg-tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===activeTab));
+  document.querySelectorAll('.viz-tab-content').forEach(c=>c.style.display='none');
+  document.getElementById('vizTab-' + activeTab).style.display='';
+}
+
+// custom upload
+document.getElementById('vizUpload').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = evt => {
+    applyClockBg({ custom: evt.target.result });
+    document.getElementById('clockVizOverlay').classList.remove('visible');
+  };
+  reader.readAsDataURL(file);
+  e.target.value='';
+});
+
+document.getElementById('vizApplyUrl').addEventListener('click', () => {
+  const url = document.getElementById('vizUrl').value.trim();
+  if (url) { applyClockBg({ custom: url }); document.getElementById('clockVizOverlay').classList.remove('visible'); }
+});
+
+// AI generate for clock widget
+document.getElementById('vizAiGenerate').addEventListener('click', async () => {
+  const prompt = document.getElementById('vizAiPrompt').value.trim();
+  if (!prompt) return;
+  const style = document.getElementById('vizAiStyle').value;
+  const btn = document.getElementById('vizAiGenerate');
+  const statusEl = document.getElementById('vizAiStatus');
+  const previewEl = document.getElementById('vizAiPreview');
+  const imgEl = document.getElementById('vizAiImg');
+  btn.textContent='generating...'; btn.disabled=true;
+  statusEl.textContent='sending to pollinations.ai...';
+  previewEl.style.display='none';
+  const fullPrompt = prompt + ', ' + style + ', desktop wallpaper, ultra wide, high resolution, no text, no watermark';
+  const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(fullPrompt) + '?width=1920&height=300&nologo=true&seed=' + Math.floor(Math.random()*99999);
+  imgEl.src = url;
+  imgEl.onload = () => { statusEl.textContent='done'; previewEl.style.display='block'; btn.textContent='generate'; btn.disabled=false; };
+  imgEl.onerror = () => { statusEl.textContent='failed — try a different prompt'; btn.textContent='generate'; btn.disabled=false; };
+});
+
+document.getElementById('vizAiApply').addEventListener('click', () => {
+  const url = document.getElementById('vizAiImg').src;
+  if (url) { applyClockBg({ custom: url }); document.getElementById('clockVizOverlay').classList.remove('visible'); }
+});
+
+document.getElementById('clockVizBtn').addEventListener('click', openVizModal);
+document.getElementById('clockVizOpenBtn').addEventListener('click', openVizModal);
+document.getElementById('clockVizCancel').addEventListener('click', () => document.getElementById('clockVizOverlay').classList.remove('visible'));
+document.getElementById('clockVizOverlay').addEventListener('click', e => {
+  if (e.target===document.getElementById('clockVizOverlay')) document.getElementById('clockVizOverlay').classList.remove('visible');
+});
+document.getElementById('clockVizClear').addEventListener('click', async () => {
+  if (vizActive) await selectViz(vizActive);
+  applyClockBg(null);
+  document.getElementById('clockVizOverlay').classList.remove('visible');
+});
+
+// restore clock bg on load
+if (vizCustomBg) applyClockBg({ custom: vizCustomBg.custom });
+else if (vizStaticId) applyClockBg({ staticId: vizStaticId });
+
+// restore on load
+if (vizActive) {
+  startMic().then(ok => {
+    if (ok) {
+      document.getElementById('clockPanel').classList.add('has-viz');
+      drawViz();
+    } else {
+      vizActive=null;
+      localStorage.removeItem('sp_viz');
+    }
+  });
+}
+
 </script>
 </body>
 </html>
-
