@@ -603,6 +603,12 @@
   }
   .cat-tab:hover { border-color: var(--border2); color: var(--text); }
   .cat-tab.active { background: var(--accent3); border-color: var(--accent); color: var(--accent); }
+  .cat-tab.family-osint {
+    border-color: rgba(224,108,117,0.4);
+    color: rgba(224,108,117,0.7);
+  }
+  .cat-tab.family-osint.active { border-color: #e06c75; background: rgba(224,108,117,0.08); color: #e06c75; }
+  .cat-tab.family-osint:hover { border-color: #e06c75; color: #e06c75; }
   .cat-ctx {
     position: fixed;
     background: var(--bg2);
@@ -1109,7 +1115,7 @@
       <div class="greeting-color-dots" id="greetingDots" style="justify-content:flex-end;margin-bottom:5px;"></div>
       <div class="clock-date" id="clockDate">—</div>
       <div class="clock-day" id="clockDay">—</div>
-      <div class="uptime-badge">arch linux — <span id="uptimeDisp">calculating...</span></div>
+      <div class="uptime-badge"><span id="osLabel">detecting...</span> — <span id="uptimeDisp">calculating...</span></div>
     </div>
   </div>
 
@@ -1156,7 +1162,7 @@
         </div>
         <div class="stat-row">
           <div class="stat-header">
-            <span class="stat-name">Disk /</span>
+            <span class="stat-name" id="diskTitle">Disk C:</span>
             <span class="stat-val" id="diskVal">—%</span>
           </div>
           <div class="stat-bar"><div class="stat-fill fill-yellow" id="diskBar" style="width:0%"></div></div>
@@ -1285,9 +1291,9 @@
   <!-- ── STATUS BAR ── -->
   <div class="statusbar">
     <div class="sb-left">
-      <div class="sb-item"><span class="sb-dot"></span><span id="sbOs">arch linux x86_64</span></div>
-      <div class="sb-item"><span>kernel: <span id="sbKernel" style="color:var(--text2)">—</span></span></div>
-      <div class="sb-item"><span>shell: <span style="color:var(--text2)">zsh</span></span></div>
+      <div class="sb-item"><span class="sb-dot"></span><span id="sbOs">detecting...</span></div>
+      <div class="sb-item"><span>build: <span id="sbKernel" style="color:var(--text2)">—</span></span></div>
+      <div class="sb-item"><span>browser: <span id="sbBrowser" style="color:var(--text2)">—</span></span></div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <button class="sb-btn" id="layoutLockBtn" title="Lock/unlock widget positions">⠿ unlock widgets</button>
@@ -1512,7 +1518,7 @@
 // ══════════════════════════════
 const CONFIG = {
   spotify_client_id: '',   // add your Spotify client ID here
-  stats_api: 'http://localhost:61208/api/3', // Glances API endpoint
+  stats_api: 'http://localhost:61209', // custom stats script (or 61208 for Glances)
   kernel_version: '6.8.1-arch1-1',
 };
 
@@ -1988,14 +1994,14 @@ function doSearch(query) {
       const url = engine.direct ? engine.url
         : engine.url.includes('%s') ? engine.url.replace('%s', encodeURIComponent(rest))
         : engine.url + encodeURIComponent(rest);
-      window.open(url, '_blank');
+      window.location.href = url;
       return;
     }
   }
   // ── single word that's an exact nick with no query (direct engines) ──
   if (parts.length === 1 && NICK_MAP[parts[0].toLowerCase()]) {
     const engine = NICK_MAP[parts[0].toLowerCase()];
-    if (engine.direct) { window.open(engine.url, '_blank'); return; }
+    if (engine.direct) { window.location.href = engine.url; return; }
   }
   // ── fallback: use active engine ──
   const e = VISIBLE_ENGINES[activeEngine];
@@ -2003,7 +2009,7 @@ function doSearch(query) {
   const url = e.direct ? e.url
     : e.url.includes('%s') ? e.url.replace('%s', encodeURIComponent(query))
     : e.url + encodeURIComponent(query);
-  window.open(url, '_blank');
+  window.location.href = url;
 }
 
 document.getElementById('searchInput').addEventListener('keydown', e => {
@@ -2244,61 +2250,122 @@ greetApplyColor(greetData.color);
 buildAccentDots();
 typewriter(greetData.phrase, greetData.name);
 
-document.getElementById('sbKernel').textContent = CONFIG.kernel_version;
 updateClock();
 setInterval(updateClock, 1000);
 setInterval(updateUptime, 1000);
 updateUptime();
 
 // ══════════════════════════════
-//  SYSTEM STATS (simulated / Glances API)
+//  OS DETECTION
+// ══════════════════════════════
+function detectOS() {
+  const ua = navigator.userAgent;
+  const platform = navigator.platform || '';
+  let os = 'unknown';
+  let build = '—';
+  let browser = '—';
+
+  if (/Windows NT 10/.test(ua)) os = 'windows 10';
+  else if (/Windows NT 11/.test(ua)) os = 'windows 11';
+  else if (/Windows NT/.test(ua)) os = 'windows';
+  else if (/Mac OS X/.test(ua)) {
+    const m = ua.match(/Mac OS X ([\d_]+)/);
+    os = 'macOS' + (m ? ' ' + m[1].replace(/_/g,'.') : '');
+  }
+  else if (/Linux/.test(ua)) os = 'linux';
+  else if (/Android/.test(ua)) os = 'android';
+  else if (/iPhone|iPad/.test(ua)) os = 'iOS';
+
+  // browser detection
+  if (/Thorium/.test(ua)) {
+    const m = ua.match(/Thorium\/([\d.]+)/);
+    browser = 'thorium' + (m ? ' ' + m[1].split('.')[0] : '');
+  } else if (/Edg\//.test(ua)) {
+    const m = ua.match(/Edg\/([\d.]+)/);
+    browser = 'edge' + (m ? ' ' + m[1].split('.')[0] : '');
+  } else if (/Chrome/.test(ua)) {
+    const m = ua.match(/Chrome\/([\d.]+)/);
+    browser = 'chrome' + (m ? ' ' + m[1].split('.')[0] : '');
+  } else if (/Firefox/.test(ua)) {
+    const m = ua.match(/Firefox\/([\d.]+)/);
+    browser = 'firefox' + (m ? ' ' + m[1].split('.')[0] : '');
+  } else if (/Safari/.test(ua)) {
+    browser = 'safari';
+  }
+
+  // architecture guess
+  if (/WOW64|Win64|x64/.test(ua)) build = 'x86_64';
+  else if (/arm/.test(ua.toLowerCase())) build = 'arm64';
+  else if (/x86/.test(ua)) build = 'x86';
+
+  document.getElementById('sbOs').textContent = os;
+  document.getElementById('sbKernel').textContent = build;
+  document.getElementById('sbBrowser').textContent = browser;
+  if (document.getElementById('osLabel')) {
+    document.getElementById('osLabel').textContent = os;
+  }
+}
+detectOS();
+
+// ══════════════════════════════
+//  SYSTEM STATS
 // ══════════════════════════════
 let simStats = { cpu: 12, mem: 44, disk: 61, cpuT: 52, gpuT: 48, diskT: 38, boardT: 41 };
+let statsLive = false;
 
-function renderStats(cpu, mem, disk, cpuT, gpuT, diskT, boardT, memUsed, memTotal, diskUsed, diskTotal) {
-  document.getElementById('cpuVal').textContent = cpu + '%';
-  document.getElementById('cpuBar').style.width = cpu + '%';
-  document.getElementById('cpuExtra').textContent = '8 cores · simulated';
-  document.getElementById('memVal').textContent = mem + '%';
-  document.getElementById('memBar').style.width = mem + '%';
+function renderStats(d) {
+  const cpu     = Math.round(d.cpu ?? simStats.cpu);
+  const mem     = Math.round(d.mem_pct ?? simStats.mem);
+  const disk    = Math.round(d.disk_pct ?? simStats.disk);
+  const cpuT    = Math.round(d.cpu_temp ?? simStats.cpuT);
+  const gpuT    = Math.round(d.gpu_temp ?? simStats.gpuT);
+  const diskT   = Math.round(d.disk_temp ?? simStats.diskT);
+  const boardT  = Math.round(d.board_temp ?? simStats.boardT);
+  const memUsed  = d.mem_used  != null ? (d.mem_used  / 1e9).toFixed(1) : (simStats.mem * 0.32).toFixed(1);
+  const memTotal = d.mem_total != null ? (d.mem_total / 1e9).toFixed(1) : '32.0';
+  const diskUsed  = d.disk_used  != null ? (d.disk_used  / 1e9).toFixed(0) : '218';
+  const diskTotal = d.disk_total != null ? (d.disk_total / 1e9).toFixed(0) : '512';
+  const cores     = d.cpu_cores ? d.cpu_cores + ' cores' : 'cpu';
+  const diskLabel = d.disk_label || 'C:';
+
+  document.getElementById('cpuVal').textContent  = cpu + '%';
+  document.getElementById('cpuBar').style.width  = cpu + '%';
+  document.getElementById('cpuExtra').textContent = cores + (statsLive ? ' · live' : ' · simulated');
+  document.getElementById('memVal').textContent  = mem + '%';
+  document.getElementById('memBar').style.width  = mem + '%';
   document.getElementById('memExtra').textContent = memUsed + ' / ' + memTotal + ' GB';
-  document.getElementById('diskVal').textContent = disk + '%';
-  document.getElementById('diskBar').style.width = disk + '%';
-  document.getElementById('diskExtra').textContent = diskUsed + ' / ' + diskTotal + ' GB';
-  document.getElementById('cpuTemp').textContent = cpuT + '°C';
-  document.getElementById('gpuTemp').textContent = gpuT + '°C';
+  document.getElementById('diskVal').textContent  = disk + '%';
+  document.getElementById('diskBar').style.width  = disk + '%';
+  document.getElementById('diskExtra').textContent = diskUsed + ' / ' + diskTotal + ' GB  (' + diskLabel + ')';
+
+  // update disk label in panel title
+  const diskTitle = document.getElementById('diskTitle');
+  if (diskTitle) diskTitle.textContent = 'Disk ' + diskLabel;
+
+  // temps
+  document.getElementById('cpuTemp').textContent  = cpuT + '°C';
+  document.getElementById('gpuTemp').textContent  = gpuT + '°C';
   document.getElementById('diskTemp').textContent = diskT + '°C';
   document.getElementById('boardTemp').textContent = boardT + '°C';
-  if (cpuT > 75) document.getElementById('cpuTemp').classList.add('hot');
-  if (gpuT > 75) document.getElementById('gpuTemp').classList.add('hot');
+  document.getElementById('cpuTemp').classList.toggle('hot', cpuT > 75);
+  document.getElementById('gpuTemp').classList.toggle('hot', gpuT > 75);
 }
 
 async function fetchStats() {
   try {
-    const r = await fetch(CONFIG.stats_api + '/cpu');
+    const r = await fetch(CONFIG.stats_api, { signal: AbortSignal.timeout(2000) });
     if (!r.ok) throw new Error();
     const d = await r.json();
-    const cpu = Math.round(d.total || 0);
-    const mr = await fetch(CONFIG.stats_api + '/mem');
-    const md = await mr.json();
-    const mem = Math.round(md.percent || 0);
-    const memUsed = (md.used / 1e9).toFixed(1);
-    const memTotal = (md.total / 1e9).toFixed(1);
-    const dr = await fetch(CONFIG.stats_api + '/fs');
-    const dd = await dr.json();
-    const root = (dd || []).find(p => p.mnt_point === '/') || dd[0] || {};
-    const disk = Math.round(root.percent || 0);
-    const diskUsed = ((root.used || 0) / 1e9).toFixed(0);
-    const diskTotal = ((root.size || 0) / 1e9).toFixed(0);
-    renderStats(cpu, mem, disk, simStats.cpuT, simStats.gpuT, simStats.diskT, simStats.boardT, memUsed, memTotal, diskUsed, diskTotal);
+    statsLive = true;
+    renderStats(d);
   } catch {
-    // simulate fluctuating data
-    simStats.cpu = Math.min(100, Math.max(2, simStats.cpu + (Math.random() * 10 - 5) | 0));
-    simStats.mem = Math.min(95, Math.max(20, simStats.mem + (Math.random() * 4 - 2) | 0));
-    simStats.cpuT = Math.min(85, Math.max(35, simStats.cpuT + (Math.random() * 4 - 2) | 0));
-    simStats.gpuT = Math.min(80, Math.max(30, simStats.gpuT + (Math.random() * 3 - 1.5) | 0));
-    renderStats(simStats.cpu, simStats.mem, simStats.disk, simStats.cpuT, simStats.gpuT, simStats.diskT, simStats.boardT,
-      (simStats.mem * 0.32).toFixed(1), '32.0', '218', '512');
+    statsLive = false;
+    // drift simulation so it doesn't look frozen
+    simStats.cpu  = Math.min(100, Math.max(2,  simStats.cpu  + ((Math.random()*10-5)|0)));
+    simStats.mem  = Math.min(95,  Math.max(20, simStats.mem  + ((Math.random()*4-2)|0)));
+    simStats.cpuT = Math.min(85,  Math.max(35, simStats.cpuT + ((Math.random()*4-2)|0)));
+    simStats.gpuT = Math.min(80,  Math.max(30, simStats.gpuT + ((Math.random()*3-1.5)|0)));
+    renderStats({});
   }
 }
 fetchStats();
@@ -2357,13 +2424,69 @@ notesArea.addEventListener('input', () => {
 //  BOOKMARKS
 // ══════════════════════════════
 const DEFAULT_BOOKMARKS = {
-  osint: [
-    { name: 'Shodan',       url: 'https://shodan.io',            icon: '🔍' },
-    { name: 'Maltego',      url: 'https://maltego.com',          icon: '🕸' },
-    { name: 'IntelX',       url: 'https://intelx.io',            icon: '🗄' },
-    { name: 'Censys',       url: 'https://censys.io',            icon: '📡' },
-    { name: 'OSINT.rocks',  url: 'https://osint.rocks',          icon: '🪨' },
-    { name: 'Bellingcat',   url: 'https://bellingcat.com',       icon: '🔔' },
+  // ── OSINT family ──
+  'osint': [
+    { name: 'OSINT Framework', url: 'https://osintframework.com',      icon: '🌐' },
+    { name: 'OSINT.rocks',     url: 'https://osint.rocks',             icon: '🪨' },
+    { name: 'Bellingcat',      url: 'https://bellingcat.com',          icon: '🔔' },
+    { name: 'SpiderFoot',      url: 'https://spiderfoot.net',          icon: '🕷' },
+    { name: 'Maltego',         url: 'https://maltego.com',             icon: '🕸' },
+  ],
+  'osint · people': [
+    { name: 'PimEyes',         url: 'https://pimeyes.com',             icon: '👁' },
+    { name: 'FaceCheck.id',    url: 'https://facecheck.id',            icon: '🪪' },
+    { name: 'Epieos',          url: 'https://epieos.com',              icon: '📧' },
+    { name: 'WhatsMyName',     url: 'https://whatsmyname.app',         icon: '👤' },
+    { name: 'Namechk',         url: 'https://namechk.com',             icon: '🔎' },
+    { name: 'Dehashed',        url: 'https://dehashed.com',            icon: '🗝' },
+    { name: 'PeekYou',         url: 'https://peekyou.com',             icon: '🔭' },
+    { name: 'NumLookup',       url: 'https://numlookup.com',           icon: '📞' },
+    { name: 'White Pages',     url: 'https://whitepages.com',          icon: '📖' },
+  ],
+  'osint · network': [
+    { name: 'Shodan',          url: 'https://shodan.io',               icon: '🔍' },
+    { name: 'Censys',          url: 'https://censys.io',               icon: '📡' },
+    { name: 'IntelX',          url: 'https://intelx.io',               icon: '🗄' },
+    { name: 'GreyNoise',       url: 'https://viz.greynoise.io',        icon: '🌫' },
+    { name: 'URLScan',         url: 'https://urlscan.io',              icon: '🔗' },
+    { name: 'ViewDNS',         url: 'https://viewdns.info',            icon: '🌐' },
+    { name: 'DNSDumpster',     url: 'https://dnsdumpster.com',         icon: '🗺' },
+    { name: 'Hunter.io',       url: 'https://hunter.io',               icon: '🎯' },
+    { name: 'PublicWWW',       url: 'https://publicwww.com',           icon: '🔎' },
+    { name: 'Grep.app',        url: 'https://grep.app',                icon: '💻' },
+  ],
+  'osint · geo': [
+    { name: 'GeoSpy AI',       url: 'https://geospy.ai',               icon: '🤖' },
+    { name: 'Overpass Turbo',  url: 'https://overpass-turbo.eu',       icon: '🗺' },
+    { name: 'Wikimapia',       url: 'https://wikimapia.org',           icon: '📍' },
+    { name: 'Google Earth',    url: 'https://earth.google.com',        icon: '🌍' },
+    { name: 'Google Maps',     url: 'https://maps.google.com',         icon: '🗺' },
+    { name: 'CitizenEvidence', url: 'https://citizenevidence.org',     icon: '📸' },
+  ],
+  'osint · media': [
+    { name: 'TinEye',          url: 'https://tineye.com',              icon: '👁' },
+    { name: 'FotoForensics',   url: 'https://fotoforensics.com',       icon: '🔬' },
+    { name: 'Exifdata',        url: 'https://exifdata.com',            icon: '📷' },
+    { name: 'Jimpl',           url: 'https://jimpl.com',               icon: '🖼' },
+    { name: 'ImgTfy',          url: 'https://imgtfy.app',              icon: '🔍' },
+    { name: 'Wayback Machine', url: 'https://web.archive.org',         icon: '📦' },
+    { name: 'CachedView',      url: 'https://cachedview.nl',           icon: '💾' },
+    { name: 'Archive.ph',      url: 'https://archive.ph',              icon: '🗃' },
+  ],
+  'osint · breach': [
+    { name: 'HaveIBeenPwned',  url: 'https://haveibeenpwned.com',      icon: '🔐' },
+    { name: 'Dehashed',        url: 'https://dehashed.com',            icon: '🗝' },
+    { name: 'BreachDirectory', url: 'https://breachdirectory.org',     icon: '📂' },
+    { name: 'LeakPeek',        url: 'https://leakpeek.com',            icon: '💧' },
+    { name: 'IntelX',          url: 'https://intelx.io',               icon: '🗄' },
+  ],
+  'osint · social': [
+    { name: 'OSINT Industries', url: 'https://osint.industries',       icon: '🏭' },
+    { name: 'SocialSearcher',   url: 'https://social-searcher.com',    icon: '📡' },
+    { name: 'SowSearch',        url: 'https://sowsearch.info',         icon: '🐷' },
+    { name: 'Tinfoleak',        url: 'https://tinfoleak.com',          icon: '🐦' },
+    { name: 'SocialBlade',      url: 'https://socialblade.com',        icon: '📊' },
+    { name: 'CheckUsernames',   url: 'https://checkusernames.com',     icon: '🔎' },
   ],
   social: [
     { name: 'Twitter',      url: 'https://x.com',                icon: '𝕏' },
@@ -2539,7 +2662,8 @@ function buildCategoryTabs() {
   });
   cats.forEach(cat => {
     const btn = document.createElement('button');
-    btn.className = 'cat-tab' + (cat === activeCategory ? ' active' : '');
+    const isOsint = cat === 'osint' || cat.startsWith('osint ·');
+    btn.className = 'cat-tab' + (cat === activeCategory ? ' active' : '') + (isOsint ? ' family-osint' : '');
     btn.textContent = cat;
 
     // click to select
@@ -2554,36 +2678,59 @@ function buildCategoryTabs() {
       catCtxMenu.classList.add('visible');
     });
 
-    // drag to reorder (only when unlocked)
-    if (!bmLocked) {
-      btn.draggable = true;
-      btn.addEventListener('dragstart', e => {
-        catDragSrc = cat;
-        btn.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', cat);
-      });
-      btn.addEventListener('dragend', () => btn.classList.remove('dragging'));
-      btn.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; btn.classList.add('drag-over'); });
-      btn.addEventListener('dragleave', () => btn.classList.remove('drag-over'));
-      btn.addEventListener('drop', e => {
-        e.preventDefault(); e.stopPropagation();
-        btn.classList.remove('drag-over');
-        if (!catDragSrc || catDragSrc === cat) return;
-        // reorder keys
-        const keys = Object.keys(bookmarks);
-        const fromIdx = keys.indexOf(catDragSrc);
-        const toIdx = keys.indexOf(cat);
-        keys.splice(fromIdx, 1);
-        keys.splice(toIdx, 0, catDragSrc);
-        const reordered = {};
-        keys.forEach(k => reordered[k] = bookmarks[k]);
-        bookmarks = reordered;
-        saveBookmarks();
-        buildCategoryTabs();
-        renderBookmarks();
-      });
-    }
+    // drag — always attached, locked check at dragstart
+    btn.draggable = true;
+    btn.style.userSelect = 'none';
+
+    btn.addEventListener('dragstart', e => {
+      if (bmLocked) { e.preventDefault(); return; }
+      catDragSrc = cat;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', cat);
+      requestAnimationFrame(() => btn.classList.add('dragging'));
+    });
+
+    btn.addEventListener('dragend', () => {
+      catDragSrc = null;
+      document.querySelectorAll('.cat-tab').forEach(b => b.classList.remove('dragging','drag-over'));
+    });
+
+    btn.addEventListener('dragenter', e => {
+      if (bmLocked || !catDragSrc || catDragSrc === cat) return;
+      e.preventDefault();
+      btn.classList.add('drag-over');
+    });
+
+    btn.addEventListener('dragover', e => {
+      if (bmLocked || !catDragSrc) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    });
+
+    btn.addEventListener('dragleave', e => {
+      if (!btn.contains(e.relatedTarget)) btn.classList.remove('drag-over');
+    });
+
+    btn.addEventListener('drop', e => {
+      if (bmLocked) return;
+      e.preventDefault();
+      e.stopPropagation();
+      btn.classList.remove('drag-over');
+      const src = catDragSrc;
+      if (!src || src === cat) return;
+      const keys = Object.keys(bookmarks);
+      const fromIdx = keys.indexOf(src);
+      const toIdx   = keys.indexOf(cat);
+      if (fromIdx === -1 || toIdx === -1) return;
+      keys.splice(fromIdx, 1);
+      keys.splice(toIdx, 0, src);
+      const reordered = {};
+      keys.forEach(k => reordered[k] = bookmarks[k]);
+      bookmarks = reordered;
+      saveBookmarks();
+      buildCategoryTabs();
+      renderBookmarks();
+    });
 
     el.appendChild(btn);
   });
@@ -2604,8 +2751,6 @@ function renderBookmarks() {
     const a = document.createElement('a');
     a.className = 'bm-item';
     a.href = bm.url;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
     a.dataset.index = i;
     a.innerHTML = `<div class="bm-icon">${bm.icon || '\u{1F517}'}</div><div class="bm-name">${escHtml(bm.name)}</div>`;
     a.addEventListener('contextmenu', e => { e.preventDefault(); showCtxOnBm(e, i); });
@@ -2613,31 +2758,50 @@ function renderBookmarks() {
     // drag to reorder (only when unlocked)
     if (!bmLocked) {
       a.draggable = true;
+
       a.addEventListener('dragstart', e => {
+        if (bmLocked) { e.preventDefault(); return; }
         bmDragSrc = i;
-        a.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', String(i));
-        // prevent link navigation on drag
-        e.stopPropagation();
+        requestAnimationFrame(() => a.classList.add('dragging'));
       });
-      a.addEventListener('dragend', () => a.classList.remove('dragging'));
-      a.addEventListener('dragover', e => {
-        e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+
+      a.addEventListener('dragend', () => {
+        bmDragSrc = null;
+        document.querySelectorAll('.bm-item').forEach(el => el.classList.remove('dragging','drag-over'));
+      });
+
+      a.addEventListener('dragenter', e => {
+        if (bmLocked || bmDragSrc === null || bmDragSrc === i) return;
+        e.preventDefault();
         a.classList.add('drag-over');
       });
-      a.addEventListener('dragleave', () => a.classList.remove('drag-over'));
+
+      a.addEventListener('dragover', e => {
+        if (bmLocked || bmDragSrc === null) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      });
+
+      a.addEventListener('dragleave', e => {
+        if (!a.contains(e.relatedTarget)) a.classList.remove('drag-over');
+      });
+
       a.addEventListener('drop', e => {
-        e.preventDefault(); e.stopPropagation();
+        if (bmLocked) return;
+        e.preventDefault();
+        e.stopPropagation();
         a.classList.remove('drag-over');
-        if (bmDragSrc === null || bmDragSrc === i) return;
+        const src = bmDragSrc;
+        if (src === null || src === i) return;
         const arr = bookmarks[activeCategory];
-        const moved = arr.splice(bmDragSrc, 1)[0];
+        const moved = arr.splice(src, 1)[0];
         arr.splice(i, 0, moved);
         saveBookmarks();
         renderBookmarks();
       });
-      // prevent accidental navigation when starting drag
+
       a.addEventListener('click', e => { if (bmDragSrc !== null) e.preventDefault(); });
     }
 
@@ -3083,8 +3247,6 @@ QUICK.forEach(q => {
   const a = document.createElement('a');
   a.className = 'ql-item';
   a.href = q.url;
-  a.target = '_blank';
-  a.rel = 'noopener noreferrer';
   a.innerHTML = `<span class="ql-icon">${q.icon}</span><span class="ql-label">${q.label}</span><span class="ql-arrow">→</span>`;
   qlEl.appendChild(a);
 });
