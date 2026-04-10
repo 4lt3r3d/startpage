@@ -468,9 +468,11 @@
     display: flex;
     gap: 10px;
     margin-bottom: 10px;
+    overflow: hidden;
   }
   #todoInput {
     flex: 1;
+    min-width: 0;
     background: var(--bg2);
     border: 1px solid var(--border);
     border-radius: 4px;
@@ -481,6 +483,7 @@
     padding: 5px 8px;
     caret-color: var(--accent);
     transition: border-color 0.15s;
+    box-sizing: border-box;
   }
   #todoInput:focus { border-color: var(--accent); }
   #todoInput::placeholder { color: var(--text3); }
@@ -604,11 +607,11 @@
   .cat-tab:hover { border-color: var(--border2); color: var(--text); }
   .cat-tab.active { background: var(--accent3); border-color: var(--accent); color: var(--accent); }
   .cat-tab.family-osint {
-    border-color: rgba(224,108,117,0.4);
-    color: rgba(224,108,117,0.7);
+    border-color: var(--border);
+    color: var(--text2);
   }
-  .cat-tab.family-osint.active { border-color: #e06c75; background: rgba(224,108,117,0.08); color: #e06c75; }
-  .cat-tab.family-osint:hover { border-color: #e06c75; color: #e06c75; }
+  .cat-tab.family-osint.active { border-color: var(--accent); background: var(--accent3); color: var(--accent); }
+  .cat-tab.family-osint:hover { border-color: var(--border2); color: var(--text); }
   .cat-ctx {
     position: fixed;
     background: var(--bg2);
@@ -1015,6 +1018,86 @@
   .engine-overlay-btn:hover { color: var(--accent); }
   .engine-overlay-btn:focus { outline: none; }
 
+  /* ── OSINT PANEL ── */
+  .osint-panel {
+    grid-column: 1 / 4;
+  }
+  .osint-tabs {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .osint-tab {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    padding: 3px 10px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .osint-tab:hover { border-color: var(--border2); color: var(--text); }
+  .osint-tab.active { background: var(--accent3); border-color: var(--accent); color: var(--accent); }
+  .osint-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+    min-height: 50px;
+  }
+  .osint-dot { background: var(--accent) !important; }
+
+  /* ── DORKS ── */
+  .dork-section { margin-bottom: 20px; }
+  .dork-section-title {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .dork-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 6px;
+  }
+  .dork-item {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+    cursor: pointer;
+    transition: border-color 0.12s, background 0.12s;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .dork-item:hover { border-color: var(--accent); background: var(--accent3); }
+  .dork-template {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--accent);
+    word-break: break-all;
+  }
+  .dork-desc {
+    font-size: 10px;
+    color: var(--text2);
+    line-height: 1.4;
+  }
+  .dork-tag {
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
   /* ── WIDGET DRAG ── */
   .drag-handle {
     cursor: grab;
@@ -1055,14 +1138,14 @@
 
   @media (max-width: 900px) {
     .layout { grid-template-columns: 1fr 1fr; }
-    .clock-panel, .search-panel, .statusbar { grid-column: 1 / 3; }
+    .clock-panel, .search-panel, .osint-panel, #widget-bookmarks, .statusbar { grid-column: 1 / 3; }
     .left-col { grid-column: 1; }
     .mid-col { grid-column: 1 / 3; }
     .right-col { grid-column: 2; grid-row: 3; }
   }
   @media (max-width: 600px) {
     .layout { grid-template-columns: 1fr; }
-    .clock-panel, .search-panel, .left-col, .mid-col, .right-col, .statusbar { grid-column: 1; }
+    .clock-panel, .search-panel, .osint-panel, .left-col, .mid-col, .right-col, .statusbar { grid-column: 1; }
   }
 </style>
   <!-- Firebase -->
@@ -1110,12 +1193,18 @@
         <div class="clock-time" id="clockTime">00:00</div>
         <div class="clock-seconds" id="clockSec">:00</div>
       </div>
+      <div id="weatherDisplay" style="display:flex;align-items:center;gap:8px;margin-top:6px;cursor:pointer;" title="click to refresh">
+        <span id="weatherSvgIcon"></span>
+        <span id="weatherTemp" style="font-family:var(--mono);font-size:13px;color:var(--text);"></span>
+        <span id="weatherDesc" style="font-family:var(--mono);font-size:11px;color:var(--text2);"></span>
+      </div>
     </div>
     <div class="clock-right">
       <div class="greeting-color-dots" id="greetingDots" style="justify-content:flex-end;margin-bottom:5px;"></div>
       <div class="clock-date" id="clockDate">—</div>
       <div class="clock-day" id="clockDay">—</div>
       <div class="uptime-badge"><span id="osLabel">detecting...</span> — <span id="uptimeDisp">calculating...</span></div>
+
     </div>
   </div>
 
@@ -1127,6 +1216,20 @@
         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
       </svg>
     </button>
+    <button class="engine-overlay-btn" id="dorksBtn" title="Dork templates" style="right:36px;">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <!-- left lens -->
+        <circle cx="7" cy="14" r="4"/>
+        <!-- right lens -->
+        <circle cx="17" cy="14" r="4"/>
+        <!-- bridge -->
+        <path d="M11 14h2"/>
+        <!-- left arm -->
+        <path d="M3 14L1 10"/>
+        <!-- right arm -->
+        <path d="M21 14l2-4"/>
+      </svg>
+    </button>
     <div class="search-engines" id="engineList"></div>
     <div class="search-wrap">
       <span class="search-prefix" id="searchPrefix">&gt;_</span>
@@ -1136,6 +1239,27 @@
       <kbd>Enter</kbd> search &nbsp;·&nbsp; <kbd>Tab</kbd> cycle engines &nbsp;·&nbsp; <kbd>/</kbd> focus search &nbsp;·&nbsp; <kbd>Esc</kbd> clear
     </div>
   </div>
+
+
+  <!-- ── BOOKMARKS (full width) ── -->
+  <div class="panel widget fade-in" id="widget-bookmarks" style="grid-column:1/4;flex:1;" draggable="false">
+    <div class="panel-title widget-title" style="justify-content:space-between;">
+      <span style="display:flex;align-items:center;gap:6px;"><span class="drag-handle" title="drag to move">⠿</span><span class="dot"></span>bookmarks</span>
+      <button class="bm-lock-btn" id="bmLockBtn" title="Lock/unlock layout">
+        <svg id="lockSvg" viewBox="0 0 24 26" width="13" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="13" width="18" height="11" rx="2" ry="2" class="lock-body"></rect>
+          <path d="M7 13V9a5 5 0 0 1 10 0v4" class="lock-shackle-closed"></path>
+          <path d="M7 13V9a5 5 0 0 1 10 0" class="lock-shackle-open"></path>
+        </svg>
+      </button>
+    </div>
+    <div class="category-tabs" id="categoryTabs"></div>
+    <div class="bookmark-grid" id="bookmarkGrid" style="min-height:60px;"></div>
+    <div style="margin-top:12px; font-size:10px; color:var(--text3);" id="bmHint">
+      right-click grid to add bookmark &nbsp;·&nbsp; right-click item to edit/remove
+    </div>
+  </div>
+
 
   <!-- ── LEFT COLUMN ── -->
   <div class="left-col fade-in">
@@ -1207,25 +1331,19 @@
 
   </div>
 
-  <!-- ── MIDDLE COLUMN (bookmarks) ── -->
+  <!-- ── MIDDLE COLUMN (osint) ── -->
   <div class="mid-col fade-in">
-    <div class="panel widget" id="widget-bookmarks" style="flex:1;" draggable="false">
+    <div class="panel osint-panel widget" id="widget-osint" style="flex:1;" draggable="false">
       <div class="panel-title widget-title" style="justify-content:space-between;">
-        <span style="display:flex;align-items:center;gap:6px;"><span class="drag-handle" title="drag to move">⠿</span><span class="dot"></span>bookmarks</span>
-        <button class="bm-lock-btn" id="bmLockBtn" title="Lock/unlock layout">
-          <svg id="lockSvg" viewBox="0 0 24 26" width="13" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="13" width="18" height="11" rx="2" ry="2" class="lock-body"></rect>
-            <!-- locked: full shackle arc down into body -->
-            <path d="M7 13V9a5 5 0 0 1 10 0v4" class="lock-shackle-closed"></path>
-            <!-- unlocked: shackle lifted — left post stays, right post raised and separated -->
-            <path d="M7 13V9a5 5 0 0 1 10 0" class="lock-shackle-open"></path>
-          </svg>
-        </button>
+        <span style="display:flex;align-items:center;gap:6px;">
+          <span class="drag-handle" title="drag to move">⠿</span>
+          <span class="dot osint-dot"></span>osint
+        </span>
       </div>
-      <div class="category-tabs" id="categoryTabs"></div>
-      <div class="bookmark-grid" id="bookmarkGrid" style="min-height:60px;"></div>
-      <div style="margin-top:12px; font-size:10px; color:var(--text3);" id="bmHint">
-        right-click grid to add bookmark &nbsp;·&nbsp; right-click item to edit/remove
+      <div class="osint-tabs" id="osintTabs"></div>
+      <div class="osint-grid" id="osintGrid"></div>
+      <div style="margin-top:10px;font-size:10px;color:var(--text3);" id="osintHint">
+        right-click to add · right-click item to edit/remove
       </div>
     </div>
   </div>
@@ -1311,6 +1429,29 @@
     </div>
   </div>
 
+</div>
+
+<!-- ── DORKS OVERLAY ── -->
+<div id="dorksOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9001;overflow-y:auto;padding:40px 20px;">
+  <div style="max-width:760px;margin:0 auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text2);letter-spacing:0.1em;">DORK TEMPLATES &nbsp;<span style="color:var(--text3);">— click any template to load into search bar</span></div>
+      <button id="dorksClose" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:4px;">✕</button>
+    </div>
+    <!-- tabs -->
+    <div style="display:flex;gap:6px;margin-bottom:16px;" id="dorksTabs">
+      <button class="bg-tab active" data-tab="google">google dorks</button>
+      <button class="bg-tab" data-tab="youtube">youtube dorks</button>
+    </div>
+    <!-- google tab -->
+    <div id="dorksTab-google">
+      <div id="dorkGoogleList"></div>
+    </div>
+    <!-- youtube tab -->
+    <div id="dorksTab-youtube" style="display:none;">
+      <div id="dorkYoutubeList"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ── ENGINE OVERLAY ── -->
@@ -2424,70 +2565,6 @@ notesArea.addEventListener('input', () => {
 //  BOOKMARKS
 // ══════════════════════════════
 const DEFAULT_BOOKMARKS = {
-  // ── OSINT family ──
-  'osint': [
-    { name: 'OSINT Framework', url: 'https://osintframework.com',      icon: '🌐' },
-    { name: 'OSINT.rocks',     url: 'https://osint.rocks',             icon: '🪨' },
-    { name: 'Bellingcat',      url: 'https://bellingcat.com',          icon: '🔔' },
-    { name: 'SpiderFoot',      url: 'https://spiderfoot.net',          icon: '🕷' },
-    { name: 'Maltego',         url: 'https://maltego.com',             icon: '🕸' },
-  ],
-  'osint · people': [
-    { name: 'PimEyes',         url: 'https://pimeyes.com',             icon: '👁' },
-    { name: 'FaceCheck.id',    url: 'https://facecheck.id',            icon: '🪪' },
-    { name: 'Epieos',          url: 'https://epieos.com',              icon: '📧' },
-    { name: 'WhatsMyName',     url: 'https://whatsmyname.app',         icon: '👤' },
-    { name: 'Namechk',         url: 'https://namechk.com',             icon: '🔎' },
-    { name: 'Dehashed',        url: 'https://dehashed.com',            icon: '🗝' },
-    { name: 'PeekYou',         url: 'https://peekyou.com',             icon: '🔭' },
-    { name: 'NumLookup',       url: 'https://numlookup.com',           icon: '📞' },
-    { name: 'White Pages',     url: 'https://whitepages.com',          icon: '📖' },
-  ],
-  'osint · network': [
-    { name: 'Shodan',          url: 'https://shodan.io',               icon: '🔍' },
-    { name: 'Censys',          url: 'https://censys.io',               icon: '📡' },
-    { name: 'IntelX',          url: 'https://intelx.io',               icon: '🗄' },
-    { name: 'GreyNoise',       url: 'https://viz.greynoise.io',        icon: '🌫' },
-    { name: 'URLScan',         url: 'https://urlscan.io',              icon: '🔗' },
-    { name: 'ViewDNS',         url: 'https://viewdns.info',            icon: '🌐' },
-    { name: 'DNSDumpster',     url: 'https://dnsdumpster.com',         icon: '🗺' },
-    { name: 'Hunter.io',       url: 'https://hunter.io',               icon: '🎯' },
-    { name: 'PublicWWW',       url: 'https://publicwww.com',           icon: '🔎' },
-    { name: 'Grep.app',        url: 'https://grep.app',                icon: '💻' },
-  ],
-  'osint · geo': [
-    { name: 'GeoSpy AI',       url: 'https://geospy.ai',               icon: '🤖' },
-    { name: 'Overpass Turbo',  url: 'https://overpass-turbo.eu',       icon: '🗺' },
-    { name: 'Wikimapia',       url: 'https://wikimapia.org',           icon: '📍' },
-    { name: 'Google Earth',    url: 'https://earth.google.com',        icon: '🌍' },
-    { name: 'Google Maps',     url: 'https://maps.google.com',         icon: '🗺' },
-    { name: 'CitizenEvidence', url: 'https://citizenevidence.org',     icon: '📸' },
-  ],
-  'osint · media': [
-    { name: 'TinEye',          url: 'https://tineye.com',              icon: '👁' },
-    { name: 'FotoForensics',   url: 'https://fotoforensics.com',       icon: '🔬' },
-    { name: 'Exifdata',        url: 'https://exifdata.com',            icon: '📷' },
-    { name: 'Jimpl',           url: 'https://jimpl.com',               icon: '🖼' },
-    { name: 'ImgTfy',          url: 'https://imgtfy.app',              icon: '🔍' },
-    { name: 'Wayback Machine', url: 'https://web.archive.org',         icon: '📦' },
-    { name: 'CachedView',      url: 'https://cachedview.nl',           icon: '💾' },
-    { name: 'Archive.ph',      url: 'https://archive.ph',              icon: '🗃' },
-  ],
-  'osint · breach': [
-    { name: 'HaveIBeenPwned',  url: 'https://haveibeenpwned.com',      icon: '🔐' },
-    { name: 'Dehashed',        url: 'https://dehashed.com',            icon: '🗝' },
-    { name: 'BreachDirectory', url: 'https://breachdirectory.org',     icon: '📂' },
-    { name: 'LeakPeek',        url: 'https://leakpeek.com',            icon: '💧' },
-    { name: 'IntelX',          url: 'https://intelx.io',               icon: '🗄' },
-  ],
-  'osint · social': [
-    { name: 'OSINT Industries', url: 'https://osint.industries',       icon: '🏭' },
-    { name: 'SocialSearcher',   url: 'https://social-searcher.com',    icon: '📡' },
-    { name: 'SowSearch',        url: 'https://sowsearch.info',         icon: '🐷' },
-    { name: 'Tinfoleak',        url: 'https://tinfoleak.com',          icon: '🐦' },
-    { name: 'SocialBlade',      url: 'https://socialblade.com',        icon: '📊' },
-    { name: 'CheckUsernames',   url: 'https://checkusernames.com',     icon: '🔎' },
-  ],
   social: [
     { name: 'Twitter',      url: 'https://x.com',                icon: '𝕏' },
     { name: 'Reddit',       url: 'https://reddit.com',           icon: '👽' },
@@ -4630,6 +4707,571 @@ if (vizActive) {
     }
   });
 }
+
+
+// ══════════════════════════════
+//  WEATHER (Open-Meteo, no API key)
+// ══════════════════════════════
+const WMO_CODES = {
+  0:'clear',1:'mainly clear',2:'partly cloudy',3:'overcast',
+  45:'foggy',48:'icy fog',
+  51:'light drizzle',53:'drizzle',55:'heavy drizzle',
+  61:'light rain',63:'rain',65:'heavy rain',
+  71:'light snow',73:'snow',75:'heavy snow',77:'snow grains',
+  80:'showers',81:'showers',82:'heavy showers',
+  85:'snow showers',86:'heavy snow showers',
+  95:'thunderstorm',96:'thunderstorm + hail',99:'heavy thunderstorm',
+};
+
+// SVG icon paths — themed minimal line icons matching dark UI
+function weatherSvg(type, color) {
+  color = color || 'var(--accent)';
+  const s = (paths, vb) => `<svg viewBox="${vb||'0 0 24 24'}" width="20" height="20" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+
+  const icons = {
+    sun: s(`<circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>`),
+    moon: s(`<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>`),
+    cloud: s(`<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/>`),
+    cloud_sun: s(`<path d="M12 2v2M4.93 4.93l1.41 1.41M20 12h2M17.66 5.41l-1.41 1.41"/><path d="M13 16H9a5 5 0 0 1-.73-9.95A7 7 0 0 1 20.08 11H17a4 4 0 0 0 0 8h2"/><circle cx="9" cy="10" r="3" stroke-width="1.2"/>`),
+    rain: s(`<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/><line x1="8" y1="22" x2="8" y2="24" stroke-width="2"/><line x1="12" y1="22" x2="12" y2="24" stroke-width="2"/><line x1="16" y1="22" x2="16" y2="24" stroke-width="2"/>`, '0 0 24 26'),
+    drizzle: s(`<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/><line x1="8" y1="22" x2="9" y2="24" stroke-width="1.5"/><line x1="12" y1="22" x2="13" y2="24" stroke-width="1.5"/><line x1="16" y1="22" x2="17" y2="24" stroke-width="1.5"/>`, '0 0 24 26'),
+    storm: s(`<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/><polyline points="13,19 11,23 15,23 13,27"/>`, '0 0 24 28'),
+    snow: s(`<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/><line x1="8" y1="22" x2="8" y2="24"/><line x1="12" y1="22" x2="12" y2="24"/><line x1="16" y1="22" x2="16" y2="24"/><line x1="7" y1="23" x2="9" y2="23"/><line x1="11" y1="23" x2="13" y2="23"/><line x1="15" y1="23" x2="17" y2="23"/>`, '0 0 24 26'),
+    fog: s(`<line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="16" x2="21" y2="16"/>`),
+    wind: s(`<path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/>`),
+  };
+  return icons[type] || icons.cloud;
+}
+
+function wmoToType(code, isDay) {
+  if (code === 0) return isDay ? 'sun' : 'moon';
+  if (code <= 2) return isDay ? 'cloud_sun' : 'cloud';
+  if (code === 3) return 'cloud';
+  if (code <= 48) return 'fog';
+  if (code <= 55) return 'drizzle';
+  if (code <= 65) return 'rain';
+  if (code <= 77) return 'snow';
+  if (code <= 82) return 'rain';
+  if (code <= 86) return 'snow';
+  return 'storm';
+}
+
+async function fetchWeather() {
+  const iconEl = document.getElementById('weatherSvgIcon');
+  const tempEl = document.getElementById('weatherTemp');
+  const descEl = document.getElementById('weatherDesc');
+
+  try {
+    const pos = await new Promise((res, rej) =>
+      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 6000 })
+    );
+    const { latitude: lat, longitude: lon } = pos.coords;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode,is_day&temperature_unit=fahrenheit&timezone=auto`;
+    const r   = await fetch(url);
+    const d   = await r.json();
+    const cur = d.current;
+    const temp  = Math.round(cur.temperature_2m);
+    const code  = cur.weathercode;
+    const isDay = cur.is_day === 1;
+    const type  = wmoToType(code, isDay);
+    const desc  = WMO_CODES[code] || '';
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#7ecfb3';
+
+    iconEl.innerHTML = weatherSvg(type, accent);
+    tempEl.textContent = temp + '°F';
+    descEl.textContent = desc;
+    document.getElementById('weatherDisplay').title = desc + ' — click to refresh';
+  } catch(e) {
+    iconEl.innerHTML = weatherSvg('wind', 'var(--text3)');
+    tempEl.textContent = '—';
+    descEl.textContent = 'allow location';
+  }
+}
+
+document.getElementById('weatherDisplay').addEventListener('click', fetchWeather);
+fetchWeather();
+setInterval(fetchWeather, 10 * 60 * 1000);
+
+
+// ══════════════════════════════
+//  OSINT WIDGET
+// ══════════════════════════════
+const OSINT_DEFAULT = {
+  'hub': [
+    { name:'OSINT Framework', url:'https://osintframework.com',     icon:'🌐' },
+    { name:'OSINT.rocks',     url:'https://osint.rocks',            icon:'🪨' },
+    { name:'Bellingcat',      url:'https://bellingcat.com',         icon:'🔔' },
+    { name:'SpiderFoot',      url:'https://spiderfoot.net',         icon:'🕷' },
+    { name:'Maltego',         url:'https://maltego.com',            icon:'🕸' },
+    { name:'IntelX',          url:'https://intelx.io',              icon:'🗄' },
+  ],
+  'people': [
+    { name:'PimEyes',         url:'https://pimeyes.com',            icon:'👁' },
+    { name:'FaceCheck.id',    url:'https://facecheck.id',           icon:'🪪' },
+    { name:'Epieos',          url:'https://epieos.com',             icon:'📧' },
+    { name:'WhatsMyName',     url:'https://whatsmyname.app',        icon:'👤' },
+    { name:'Namechk',         url:'https://namechk.com',            icon:'🔎' },
+    { name:'Dehashed',        url:'https://dehashed.com',           icon:'🗝' },
+    { name:'PeekYou',         url:'https://peekyou.com',            icon:'🔭' },
+    { name:'NumLookup',       url:'https://numlookup.com',          icon:'📞' },
+    { name:'White Pages',     url:'https://whitepages.com',         icon:'📖' },
+  ],
+  'network': [
+    { name:'Shodan',          url:'https://shodan.io',              icon:'🔍' },
+    { name:'Censys',          url:'https://censys.io',              icon:'📡' },
+    { name:'GreyNoise',       url:'https://viz.greynoise.io',       icon:'🌫' },
+    { name:'URLScan',         url:'https://urlscan.io',             icon:'🔗' },
+    { name:'ViewDNS',         url:'https://viewdns.info',           icon:'🌐' },
+    { name:'DNSDumpster',     url:'https://dnsdumpster.com',        icon:'🗺' },
+    { name:'Hunter.io',       url:'https://hunter.io',              icon:'🎯' },
+    { name:'PublicWWW',       url:'https://publicwww.com',          icon:'🔎' },
+    { name:'Grep.app',        url:'https://grep.app',               icon:'💻' },
+  ],
+  'geo': [
+    { name:'GeoSpy AI',       url:'https://geospy.ai',              icon:'🤖' },
+    { name:'Overpass Turbo',  url:'https://overpass-turbo.eu',      icon:'🗺' },
+    { name:'Wikimapia',       url:'https://wikimapia.org',          icon:'📍' },
+    { name:'Google Earth',    url:'https://earth.google.com',       icon:'🌍' },
+    { name:'Google Maps',     url:'https://maps.google.com',        icon:'🗺' },
+    { name:'CitizenEvidence', url:'https://citizenevidence.org',    icon:'📸' },
+  ],
+  'media': [
+    { name:'TinEye',          url:'https://tineye.com',             icon:'👁' },
+    { name:'FotoForensics',   url:'https://fotoforensics.com',      icon:'🔬' },
+    { name:'Exifdata',        url:'https://exifdata.com',           icon:'📷' },
+    { name:'Jimpl',           url:'https://jimpl.com',              icon:'🖼' },
+    { name:'ImgTfy',          url:'https://imgtfy.app',             icon:'🔍' },
+    { name:'Wayback Machine', url:'https://web.archive.org',        icon:'📦' },
+    { name:'CachedView',      url:'https://cachedview.nl',          icon:'💾' },
+    { name:'Archive.ph',      url:'https://archive.ph',             icon:'🗃' },
+  ],
+  'breach': [
+    { name:'HaveIBeenPwned',  url:'https://haveibeenpwned.com',     icon:'🔐' },
+    { name:'Dehashed',        url:'https://dehashed.com',           icon:'🗝' },
+    { name:'BreachDirectory', url:'https://breachdirectory.org',    icon:'📂' },
+    { name:'LeakPeek',        url:'https://leakpeek.com',           icon:'💧' },
+    { name:'IntelX',          url:'https://intelx.io',              icon:'🗄' },
+  ],
+  'social': [
+    { name:'OSINT Industries',url:'https://osint.industries',       icon:'🏭' },
+    { name:'SocialSearcher',  url:'https://social-searcher.com',    icon:'📡' },
+    { name:'SowSearch',       url:'https://sowsearch.info',         icon:'🐷' },
+    { name:'Tinfoleak',       url:'https://tinfoleak.com',          icon:'🐦' },
+    { name:'SocialBlade',     url:'https://socialblade.com',        icon:'📊' },
+    { name:'CheckUsernames',  url:'https://checkusernames.com',     icon:'🔎' },
+  ],
+};
+
+let osintData = JSON.parse(localStorage.getItem('sp_osint') || 'null') || JSON.parse(JSON.stringify(OSINT_DEFAULT));
+let osintActive = Object.keys(osintData)[0];
+let osintDragSrc = null;
+let osintCtxTarget = null;
+
+function saveOsint() { localStorage.setItem('sp_osint', JSON.stringify(osintData)); }
+
+// ── Context menu for OSINT items ──
+const osintCtxMenu = document.createElement('div');
+osintCtxMenu.className = 'ctx-menu';
+osintCtxMenu.innerHTML = `
+  <div class="ctx-item" id="osintCtxAdd">＋ &nbsp;add tool</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" id="osintCtxEdit" style="display:none">✎ &nbsp;edit</div>
+  <div class="ctx-item" id="osintCtxRemove" style="display:none;color:var(--red)">✕ &nbsp;remove</div>`;
+document.body.appendChild(osintCtxMenu);
+
+function posOsintCtx(x, y, showEdit) {
+  osintCtxMenu.style.left = Math.min(x, window.innerWidth - 160) + 'px';
+  osintCtxMenu.style.top  = Math.min(y, window.innerHeight - 100) + 'px';
+  osintCtxMenu.querySelector('#osintCtxEdit').style.display   = showEdit ? '' : 'none';
+  osintCtxMenu.querySelector('#osintCtxRemove').style.display = showEdit ? '' : 'none';
+  osintCtxMenu.classList.add('visible');
+}
+
+document.addEventListener('click', () => osintCtxMenu.classList.remove('visible'));
+
+// Edit modal reuse
+function osintOpenEdit(item, idx, isNew) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay visible';
+  overlay.style.zIndex = '10000';
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>${isNew ? 'add osint tool' : 'edit osint tool'}</h3>
+      <label>NAME</label>
+      <input type="text" id="oeN" value="${escHtml(item ? item.name : '')}" placeholder="Shodan" maxlength="30">
+      <label>URL</label>
+      <input type="text" id="oeUrl" value="${escHtml(item ? item.url : '')}" placeholder="https://shodan.io">
+      <label>ICON (emoji)</label>
+      <input type="text" id="oeIcon" value="${escHtml(item ? item.icon : '🔍')}" maxlength="4">
+      <div class="modal-btns">
+        <button class="modal-btn" id="oeCancel">cancel</button>
+        <button class="modal-btn primary" id="oeSave">save</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#oeN').focus();
+
+  overlay.querySelector('#oeSave').addEventListener('click', () => {
+    const name = overlay.querySelector('#oeN').value.trim();
+    const url  = overlay.querySelector('#oeUrl').value.trim();
+    const icon = overlay.querySelector('#oeIcon').value.trim() || '🔍';
+    if (!name || !url) return;
+    if (isNew) {
+      osintData[osintActive].push({ name, url, icon });
+    } else {
+      osintData[osintActive][idx] = { name, url, icon };
+    }
+    saveOsint(); renderOsint(); overlay.remove();
+  });
+  overlay.querySelector('#oeCancel').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+osintCtxMenu.querySelector('#osintCtxAdd').addEventListener('click', () => {
+  osintOpenEdit(null, null, true);
+});
+osintCtxMenu.querySelector('#osintCtxEdit').addEventListener('click', () => {
+  if (osintCtxTarget !== null) osintOpenEdit(osintData[osintActive][osintCtxTarget], osintCtxTarget, false);
+});
+osintCtxMenu.querySelector('#osintCtxRemove').addEventListener('click', () => {
+  if (osintCtxTarget !== null) {
+    osintData[osintActive].splice(osintCtxTarget, 1);
+    saveOsint(); renderOsint();
+  }
+});
+
+// ── Render tabs ──
+function buildOsintTabs() {
+  const el = document.getElementById('osintTabs');
+  el.innerHTML = '';
+  Object.keys(osintData).forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = 'osint-tab' + (cat === osintActive ? ' active' : '');
+    btn.textContent = cat;
+    btn.addEventListener('click', () => { osintActive = cat; buildOsintTabs(); renderOsint(); });
+    btn.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      // allow renaming/removing osint categories
+      const newName = prompt('rename "' + cat + '" to (leave blank to delete):');
+      if (newName === null) return;
+      if (newName.trim() === '') {
+        if (Object.keys(osintData).length <= 1) return;
+        delete osintData[cat];
+        osintActive = Object.keys(osintData)[0];
+      } else {
+        const keys = Object.keys(osintData);
+        const reordered = {};
+        keys.forEach(k => reordered[k === cat ? newName.trim() : k] = osintData[k]);
+        osintData = reordered;
+        if (osintActive === cat) osintActive = newName.trim();
+      }
+      saveOsint(); buildOsintTabs(); renderOsint();
+    });
+    el.appendChild(btn);
+  });
+  // add tab
+  const addBtn = document.createElement('button');
+  addBtn.className = 'osint-tab';
+  addBtn.textContent = '+ tab';
+  addBtn.style.color = 'var(--text3)';
+  addBtn.style.borderColor = 'var(--border)';
+  addBtn.addEventListener('click', () => {
+    const name = prompt('new osint category:');
+    if (name && name.trim()) {
+      osintData[name.trim()] = [];
+      osintActive = name.trim();
+      saveOsint(); buildOsintTabs(); renderOsint();
+    }
+  });
+  el.appendChild(addBtn);
+}
+
+// ── Render grid ──
+function renderOsint() {
+  const grid = document.getElementById('osintGrid');
+  grid.innerHTML = '';
+  const items = osintData[osintActive] || [];
+  items.forEach((bm, i) => {
+    const a = document.createElement('a');
+    a.className = 'bm-item';
+    a.href = bm.url;
+    a.dataset.index = i;
+    a.innerHTML = `<div class="bm-icon">${bm.icon || '🔍'}</div><div class="bm-name">${escHtml(bm.name)}</div>`;
+    
+
+    a.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      osintCtxTarget = i;
+      posOsintCtx(e.clientX, e.clientY, true);
+    });
+
+    // drag to reorder
+    a.draggable = true;
+    a.addEventListener('dragstart', e => {
+      osintDragSrc = i;
+      e.dataTransfer.effectAllowed = 'move';
+      requestAnimationFrame(() => a.classList.add('dragging'));
+    });
+    a.addEventListener('dragend', () => {
+      osintDragSrc = null;
+      grid.querySelectorAll('.bm-item').forEach(el => el.classList.remove('dragging','drag-over'));
+    });
+    a.addEventListener('dragenter', e => {
+      e.preventDefault();
+      if (osintDragSrc !== null && osintDragSrc !== i) a.classList.add('drag-over');
+    });
+    a.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+    a.addEventListener('dragleave', e => { if (!a.contains(e.relatedTarget)) a.classList.remove('drag-over'); });
+    a.addEventListener('drop', e => {
+      e.preventDefault(); e.stopPropagation();
+      a.classList.remove('drag-over');
+      const src = osintDragSrc;
+      if (src === null || src === i) return;
+      const arr = osintData[osintActive];
+      const moved = arr.splice(src, 1)[0];
+      arr.splice(i, 0, moved);
+      saveOsint(); renderOsint();
+    });
+    a.addEventListener('click', e => { if (osintDragSrc !== null) e.preventDefault(); });
+
+    grid.appendChild(a);
+  });
+
+  // hint text
+  document.getElementById('osintHint').textContent =
+    items.length === 0
+      ? 'right-click to add your first tool'
+      : 'right-click to add · right-click item to edit/remove · drag to reorder';
+}
+
+// right-click empty grid area
+document.getElementById('osintGrid').addEventListener('contextmenu', e => {
+  if (!e.target.closest('.bm-item')) {
+    e.preventDefault();
+    osintCtxTarget = null;
+    posOsintCtx(e.clientX, e.clientY, false);
+  }
+});
+
+buildOsintTabs();
+renderOsint();
+
+
+// ══════════════════════════════
+//  DORKS
+// ══════════════════════════════
+const GOOGLE_DORKS = [
+  {
+    section: 'site & url operators',
+    dorks: [
+      { tpl:'site:%s',                     desc:'Search within a specific site or domain',          tag:'site' },
+      { tpl:'site:%s filetype:%s',          desc:'Find file types on a specific site',               tag:'site+file' },
+      { tpl:'inurl:%s',                     desc:'URL contains this term',                           tag:'url' },
+      { tpl:'inurl:admin %s',               desc:'Admin pages on a site',                            tag:'url' },
+      { tpl:'site:%s inurl:login',          desc:'Login pages on a domain',                          tag:'url+site' },
+      { tpl:'inurl:"index.php?id=" %s',     desc:'Possible SQL injection points',                    tag:'url' },
+    ]
+  },
+  {
+    section: 'file & format search',
+    dorks: [
+      { tpl:'filetype:pdf "%s"',            desc:'Find PDF documents containing a phrase',           tag:'filetype' },
+      { tpl:'filetype:xls "%s"',            desc:'Find Excel spreadsheets',                          tag:'filetype' },
+      { tpl:'filetype:sql "%s"',            desc:'Find SQL database dumps',                          tag:'filetype' },
+      { tpl:'filetype:log "%s"',            desc:'Find log files',                                   tag:'filetype' },
+      { tpl:'filetype:env "%s"',            desc:'Find .env config files',                           tag:'filetype' },
+      { tpl:'filetype:cfg "%s"',            desc:'Find config files',                                tag:'filetype' },
+      { tpl:'filetype:txt "%s"',            desc:'Find plain text files',                            tag:'filetype' },
+    ]
+  },
+  {
+    section: 'title & content',
+    dorks: [
+      { tpl:'intitle:"%s"',                 desc:'Page title contains exact phrase',                 tag:'title' },
+      { tpl:'allintitle:%s',                desc:'All words in page title',                          tag:'title' },
+      { tpl:'intext:"%s"',                  desc:'Page body contains exact phrase',                  tag:'text' },
+      { tpl:'allintext:%s',                 desc:'All words in page body',                           tag:'text' },
+      { tpl:'intitle:"index of" "%s"',      desc:'Open directory listings containing term',          tag:'title' },
+      { tpl:'intitle:"index of" site:%s',   desc:'Open directories on a domain',                     tag:'title+site' },
+    ]
+  },
+  {
+    section: 'exposed & sensitive',
+    dorks: [
+      { tpl:'"index of" "%s"',              desc:'Open directory with term',                         tag:'exposure' },
+      { tpl:'"index of" /etc/passwd',       desc:'Exposed passwd files',                             tag:'exposure' },
+      { tpl:'intitle:"phpmyadmin" site:%s', desc:'phpMyAdmin panels on domain',                      tag:'exposure' },
+      { tpl:'"password" filetype:xls site:%s', desc:'Spreadsheets with passwords on domain',         tag:'exposure' },
+      { tpl:'ext:xml | ext:conf | ext:cnf | ext:reg | ext:inf | ext:rdp site:%s', desc:'Config files on domain', tag:'exposure' },
+      { tpl:'inurl:wp-content site:%s',     desc:'WordPress content on domain',                      tag:'cms' },
+      { tpl:'inurl:"/wp-login.php" site:%s',desc:'WordPress login on domain',                        tag:'cms' },
+    ]
+  },
+  {
+    section: 'cache & links',
+    dorks: [
+      { tpl:'cache:%s',                     desc:'Google cached version of a URL',                   tag:'cache' },
+      { tpl:'related:%s',                   desc:'Sites related to a URL',                           tag:'related' },
+      { tpl:'link:%s',                      desc:'Pages linking to a URL',                           tag:'link' },
+      { tpl:'info:%s',                      desc:'Google info about a URL',                          tag:'info' },
+    ]
+  },
+  {
+    section: 'people & accounts',
+    dorks: [
+      { tpl:'"@%s" site:linkedin.com',      desc:'Find LinkedIn profiles by email domain',           tag:'people' },
+      { tpl:'site:linkedin.com "%s"',       desc:'Search LinkedIn for a name or company',            tag:'people' },
+      { tpl:'site:twitter.com "%s"',        desc:'Search Twitter/X for a person or phrase',          tag:'people' },
+      { tpl:'"%s" site:github.com',         desc:'Search GitHub for a user or repo',                 tag:'people' },
+      { tpl:'"email" "%s" filetype:xls',    desc:'Spreadsheets with emails matching domain',         tag:'people' },
+    ]
+  },
+];
+
+const YOUTUBE_DORKS = [
+  {
+    section: 'find unedited / raw uploads',
+    dorks: [
+      { tpl:'YYYYMMDD %s',                  desc:'Unedited camera footage with date prefix',         tag:'raw' },
+      { tpl:'IMG_%s',                        desc:'Smartphone camera uploads (iOS/Android)',          tag:'raw' },
+      { tpl:'MVI_%s',                        desc:'DSLR/mirrorless camera footage',                  tag:'raw' },
+      { tpl:'VID_YYYYMMDD %s',              desc:'Android camera raw uploads',                       tag:'raw' },
+      { tpl:'WIN_YYYYMMDD %s',              desc:'Webcam recordings (Windows)',                      tag:'raw' },
+      { tpl:'Capture YYYYMMDD %s',          desc:'Screen/webcam captures',                           tag:'raw' },
+      { tpl:'PXL_%s',                        desc:'Google Pixel camera uploads',                     tag:'raw' },
+      { tpl:'DVR %s',                        desc:'Game capture / DVR recordings',                   tag:'raw' },
+    ]
+  },
+  {
+    section: 'untitled & default names',
+    dorks: [
+      { tpl:'"Untitled video" %s',           desc:'Videos uploaded without a title',                 tag:'untitled' },
+      { tpl:'"My Movie" %s',                 desc:'Default iMovie export name',                      tag:'untitled' },
+      { tpl:'"My Edited Video" %s',          desc:'Default video editor export',                     tag:'untitled' },
+      { tpl:'"Video YYYYMMDD" %s',           desc:'Camera app default name',                         tag:'untitled' },
+      { tpl:'"Untitled Design" %s',          desc:'Canva export default name',                       tag:'untitled' },
+      { tpl:'"Copy of Copy of" %s',          desc:'Repeatedly duplicated video files',               tag:'untitled' },
+      { tpl:'"Sequence 01" %s',              desc:'Adobe Premiere default sequence name',            tag:'untitled' },
+    ]
+  },
+  {
+    section: 'file format hints',
+    dorks: [
+      { tpl:'".MP4" %s',                     desc:'Raw MP4 file upload',                             tag:'format' },
+      { tpl:'".MOV" %s',                     desc:'Raw MOV file (iPhone/Mac)',                       tag:'format' },
+      { tpl:'".AVI" %s',                     desc:'AVI format upload',                               tag:'format' },
+      { tpl:'".MKV" %s',                     desc:'MKV format upload',                               tag:'format' },
+      { tpl:'".WMV" %s',                     desc:'Windows Media Video upload',                      tag:'format' },
+      { tpl:'".3gp" %s',                     desc:'Mobile phone video format',                       tag:'format' },
+    ]
+  },
+  {
+    section: 'app & software watermarks',
+    dorks: [
+      { tpl:'InShot YYYYMMDD %s',            desc:'InShot mobile editor exports',                    tag:'app' },
+      { tpl:'YouCut YYYYMMDD %s',            desc:'YouCut mobile editor exports',                    tag:'app' },
+      { tpl:'"Untitled Video Made with Clipchamp" %s', desc:'Clipchamp editor default name',         tag:'app' },
+      { tpl:'"Bandicam" %s',                 desc:'Bandicam screen recorder watermark',              tag:'app' },
+      { tpl:'VLC Record %s',                 desc:'VLC media player recording',                      tag:'app' },
+      { tpl:'RPReplay %s',                   desc:'iOS screen recorder (ReplayKit)',                  tag:'app' },
+      { tpl:'Recording gvo %s',              desc:'Zoom recording upload',                           tag:'app' },
+    ]
+  },
+  {
+    section: 'device & source',
+    dorks: [
+      { tpl:'/Storage/Emulated/ %s',         desc:'Android internal storage path in title',          tag:'device' },
+      { tpl:'WhatsApp Video YYYY %s',        desc:'Videos shared via WhatsApp',                      tag:'device' },
+      { tpl:'FullSizeRender %s',             desc:'iPhone AirDrop/share default name',               tag:'device' },
+      { tpl:'"Com Oculus Vrshell" %s',       desc:'Meta Quest VR headset recording',                 tag:'device' },
+      { tpl:'Desktop YYYY MM DD %s',         desc:'Game capture software (Nvidia, OBS)',             tag:'device' },
+    ]
+  },
+  {
+    section: 'content & misc',
+    dorks: [
+      { tpl:'"Lv 0" %s',                     desc:'Brand new channel with 0 level',                  tag:'misc' },
+      { tpl:'bmdjAAF %s',                    desc:'Adobe After Effects export artifact',             tag:'misc' },
+      { tpl:'Videoplayback %s',              desc:'Downloaded and re-uploaded videos',               tag:'misc' },
+      { tpl:'"Video Output" %s',             desc:'Generic phone export label',                      tag:'misc' },
+      { tpl:'KM YYYYMMDD %s',               desc:'KineMaster mobile editor export',                  tag:'misc' },
+    ]
+  },
+];
+
+function buildDorkList(dorks, containerId, engineNick) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  dorks.forEach(section => {
+    const sec = document.createElement('div');
+    sec.className = 'dork-section';
+    sec.innerHTML = `<div class="dork-section-title">${section.section}</div>`;
+    const grid = document.createElement('div');
+    grid.className = 'dork-grid';
+    section.dorks.forEach(d => {
+      const item = document.createElement('div');
+      item.className = 'dork-item';
+      item.innerHTML = `
+        <div class="dork-template">${escHtml(d.tpl)}</div>
+        <div class="dork-desc">${escHtml(d.desc)}</div>
+        <div class="dork-tag">${engineNick} · ${d.tag}</div>`;
+      item.addEventListener('click', () => {
+        // find correct engine
+        const eng = NICK_MAP[engineNick];
+        if (eng) {
+          // find index in VISIBLE_ENGINES
+          const idx = VISIBLE_ENGINES.findIndex(e => e.nick === engineNick);
+          if (idx > -1) setEngine(idx);
+        }
+        // put template in search bar
+        const input = document.getElementById('searchInput');
+        input.value = d.tpl;
+        // position cursor at first %s
+        const pos = d.tpl.indexOf('%s');
+        if (pos > -1) {
+          setTimeout(() => {
+            input.setSelectionRange(pos, pos + 2);
+            input.focus();
+          }, 50);
+        } else {
+          input.focus();
+        }
+        closeDorksOverlay();
+        // update prefix hint
+        document.getElementById('searchPrefix').textContent = engineNick + ':';
+      });
+      grid.appendChild(item);
+    });
+    sec.appendChild(grid);
+    el.appendChild(sec);
+  });
+}
+
+function openDorksOverlay() {
+  document.getElementById('dorksOverlay').style.display = 'block';
+  buildDorkList(GOOGLE_DORKS, 'dorkGoogleList', 'g');
+  buildDorkList(YOUTUBE_DORKS, 'dorkYoutubeList', 'yt');
+  // tab switching
+  document.querySelectorAll('#dorksTabs .bg-tab').forEach(tab => {
+    tab.onclick = () => {
+      document.querySelectorAll('#dorksTabs .bg-tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('dorksTab-google').style.display = 'none';
+      document.getElementById('dorksTab-youtube').style.display = 'none';
+      tab.classList.add('active');
+      document.getElementById('dorksTab-' + tab.dataset.tab).style.display = '';
+    };
+  });
+}
+
+function closeDorksOverlay() {
+  document.getElementById('dorksOverlay').style.display = 'none';
+}
+
+document.getElementById('dorksBtn').addEventListener('click', openDorksOverlay);
+document.getElementById('dorksClose').addEventListener('click', closeDorksOverlay);
+document.getElementById('dorksOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('dorksOverlay')) closeDorksOverlay();
+});
 
 </script>
 </body>
