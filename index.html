@@ -49,13 +49,15 @@
   .layout {
     display: grid;
     grid-template-columns: 220px 1fr 220px;
-    grid-template-rows: auto 1fr auto;
-    gap: 0;
+    grid-template-rows: auto;
+    align-items: start;
     min-height: 100vh;
     max-width: 1600px;
+    width: 100%;
     margin: 0 auto;
     padding: 20px;
     gap: 16px;
+    box-sizing: border-box;
   }
 
   /* ── PANEL BASE ── */
@@ -692,6 +694,7 @@
   .spotify-art {
     width: 100%;
     aspect-ratio: 1;
+    max-height: 220px;
     background: var(--bg3);
     position: relative;
     overflow: hidden;
@@ -1098,6 +1101,110 @@
     text-transform: uppercase;
   }
 
+  /* ── INLINE SPELL / DEFINE ── */
+  .inline-result-header {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .inline-close {
+    cursor: pointer;
+    color: var(--text3);
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 2px;
+  }
+  .inline-close:hover { color: var(--text); }
+  .spell-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .spell-chip {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--border2);
+    background: var(--bg2);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.12s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .spell-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent3); }
+  .spell-chip.primary { border-color: var(--accent); color: var(--accent); background: var(--accent3); }
+  .spell-chip .chip-copy { font-size: 9px; color: var(--text3); }
+  .spell-chip:hover .chip-copy { color: var(--accent); }
+  .define-word {
+    font-family: var(--sans);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+  .define-phonetic {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    margin-bottom: 10px;
+  }
+  .define-pos {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-style: italic;
+    color: var(--accent);
+    margin-bottom: 4px;
+    letter-spacing: 0.05em;
+  }
+  .define-meaning {
+    font-size: 12px;
+    color: var(--text);
+    margin-bottom: 4px;
+    line-height: 1.6;
+    padding-left: 10px;
+    border-left: 2px solid var(--border2);
+  }
+  .define-example {
+    font-size: 11px;
+    color: var(--text2);
+    font-style: italic;
+    padding-left: 10px;
+    margin-bottom: 8px;
+    line-height: 1.5;
+  }
+  .define-section { margin-bottom: 12px; }
+  .inline-loading {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .inline-loading::before {
+    content: '';
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    border: 1px solid var(--accent);
+    border-top-color: transparent;
+    animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .copied-toast {
+    font-size: 10px;
+    color: var(--accent);
+    font-family: var(--mono);
+    animation: fadeOut 1.5s ease forwards;
+  }
+  @keyframes fadeOut { 0%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
+
   /* ── WIDGET DRAG ── */
   .drag-handle {
     cursor: grab;
@@ -1136,16 +1243,61 @@
   .fade-in { animation: fadeIn 0.3s ease; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-  @media (max-width: 900px) {
+  /* ── TABLET (≤1024px) — collapse to 2 equal cols ── */
+  @media (max-width: 1024px) {
     .layout { grid-template-columns: 1fr 1fr; }
     .clock-panel, .search-panel, .osint-panel, #widget-bookmarks, .statusbar { grid-column: 1 / 3; }
-    .left-col { grid-column: 1; }
-    .mid-col { grid-column: 1 / 3; }
-    .right-col { grid-column: 2; grid-row: 3; }
+    .left-col  { grid-column: 1; }
+    .mid-col   { grid-column: 1; }
+    .right-col { grid-column: 2; }
+    /* cap spotify art so it doesn't balloon */
+    .spotify-art { max-height: 180px; }
   }
+
+  /* ── NARROW TABLET (≤768px) — left+right stack, mid full ── */
+  @media (max-width: 768px) {
+    .layout { grid-template-columns: 1fr 1fr; }
+    .clock-panel, .search-panel, .osint-panel, #widget-bookmarks, .statusbar { grid-column: 1 / 3; }
+    .left-col  { grid-column: 1 / 3; }
+    .mid-col   { grid-column: 1 / 3; }
+    .right-col { grid-column: 1 / 3; }
+    .spotify-art { max-height: 160px; }
+    .bookmark-grid { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); }
+    .osint-grid    { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); }
+  }
+
+  /* ── MOBILE (≤600px) — full single column ── */
   @media (max-width: 600px) {
-    .layout { grid-template-columns: 1fr; }
-    .clock-panel, .search-panel, .osint-panel, .left-col, .mid-col, .right-col, .statusbar { grid-column: 1; }
+    .layout {
+      grid-template-columns: 1fr;
+      padding: 10px;
+      gap: 10px;
+    }
+    .clock-panel, .search-panel, .osint-panel,
+    #widget-bookmarks, .left-col, .mid-col,
+    .right-col, .statusbar { grid-column: 1; }
+
+    /* clock — smaller on mobile */
+    .clock-time   { font-size: 32px; }
+    .clock-seconds { font-size: 18px; }
+    .clock-right  { display: none; } /* hide date/uptime on tiny screens */
+
+    /* spotify — fixed height, not square */
+    .spotify-art { aspect-ratio: unset; height: 140px; max-height: 140px; }
+
+    /* bookmarks/osint — 3 across */
+    .bookmark-grid { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); }
+    .osint-grid    { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); }
+
+    /* search engines wrap smaller */
+    .engine-btn { font-size: 9px; padding: 3px 7px; }
+
+    /* status bar — hide non-essential items */
+    .sb-left { display: none; }
+    .statusbar { justify-content: flex-end; }
+
+    /* temp grid — 2 cols */
+    .temp-grid { grid-template-columns: 1fr 1fr; }
   }
 </style>
   <!-- Firebase -->
@@ -1236,8 +1388,10 @@
       <input type="text" id="searchInput" placeholder="search the web..." autocomplete="off" spellcheck="false">
     </div>
     <div class="search-hint">
-      <kbd>Enter</kbd> search &nbsp;·&nbsp; <kbd>Tab</kbd> cycle engines &nbsp;·&nbsp; <kbd>/</kbd> focus search &nbsp;·&nbsp; <kbd>Esc</kbd> clear
+      <kbd>Enter</kbd> search &nbsp;·&nbsp; <kbd>Tab</kbd> cycle engines &nbsp;·&nbsp; <kbd>/</kbd> focus search &nbsp;·&nbsp; <kbd>Esc</kbd> clear &nbsp;·&nbsp; <kbd>spell</kbd> spellcheck &nbsp;·&nbsp; <kbd>define</kbd> dictionary
     </div>
+    <!-- inline spell/define result -->
+    <div id="inlineResult" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:10px;"></div>
   </div>
 
 
@@ -1425,10 +1579,38 @@
         <button class="sb-btn" id="fbSignOutBtn" style="display:none;">sign out</button>
         <span id="fbSyncStatus" style="font-size:9px;color:var(--text3);letter-spacing:0.05em;"></span>
       </div>
+      <span id="statsIndicator" style="display:flex;align-items:center;gap:5px;font-size:10px;font-family:var(--mono);color:var(--text3);cursor:pointer;" title="click to download stats server">
+        <span id="statsIndicatorDot" style="width:6px;height:6px;border-radius:50%;background:var(--text3);flex-shrink:0;transition:background 0.3s;"></span>
+        <span id="statsIndicatorLabel">stats offline</span>
+      </span>
       <span style="color:var(--text3);">startpage v1.0</span>
     </div>
   </div>
 
+</div>
+
+<!-- ── SYNC CHOICE MODAL ── -->
+<div class="modal-overlay" id="syncChoiceOverlay" style="z-index:10005;">
+  <div class="modal" style="width:420px;max-width:95vw;">
+    <h3 style="margin-bottom:6px;">sync conflict</h3>
+    <p style="font-size:11px;color:var(--text2);margin-bottom:16px;line-height:1.6;">
+      You have data both locally and in the cloud.<br>What would you like to do?
+    </p>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+      <button class="modal-btn" id="syncChoiceMerge" style="text-align:left;padding:10px 14px;">
+        <div style="font-weight:500;color:var(--accent);margin-bottom:2px;">merge both</div>
+        <div style="font-size:10px;color:var(--text2);">Combine local + cloud. All bookmarks, todos and folders from both sides are kept. Newer values win for settings.</div>
+      </button>
+      <button class="modal-btn" id="syncChoiceCloud" style="text-align:left;padding:10px 14px;">
+        <div style="font-weight:500;margin-bottom:2px;">use cloud data</div>
+        <div style="font-size:10px;color:var(--text2);">Replace local with what's saved in the cloud. Local changes will be lost.</div>
+      </button>
+      <button class="modal-btn" id="syncChoiceLocal" style="text-align:left;padding:10px 14px;">
+        <div style="font-weight:500;margin-bottom:2px;">keep local data</div>
+        <div style="font-size:10px;color:var(--text2);">Push local data to cloud, overwriting what's there.</div>
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- ── DORKS OVERLAY ── -->
@@ -2492,16 +2674,32 @@ function renderStats(d) {
   document.getElementById('gpuTemp').classList.toggle('hot', gpuT > 75);
 }
 
+function updateStatsIndicator(live) {
+  const dot   = document.getElementById('statsIndicatorDot');
+  const label = document.getElementById('statsIndicatorLabel');
+  if (!dot || !label) return;
+  if (live) {
+    dot.style.background = 'var(--accent)';
+    label.textContent    = 'stats live';
+    label.style.color    = 'var(--accent)';
+  } else {
+    dot.style.background = 'var(--text3)';
+    label.textContent    = 'stats offline';
+    label.style.color    = 'var(--text3)';
+  }
+}
+
 async function fetchStats() {
   try {
     const r = await fetch(CONFIG.stats_api, { signal: AbortSignal.timeout(2000) });
     if (!r.ok) throw new Error();
     const d = await r.json();
     statsLive = true;
+    updateStatsIndicator(true);
     renderStats(d);
   } catch {
     statsLive = false;
-    // drift simulation so it doesn't look frozen
+    updateStatsIndicator(false);
     simStats.cpu  = Math.min(100, Math.max(2,  simStats.cpu  + ((Math.random()*10-5)|0)));
     simStats.mem  = Math.min(95,  Math.max(20, simStats.mem  + ((Math.random()*4-2)|0)));
     simStats.cpuT = Math.min(85,  Math.max(35, simStats.cpuT + ((Math.random()*4-2)|0)));
@@ -4088,14 +4286,17 @@ function fbSetStatus(msg, color) {
   el.style.color = color || 'var(--text3)';
 }
 
+// ── Data helpers ──
 function fbGetData() {
   return {
     bookmarks: JSON.parse(localStorage.getItem('sp_bookmarks') || '{}'),
+    osint:     JSON.parse(localStorage.getItem('sp_osint')     || '{}'),
     todos:     JSON.parse(localStorage.getItem('sp_todos')     || '[]'),
     notes:     localStorage.getItem('sp_notes') || '',
     greet:     JSON.parse(localStorage.getItem('sp_greet')     || '{}'),
     bg:        JSON.parse(localStorage.getItem('sp_bg')        || '{}'),
     accent:    document.documentElement.style.getPropertyValue('--accent') || '',
+    widgetOrder: JSON.parse(localStorage.getItem('sp_widget_order') || '{}'),
     updated:   Date.now(),
   };
 }
@@ -4105,8 +4306,12 @@ function fbApplyData(data) {
   if (data.bookmarks && Object.keys(data.bookmarks).length) {
     localStorage.setItem('sp_bookmarks', JSON.stringify(data.bookmarks));
     bookmarks = data.bookmarks;
-    buildCategoryTabs();
-    renderBookmarks();
+    buildCategoryTabs(); renderBookmarks();
+  }
+  if (data.osint && Object.keys(data.osint).length) {
+    localStorage.setItem('sp_osint', JSON.stringify(data.osint));
+    osintData = data.osint;
+    buildOsintTabs(); renderOsint();
   }
   if (data.todos) {
     localStorage.setItem('sp_todos', JSON.stringify(data.todos));
@@ -4124,13 +4329,108 @@ function fbApplyData(data) {
     document.getElementById('greetingPhrase').textContent = greetData.phrase;
     document.getElementById('greetingName').textContent   = greetData.name;
   }
-  if (data.bg) {
-    localStorage.setItem('sp_bg', JSON.stringify(data.bg));
-    applyBg(data.bg);
+  if (data.bg) { localStorage.setItem('sp_bg', JSON.stringify(data.bg)); applyBg(data.bg); }
+  if (data.accent) greetApplyColor(data.accent);
+  if (data.widgetOrder) {
+    localStorage.setItem('sp_widget_order', JSON.stringify(data.widgetOrder));
+    applyWidgetOrder();
   }
-  if (data.accent) {
-    greetApplyColor(data.accent);
+}
+
+// ── Smart merge — combine local + cloud ──
+function fbMergeData(local, remote) {
+  const merged = {};
+
+  // bookmarks — merge by category, deduplicate items by URL
+  const bmLocal  = local.bookmarks  || {};
+  const bmRemote = remote.bookmarks || {};
+  merged.bookmarks = { ...bmRemote };
+  Object.keys(bmLocal).forEach(cat => {
+    if (!merged.bookmarks[cat]) {
+      merged.bookmarks[cat] = bmLocal[cat];
+    } else {
+      const existingUrls = new Set(merged.bookmarks[cat].map(b => b.url));
+      bmLocal[cat].forEach(b => { if (!existingUrls.has(b.url)) merged.bookmarks[cat].push(b); });
+    }
+  });
+
+  // osint — same merge strategy
+  const osLocal  = local.osint  || {};
+  const osRemote = remote.osint || {};
+  merged.osint = { ...osRemote };
+  Object.keys(osLocal).forEach(cat => {
+    if (!merged.osint[cat]) {
+      merged.osint[cat] = osLocal[cat];
+    } else {
+      const existingUrls = new Set(merged.osint[cat].map(b => b.url));
+      osLocal[cat].forEach(b => { if (!existingUrls.has(b.url)) merged.osint[cat].push(b); });
+    }
+  });
+
+  // todos — merge by text content, deduplicate
+  const todosLocal  = local.todos  || [];
+  const todosRemote = remote.todos || [];
+  const todoTexts   = new Set(todosRemote.map(t => t.text));
+  merged.todos = [...todosRemote, ...todosLocal.filter(t => !todoTexts.has(t.text))];
+
+  // notes — if both differ, append local under a divider
+  const notesLocal  = (local.notes  || '').trim();
+  const notesRemote = (remote.notes || '').trim();
+  if (notesLocal && notesRemote && notesLocal !== notesRemote) {
+    merged.notes = notesRemote + '\n\n-- merged from local --\n' + notesLocal;
+  } else {
+    merged.notes = notesRemote || notesLocal;
   }
+
+  // single values — newer wins
+  const remoteNewer = (remote.updated || 0) > (local.updated || 0);
+  merged.greet       = remoteNewer ? (remote.greet || local.greet)       : (local.greet || remote.greet);
+  merged.bg          = remoteNewer ? (remote.bg    || local.bg)          : (local.bg    || remote.bg);
+  merged.accent      = remoteNewer ? (remote.accent|| local.accent)      : (local.accent|| remote.accent);
+  merged.widgetOrder = remoteNewer ? (remote.widgetOrder||local.widgetOrder) : (local.widgetOrder||remote.widgetOrder);
+  merged.updated     = Date.now();
+
+  return merged;
+}
+
+// ── Show Vivaldi-style sync choice modal ──
+function fbShowSyncChoice(localData, remoteData) {
+  const overlay = document.getElementById('syncChoiceOverlay');
+  overlay.classList.add('visible');
+
+  document.getElementById('syncChoiceMerge').onclick = () => {
+    overlay.classList.remove('visible');
+    const merged = fbMergeData(localData, remoteData);
+    fbApplyData(merged);
+    localStorage.setItem('sp_last_updated', Date.now().toString());
+    fbPushData(merged);
+    fbSetStatus('merged ✓', 'var(--accent)');
+    setTimeout(() => fbSetStatus(''), 2000);
+  };
+
+  document.getElementById('syncChoiceCloud').onclick = () => {
+    overlay.classList.remove('visible');
+    fbApplyData(remoteData);
+    localStorage.setItem('sp_last_updated', Date.now().toString());
+    fbSetStatus('restored ✓', 'var(--accent)');
+    setTimeout(() => fbSetStatus(''), 2000);
+  };
+
+  document.getElementById('syncChoiceLocal').onclick = () => {
+    overlay.classList.remove('visible');
+    fbPush();
+    fbSetStatus('pushed ✓', 'var(--accent)');
+    setTimeout(() => fbSetStatus(''), 2000);
+  };
+}
+
+// ── Push arbitrary data object ──
+async function fbPushData(data) {
+  if (!fbUser) return;
+  try {
+    const { db, doc, setDoc } = window._fb;
+    await setDoc(doc(db, 'users', fbUser.uid), data);
+  } catch(e) { console.error('fbPushData error', e); }
 }
 
 async function fbPush() {
@@ -4139,6 +4439,7 @@ async function fbPush() {
     const { db, doc, setDoc } = window._fb;
     fbSyncing = true;
     fbSetStatus('syncing...', 'var(--accent)');
+    localStorage.setItem('sp_last_updated', Date.now().toString());
     await setDoc(doc(db, 'users', fbUser.uid), fbGetData());
     fbSetStatus('synced ✓', 'var(--accent)');
     setTimeout(() => fbSetStatus(''), 2000);
@@ -4153,13 +4454,48 @@ async function fbPush() {
 function fbStartListening() {
   if (fbUnsubscribe) fbUnsubscribe();
   const { db, doc, onSnapshot } = window._fb;
+  let firstSnapshot = true;
+
   fbUnsubscribe = onSnapshot(doc(db, 'users', fbUser.uid), snap => {
-    if (snap.exists()) {
-      const remote = snap.data();
-      const local  = fbGetData();
-      // only apply remote if it's newer
-      if (remote.updated && remote.updated > (local.updated || 0)) {
+    if (firstSnapshot) {
+      firstSnapshot = false;
+
+      if (!snap.exists()) {
+        // no cloud data — push local up silently
+        fbPush();
+        return;
+      }
+
+      const remote     = snap.data();
+      const local      = fbGetData();
+      const localBm    = local.bookmarks || {};
+      const remoteBm   = remote.bookmarks || {};
+      const localHas   = Object.keys(localBm).length > 0;
+      const remoteHas  = Object.keys(remoteBm).length > 0;
+
+      if (!localHas && remoteHas) {
+        // empty local, cloud has data — restore silently
         fbApplyData(remote);
+        fbSetStatus('restored ✓', 'var(--accent)');
+        setTimeout(() => fbSetStatus(''), 2000);
+      } else if (localHas && !remoteHas) {
+        // local has data, cloud empty — push silently
+        fbPush();
+      } else if (localHas && remoteHas) {
+        // both have data — show the choice modal
+        fbShowSyncChoice(local, remote);
+      } else {
+        // both empty — nothing to do
+        fbPush();
+      }
+    } else {
+      // subsequent real-time updates from another device
+      const remote   = snap.data();
+      const remoteTs = remote.updated || 0;
+      const localTs  = parseInt(localStorage.getItem('sp_last_updated') || '0');
+      if (remoteTs > localTs + 3000) {
+        fbApplyData(remote);
+        localStorage.setItem('sp_last_updated', remoteTs.toString());
         fbSetStatus('synced ✓', 'var(--accent)');
         setTimeout(() => fbSetStatus(''), 2000);
       }
@@ -4175,8 +4511,6 @@ function fbOnSignIn(user) {
   document.getElementById('fbUserInfo').textContent     = user.displayName || user.email;
   fbSetStatus('connecting...', 'var(--accent)');
   fbStartListening();
-  // push local data up on first sign in
-  setTimeout(fbPush, 1500);
 }
 
 function fbOnSignOut() {
@@ -5272,6 +5606,410 @@ document.getElementById('dorksClose').addEventListener('click', closeDorksOverla
 document.getElementById('dorksOverlay').addEventListener('click', e => {
   if (e.target === document.getElementById('dorksOverlay')) closeDorksOverlay();
 });
+
+
+// ══════════════════════════════
+//  INLINE SPELL CHECK + DICTIONARY
+// ══════════════════════════════
+const inlineResult = document.getElementById('inlineResult');
+let inlineDebounce = null;
+let lastInlineQuery = '';
+
+function closeInlineResult() {
+  inlineResult.style.display = 'none';
+  inlineResult.innerHTML = '';
+  lastInlineQuery = '';
+}
+
+function showInlineLoading(label) {
+  inlineResult.style.display = 'block';
+  inlineResult.innerHTML = `
+    <div class="inline-result-header">
+      <span>${label}</span>
+      <span class="inline-close" onclick="closeInlineResult()">✕</span>
+    </div>
+    <div class="inline-loading">thinking...</div>`;
+}
+
+// ── Spell Check ──
+async function doSpellCheck(word) {
+  if (!word.trim()) return;
+  showInlineLoading('spell check · ' + word);
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 200,
+        system: 'You are a spellchecker. The user gives you a word or phrase that may be misspelled. Respond ONLY with a JSON object like this: {"correct": true/false, "suggestions": ["word1","word2","word3"]}. If already correct, suggestions should contain just the correct word. Give 1-4 suggestions max. No other text.',
+        messages: [{ role: 'user', content: word }]
+      })
+    });
+    const data = await resp.json();
+    const text = data.content?.[0]?.text || '{}';
+    const clean = text.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+
+    inlineResult.innerHTML = `
+      <div class="inline-result-header">
+        <span>spell check · <span style="color:var(--text2)">${escHtml(word)}</span></span>
+        <span class="inline-close" onclick="closeInlineResult()">✕</span>
+      </div>
+      <div class="spell-suggestions" id="spellSuggestions"></div>`;
+
+    const container = document.getElementById('spellSuggestions');
+
+    if (result.correct) {
+      const chip = document.createElement('div');
+      chip.className = 'spell-chip primary';
+      chip.innerHTML = `<span>${escHtml(result.suggestions[0] || word)}</span><span class="chip-copy">✓ correct · click to copy</span>`;
+      chip.addEventListener('click', () => copySpelling(result.suggestions[0] || word, chip));
+      container.appendChild(chip);
+    } else {
+      result.suggestions.forEach((s, i) => {
+        const chip = document.createElement('div');
+        chip.className = 'spell-chip' + (i === 0 ? ' primary' : '');
+        chip.innerHTML = `<span>${escHtml(s)}</span><span class="chip-copy">click to copy</span>`;
+        chip.addEventListener('click', () => copySpelling(s, chip));
+        container.appendChild(chip);
+      });
+    }
+  } catch(e) {
+    inlineResult.innerHTML = `<div class="inline-result-header"><span>spell check</span><span class="inline-close" onclick="closeInlineResult()">✕</span></div><div style="font-size:11px;color:var(--text3);font-family:var(--mono);">error — check connection</div>`;
+  }
+}
+
+function copySpelling(word, chip) {
+  navigator.clipboard.writeText(word).then(() => {
+    const orig = chip.innerHTML;
+    chip.innerHTML = `<span>${escHtml(word)}</span><span class="copied-toast">copied!</span>`;
+    setTimeout(() => { chip.innerHTML = orig; }, 1500);
+  });
+}
+
+// ── Dictionary ──
+async function doDefine(word) {
+  if (!word.trim()) return;
+  showInlineLoading('define · ' + word);
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 500,
+        system: 'You are a dictionary. Respond ONLY with a JSON object like: {"word":"...","phonetic":"...","definitions":[{"pos":"noun","meaning":"...","example":"..."}]}. Give 1-3 definitions max. Keep meanings concise (1-2 sentences). Examples are short. No markdown, no extra text.',
+        messages: [{ role: 'user', content: word }]
+      })
+    });
+    const data = await resp.json();
+    const text = data.content?.[0]?.text || '{}';
+    const clean = text.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+
+    let defsHtml = '';
+    (result.definitions || []).forEach(d => {
+      defsHtml += `
+        <div class="define-section">
+          <div class="define-pos">${escHtml(d.pos || '')}</div>
+          <div class="define-meaning">${escHtml(d.meaning || '')}</div>
+          ${d.example ? `<div class="define-example">"${escHtml(d.example)}"</div>` : ''}
+        </div>`;
+    });
+
+    inlineResult.innerHTML = `
+      <div class="inline-result-header">
+        <span>define</span>
+        <span class="inline-close" onclick="closeInlineResult()">✕</span>
+      </div>
+      <div class="define-word">${escHtml(result.word || word)}</div>
+      ${result.phonetic ? `<div class="define-phonetic">${escHtml(result.phonetic)}</div>` : ''}
+      ${defsHtml || '<div style="font-size:11px;color:var(--text3);font-family:var(--mono);">no definition found</div>'}`;
+  } catch(e) {
+    inlineResult.innerHTML = `<div class="inline-result-header"><span>define</span><span class="inline-close" onclick="closeInlineResult()">✕</span></div><div style="font-size:11px;color:var(--text3);font-family:var(--mono);">error — check connection</div>`;
+  }
+}
+
+// ── Hook into search input ──
+document.getElementById('searchInput').addEventListener('input', e => {
+  const val = e.target.value.trim();
+  const parts = val.split(' ');
+  const cmd = parts[0].toLowerCase();
+  const query = parts.slice(1).join(' ').trim();
+
+  clearTimeout(inlineDebounce);
+
+  if ((cmd === 'spell' || cmd === 'define') && query) {
+    const key = cmd + ':' + query;
+    if (key === lastInlineQuery) return;
+    inlineDebounce = setTimeout(() => {
+      lastInlineQuery = key;
+      if (cmd === 'spell') doSpellCheck(query);
+      else doDefine(query);
+    }, 600); // wait 600ms after typing stops
+  } else if (cmd !== 'spell' && cmd !== 'define') {
+    closeInlineResult();
+  }
+});
+
+// close on Escape
+document.getElementById('searchInput').addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeInlineResult();
+  // block Enter from searching when showing inline result
+  if (e.key === 'Enter' && inlineResult.style.display !== 'none') {
+    const val = e.target.value.trim().toLowerCase();
+    if (val.startsWith('spell ') || val.startsWith('define ')) {
+      e.stopImmediatePropagation();
+    }
+  }
+}, true);
+
+
+// ══════════════════════════════
+//  STATS SERVER SETUP & DOWNLOAD
+// ══════════════════════════════
+const STATS_SERVER_PY = `"""
+startpage stats server
+Serves real-time CPU, RAM, disk and temp data on http://localhost:61209
+Run this once at Windows startup and your startpage will show live stats.
+
+Install dependencies (run once):
+    pip install psutil
+
+Run:
+    python stats_server.py
+
+To auto-start with Windows:
+    Place a shortcut to this script in your startup folder:
+    Win+R -> shell:startup -> create a .bat file with:
+        @echo off
+        start /min pythonw stats_server.py
+"""
+
+import json
+import psutil
+import platform
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+PORT = 61209
+
+def get_stats():
+    # CPU
+    cpu_pct   = psutil.cpu_percent(interval=0.1)
+    cpu_cores = psutil.cpu_count(logical=False)
+    cpu_freq  = psutil.cpu_freq()
+
+    # Memory
+    mem = psutil.virtual_memory()
+
+    # Disk — find C: on Windows, / on Linux/Mac
+    disk_label = 'C:\\\\'
+    try:
+        partitions = psutil.disk_partitions()
+        # prefer C: on Windows
+        target = next((p for p in partitions if p.mountpoint == 'C:\\\\'), None)
+        if target is None:
+            target = next((p for p in partitions if p.mountpoint == '/'), None)
+        if target is None and partitions:
+            target = partitions[0]
+        if target:
+            disk_label = target.mountpoint
+            disk_usage = psutil.disk_usage(target.mountpoint)
+        else:
+            disk_usage = psutil.disk_usage('/')
+    except Exception:
+        disk_usage = psutil.disk_usage('/')
+        disk_label = '/'
+
+    # Temperatures (not available on all systems)
+    cpu_temp = gpu_temp = disk_temp = board_temp = None
+    try:
+        temps = psutil.sensors_temperatures()
+        if temps:
+            # CPU temp — try common keys
+            for key in ['coretemp', 'k10temp', 'cpu_thermal', 'cpu-thermal']:
+                if key in temps and temps[key]:
+                    cpu_temp = round(temps[key][0].current, 1)
+                    break
+            # GPU temp
+            for key in ['amdgpu', 'nvidia', 'nouveau']:
+                if key in temps and temps[key]:
+                    gpu_temp = round(temps[key][0].current, 1)
+                    break
+            # Disk temp
+            for key in ['drivetemp', 'nvme']:
+                if key in temps and temps[key]:
+                    disk_temp = round(temps[key][0].current, 1)
+                    break
+            # Board / ACPI
+            for key in ['acpitz', 'it8688', 'nct6795']:
+                if key in temps and temps[key]:
+                    board_temp = round(temps[key][0].current, 1)
+                    break
+    except (AttributeError, Exception):
+        pass  # Windows often doesn't expose temps via psutil
+
+    return {
+        'cpu':        round(cpu_pct, 1),
+        'cpu_cores':  cpu_cores,
+        'cpu_freq':   round(cpu_freq.current) if cpu_freq else None,
+        'mem_pct':    round(mem.percent, 1),
+        'mem_used':   mem.used,
+        'mem_total':  mem.total,
+        'disk_pct':   round(disk_usage.percent, 1),
+        'disk_used':  disk_usage.used,
+        'disk_total': disk_usage.total,
+        'disk_label': disk_label.replace('\\\\', '').rstrip(':') + ':',
+        'cpu_temp':   cpu_temp,
+        'gpu_temp':   gpu_temp,
+        'disk_temp':  disk_temp,
+        'board_temp': board_temp,
+        'os':         platform.system() + ' ' + platform.release(),
+        'node':       platform.node(),
+    }
+
+
+class StatsHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps(get_stats()).encode())
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        self.end_headers()
+
+    def log_message(self, format, *args):
+        pass  # suppress console spam
+
+
+if __name__ == '__main__':
+    server = HTTPServer(('localhost', PORT), StatsHandler)
+    print(f'startpage stats server running on http://localhost:{PORT}')
+    print('Keep this window open (or run minimized at startup)')
+    print('Press Ctrl+C to stop')
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print('\\nstopped')
+`;
+
+const STATS_SERVER_BAT = `@echo off\r\ncd /d "%~dp0"\r\nstart /min pythonw stats_server.py\r\n`;
+
+function downloadStatsFiles() {
+  // show setup modal
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay visible';
+  overlay.style.zIndex = '10010';
+  overlay.innerHTML = `
+    <div class="modal" style="width:480px;max-width:95vw;">
+      <h3 style="margin-bottom:6px;">stats server setup</h3>
+      <p style="font-size:11px;color:var(--text2);line-height:1.7;margin-bottom:14px;">
+        The stats server is a tiny Python script that runs in the background and feeds your startpage real CPU, RAM and disk data.<br><br>
+        <strong style="color:var(--text);">One-time setup:</strong>
+      </p>
+
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text2);margin-bottom:16px;line-height:2;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <span style="color:var(--accent);font-size:13px;font-weight:700;">1</span>
+          <span>Install Python if you don't have it — <a href="https://python.org/downloads" style="color:var(--accent);">python.org/downloads</a></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <span style="color:var(--accent);font-size:13px;font-weight:700;">2</span>
+          <span>Run in terminal: <code style="background:var(--bg3);padding:2px 6px;border-radius:3px;">pip install psutil</code></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <span style="color:var(--accent);font-size:13px;font-weight:700;">3</span>
+          <span>Download the files below and save them together in a folder</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <span style="color:var(--accent);font-size:13px;font-weight:700;">4</span>
+          <span>Run <code style="background:var(--bg3);padding:2px 6px;border-radius:3px;">stats_server.py</code> — keep it running in background</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="color:var(--accent);font-size:13px;font-weight:700;">5</span>
+          <span>(Optional) Put the <code style="background:var(--bg3);padding:2px 6px;border-radius:3px;">.bat</code> shortcut in your Windows startup folder to auto-start</span>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <button class="modal-btn primary" id="dlPy" style="flex:1;">⬇ stats_server.py</button>
+        <button class="modal-btn" id="dlBat" style="flex:1;">⬇ startpage_stats.bat</button>
+      </div>
+
+      <div id="dlStatus" style="font-size:10px;color:var(--text3);font-family:var(--mono);min-height:14px;margin-bottom:10px;text-align:center;"></div>
+
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px;font-size:10px;font-family:var(--mono);color:var(--text3);margin-bottom:14px;">
+        <span id="statsLiveStatus" style="display:flex;align-items:center;gap:6px;">
+          <span id="setupDot" style="width:7px;height:7px;border-radius:50%;background:var(--text3);flex-shrink:0;"></span>
+          <span id="setupLabel">checking connection...</span>
+        </span>
+      </div>
+
+      <div class="modal-btns">
+        <button class="modal-btn" id="dlClose">close</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // download py
+  overlay.querySelector('#dlPy').addEventListener('click', () => {
+    const blob = new Blob([STATS_SERVER_PY], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'stats_server.py';
+    a.click();
+    overlay.querySelector('#dlStatus').textContent = 'stats_server.py downloaded ✓';
+  });
+
+  // download bat
+  overlay.querySelector('#dlBat').addEventListener('click', () => {
+    const blob = new Blob([STATS_SERVER_BAT.replace(/\\r\\n/g, '\r\n')], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'startpage_stats.bat';
+    a.click();
+    overlay.querySelector('#dlStatus').textContent = 'startpage_stats.bat downloaded ✓';
+  });
+
+  // live connection check inside modal
+  const setupDot   = overlay.querySelector('#setupDot');
+  const setupLabel = overlay.querySelector('#setupLabel');
+  async function checkConnection() {
+    try {
+      const r = await fetch(CONFIG.stats_api, { signal: AbortSignal.timeout(1500) });
+      if (r.ok) {
+        setupDot.style.background   = 'var(--accent)';
+        setupLabel.textContent      = 'stats server is running ✓ — live data active';
+        setupLabel.style.color      = 'var(--accent)';
+      } else { throw new Error(); }
+    } catch {
+      setupDot.style.background = 'var(--text3)';
+      setupLabel.textContent    = 'stats server not detected — start it and this will update';
+      setupLabel.style.color    = 'var(--text3)';
+    }
+  }
+  checkConnection();
+  const checkInterval = setInterval(checkConnection, 2000);
+
+  overlay.querySelector('#dlClose').addEventListener('click', () => {
+    clearInterval(checkInterval);
+    overlay.remove();
+  });
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) { clearInterval(checkInterval); overlay.remove(); }
+  });
+}
+
+// click stats indicator to open setup
+document.getElementById('statsIndicator').addEventListener('click', downloadStatsFiles);
 
 </script>
 </body>
