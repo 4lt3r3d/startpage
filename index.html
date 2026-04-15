@@ -502,7 +502,7 @@
     transition: background 0.15s;
   }
   .todo-add-btn:hover { background: rgba(126,207,179,0.18); }
-  .todo-list { display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto; }
+  .todo-list { display: flex; flex-direction: column; gap: 4px; }
   .todo-item {
     display: flex;
     align-items: flex-start;
@@ -1205,6 +1205,126 @@
   }
   @keyframes fadeOut { 0%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
 
+  /* ── LIVE FEEDS ── */
+  .feed-item {
+    position: relative;
+    border-radius: var(--radius);
+    overflow: hidden;
+    cursor: pointer;
+    background: #000;
+    aspect-ratio: 16/9;
+    margin-bottom: 8px;
+  }
+  .feed-item:last-child { margin-bottom: 0; }
+  .feed-thumb {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: opacity 0.2s;
+    opacity: 0.85;
+  }
+  .feed-item:hover .feed-thumb { opacity: 1; }
+  .feed-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 8px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 40%, transparent 60%, rgba(0,0,0,0.7) 100%);
+  }
+  .feed-live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(220,30,30,0.9);
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    padding: 2px 6px;
+    border-radius: 2px;
+    width: fit-content;
+  }
+  .feed-live-badge::before {
+    content: '';
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: #fff;
+    animation: pulse-dot 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%,100% { opacity:1; } 50% { opacity:0.3; }
+  }
+  .feed-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .feed-play-btn {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.6);
+    border: 2px solid rgba(255,255,255,0.7);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    font-size: 14px;
+    transition: all 0.15s;
+    pointer-events: none;
+  }
+  .feed-item:hover .feed-play-btn {
+    background: var(--accent);
+    border-color: var(--accent);
+    transform: translate(-50%,-50%) scale(1.1);
+  }
+  .feed-iframe-wrap {
+    aspect-ratio: 16/9;
+    position: relative;
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 8px;
+    background: #000;
+  }
+  .feed-iframe-wrap:last-child { margin-bottom: 0; }
+  .feed-iframe-wrap iframe {
+    width: 100%; height: 100%;
+    border: none;
+    display: block;
+  }
+  .feed-iframe-label {
+    position: absolute;
+    top: 6px; left: 6px;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: rgba(255,255,255,0.7);
+    background: rgba(0,0,0,0.5);
+    padding: 2px 6px;
+    border-radius: 2px;
+    pointer-events: none;
+  }
+  .feed-close-btn {
+    position: absolute;
+    top: 6px; right: 6px;
+    background: rgba(0,0,0,0.6);
+    border: none;
+    color: #fff;
+    font-size: 12px;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .feed-close-btn:hover { background: rgba(220,30,30,0.8); }
+
   /* ── WIDGET DRAG ── */
   .drag-handle {
     cursor: grab;
@@ -1462,19 +1582,6 @@
       </div>
     </div>
 
-    <!-- TODO -->
-    <div class="panel widget" id="widget-todo" draggable="false">
-      <div class="panel-title widget-title"><span class="drag-handle" title="drag to move">⠿</span><span class="dot" style="background:var(--yellow);"></span>todo</div>
-      <div class="todo-input-row">
-        <input type="text" id="todoInput" placeholder="add task..." maxlength="120">
-        <div class="todo-add-btn" id="todoAddBtn" title="Add (Enter)">+</div>
-      </div>
-      <div class="todo-list" id="todoList"></div>
-      <div class="todo-footer">
-        <span id="todoCount">0 tasks</span>
-        <span class="todo-clear" id="todoClear">clear done</span>
-      </div>
-    </div>
 
     <!-- NOTES -->
     <div class="panel widget" id="widget-notes" draggable="false">
@@ -1498,6 +1605,32 @@
       <div class="osint-grid" id="osintGrid"></div>
       <div style="margin-top:10px;font-size:10px;color:var(--text3);" id="osintHint">
         right-click to add · right-click item to edit/remove
+      </div>
+    </div>
+
+    <!-- LIVE FEEDS -->
+    <div class="panel osint-panel widget" id="widget-feeds" draggable="false">
+      <div class="panel-title widget-title" style="justify-content:space-between;">
+        <span style="display:flex;align-items:center;gap:6px;">
+          <span class="drag-handle" title="drag to move">⠿</span>
+          <span class="dot" style="background:var(--red);"></span>live feeds
+        </span>
+        <span style="font-size:9px;color:var(--text3);font-family:var(--mono);">click to play inline</span>
+      </div>
+      <div id="feedsContainer" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
+    </div>
+
+    <!-- TODO -->
+    <div class="panel osint-panel widget" id="widget-todo" draggable="false">
+      <div class="panel-title widget-title"><span class="drag-handle" title="drag to move">⠿</span><span class="dot" style="background:var(--yellow);"></span>todo</div>
+      <div class="todo-input-row">
+        <input type="text" id="todoInput" placeholder="add task..." maxlength="120">
+        <div class="todo-add-btn" id="todoAddBtn" title="Add (Enter)">+</div>
+      </div>
+      <div class="todo-list" id="todoList"></div>
+      <div class="todo-footer">
+        <span id="todoCount">0 tasks</span>
+        <span class="todo-clear" id="todoClear">clear done</span>
       </div>
     </div>
   </div>
@@ -6010,6 +6143,69 @@ function downloadStatsFiles() {
 
 // click stats indicator to open setup
 document.getElementById('statsIndicator').addEventListener('click', downloadStatsFiles);
+
+
+// ══════════════════════════════
+//  LIVE FEEDS
+// ══════════════════════════════
+const LIVE_FEEDS = [
+  {
+    id: 'gmtlJ_m2r5A',
+    title: 'Middle East — Iran & Israel',
+    thumb: 'https://img.youtube.com/vi/gmtlJ_m2r5A/maxresdefault.jpg',
+  },
+  {
+    id: '7QOsmyPEZIM',
+    title: 'Kensington Ave — Philadelphia',
+    thumb: 'https://img.youtube.com/vi/7QOsmyPEZIM/maxresdefault.jpg',
+  },
+];
+
+function buildFeeds() {
+  const container = document.getElementById('feedsContainer');
+  container.innerHTML = '';
+  LIVE_FEEDS.forEach(feed => {
+    const wrap = document.createElement('div');
+    wrap.className = 'feed-item';
+    wrap.dataset.id = feed.id;
+    wrap.innerHTML = `
+      <img class="feed-thumb" src="${feed.thumb}"
+           onerror="this.src='https://img.youtube.com/vi/${feed.id}/hqdefault.jpg'"
+           alt="${feed.title}">
+      <div class="feed-overlay">
+        <div class="feed-live-badge">LIVE</div>
+        <div class="feed-title">${feed.title}</div>
+      </div>
+      <div class="feed-play-btn">▶</div>`;
+
+    wrap.addEventListener('click', () => playFeedInline(feed, wrap));
+    container.appendChild(wrap);
+  });
+}
+
+function playFeedInline(feed, thumbEl) {
+  // replace thumbnail with embedded player
+  const wrap = document.createElement('div');
+  wrap.className = 'feed-iframe-wrap';
+  wrap.innerHTML = `
+    <iframe
+      src="https://www.youtube.com/embed/${feed.id}?autoplay=1&mute=0&rel=0&modestbranding=1"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowfullscreen>
+    </iframe>
+    <div class="feed-iframe-label">${feed.title}</div>
+    <button class="feed-close-btn" title="close">✕</button>`;
+
+  wrap.querySelector('.feed-close-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    // restore thumbnail
+    wrap.replaceWith(thumbEl);
+  });
+
+  thumbEl.replaceWith(wrap);
+}
+
+buildFeeds();
 
 </script>
 </body>
