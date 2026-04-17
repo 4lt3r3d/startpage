@@ -1753,11 +1753,22 @@
       <div style="font-family:var(--mono);font-size:11px;color:var(--text2);letter-spacing:0.1em;">DORK TEMPLATES &nbsp;<span style="color:var(--text3);">— click any template to load into search bar</span></div>
       <button id="dorksClose" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:4px;">✕</button>
     </div>
+    <!-- filter search bar -->
+    <div style="position:relative;margin-bottom:14px;">
+      <input id="dorksFilter" type="text" placeholder="filter dorks..." autocomplete="off" spellcheck="false"
+        style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);
+               color:var(--text);font-family:var(--mono);font-size:12px;padding:8px 36px 8px 12px;
+               outline:none;caret-color:var(--accent);box-sizing:border-box;transition:border-color 0.15s;">
+      <span id="dorksFilterClear" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
+            color:var(--text3);cursor:pointer;font-size:14px;display:none;">✕</span>
+    </div>
     <!-- tabs -->
     <div style="display:flex;gap:6px;margin-bottom:16px;" id="dorksTabs">
       <button class="bg-tab active" data-tab="google">google dorks</button>
       <button class="bg-tab" data-tab="youtube">youtube dorks</button>
     </div>
+    <!-- no results -->
+    <div id="dorksNoResults" style="display:none;font-family:var(--mono);font-size:11px;color:var(--text3);text-align:center;padding:30px 0;">no dorks match that filter</div>
     <!-- google tab -->
     <div id="dorksTab-google">
       <div id="dorkGoogleList"></div>
@@ -5714,11 +5725,82 @@ function buildDorkList(dorks, containerId, engineNick) {
   });
 }
 
+function filterDorks(query) {
+  const q = query.toLowerCase().trim();
+  const items = document.querySelectorAll('.dork-item');
+  const sections = document.querySelectorAll('.dork-section');
+  let anyVisible = false;
+
+  if (!q) {
+    // show everything
+    items.forEach(el => { el.style.opacity = '1'; el.style.pointerEvents = ''; el.style.display = ''; });
+    sections.forEach(el => { el.style.display = ''; });
+    document.getElementById('dorksNoResults').style.display = 'none';
+    return;
+  }
+
+  // hide/show per item
+  sections.forEach(section => {
+    let sectionHasVisible = false;
+    section.querySelectorAll('.dork-item').forEach(item => {
+      const tpl  = item.querySelector('.dork-template')?.textContent.toLowerCase() || '';
+      const desc = item.querySelector('.dork-desc')?.textContent.toLowerCase() || '';
+      const tag  = item.querySelector('.dork-tag')?.textContent.toLowerCase() || '';
+      const match = tpl.includes(q) || desc.includes(q) || tag.includes(q);
+      item.style.opacity       = match ? '1' : '0.1';
+      item.style.pointerEvents = match ? '' : 'none';
+      if (match) { sectionHasVisible = true; anyVisible = true; }
+    });
+    // hide section title if nothing in it matches
+    section.querySelector('.dork-section-title').style.opacity = sectionHasVisible ? '1' : '0.2';
+  });
+
+  document.getElementById('dorksNoResults').style.display = anyVisible ? 'none' : '';
+}
+
 function openDorksOverlay() {
   document.getElementById('dorksOverlay').style.display = 'block';
   buildDorkList(GOOGLE_DORKS, 'dorkGoogleList', 'g');
   buildDorkList(YOUTUBE_DORKS, 'dorkYoutubeList', 'yt');
-  // tab switching
+
+  // focus filter input
+  const filterInput = document.getElementById('dorksFilter');
+  const filterClear = document.getElementById('dorksFilterClear');
+  filterInput.value = '';
+  filterDorks('');
+  setTimeout(() => filterInput.focus(), 50);
+
+  // live filter as you type
+  filterInput.oninput = () => {
+    const q = filterInput.value;
+    filterClear.style.display = q ? '' : 'none';
+    filterDorks(q);
+  };
+
+  filterInput.onfocus = () => filterInput.style.borderColor = 'var(--accent)';
+  filterInput.onblur  = () => filterInput.style.borderColor = 'var(--border)';
+
+  // clear button
+  filterClear.onclick = () => {
+    filterInput.value = '';
+    filterClear.style.display = 'none';
+    filterDorks('');
+    filterInput.focus();
+  };
+
+  // stop Escape from closing overlay when filter has text
+  filterInput.onkeydown = e => {
+    if (e.key === 'Escape') {
+      if (filterInput.value) {
+        e.stopPropagation();
+        filterInput.value = '';
+        filterClear.style.display = 'none';
+        filterDorks('');
+      }
+    }
+  };
+
+  // tab switching — reset filter on tab change
   document.querySelectorAll('#dorksTabs .bg-tab').forEach(tab => {
     tab.onclick = () => {
       document.querySelectorAll('#dorksTabs .bg-tab').forEach(t => t.classList.remove('active'));
@@ -5726,6 +5808,8 @@ function openDorksOverlay() {
       document.getElementById('dorksTab-youtube').style.display = 'none';
       tab.classList.add('active');
       document.getElementById('dorksTab-' + tab.dataset.tab).style.display = '';
+      // re-apply current filter to new tab
+      filterDorks(filterInput.value);
     };
   });
 }
@@ -6016,6 +6100,200 @@ class StatsHandler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        self.end_headers()
+
+    def log_message(self, format, *args):
+        pass  # suppress console spam
+
+
+if __name__ == '__main__':
+    server = HTTPServer(('localhost', PORT), StatsHandler)
+    print(f'startpage stats server running on http://localhost:{PORT}')
+    print('Keep this window open (or run minimized at startup)')
+    print('Press Ctrl+C to stop')
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print('\\nstopped')
+`;
+
+const STATS_SERVER_BAT = `@echo off\r\ncd /d "%~dp0"\r\nstart /min pythonw stats_server.py\r\n`;
+
+function downloadStatsFiles() {
+  // show setup modal
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay visible';
+  overlay.style.zIndex = '10010';
+  overlay.innerHTML = `
+    <div class="modal" style="width:480px;max-width:95vw;">
+      <h3 style="margin-bottom:6px;">stats server setup</h3>
+      <p style="font-size:11px;color:var(--text2);line-height:1.7;margin-bottom:14px;">
+        The stats server is a tiny Python script that runs in the background and feeds your startpage real CPU, RAM and disk data.<br><br>
+        <strong style="color:var(--text);">One-time setup:</strong>
+      </p>
+
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text2);margin-bottom:16px;line-height:2;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <span style="color:var(--accent);font-size:13px;font-weight:700;">1</span>
+          <span>Install Python if you don't have it — <a href="https://python.org/downloads" style="color:var(--accent);">python.org/downloads</a></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <span style="color:var(--accent);font-size:13px;font-weight:700;">2</span>
+          <span>Run in terminal: <code style="background:var(--bg3);padding:2px 6px;border-radius:3px;">pip install psutil</code></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <span style="color:var(--accent);font-size:13px;font-weight:700;">3</span>
+          <span>Download the files below and save them together in a folder</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <span style="color:var(--accent);font-size:13px;font-weight:700;">4</span>
+          <span>Run <code style="background:var(--bg3);padding:2px 6px;border-radius:3px;">stats_server.py</code> — keep it running in background</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="color:var(--accent);font-size:13px;font-weight:700;">5</span>
+          <span>(Optional) Put the <code style="background:var(--bg3);padding:2px 6px;border-radius:3px;">.bat</code> shortcut in your Windows startup folder to auto-start</span>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <button class="modal-btn primary" id="dlPy" style="flex:1;">⬇ stats_server.py</button>
+        <button class="modal-btn" id="dlBat" style="flex:1;">⬇ startpage_stats.bat</button>
+      </div>
+
+      <div id="dlStatus" style="font-size:10px;color:var(--text3);font-family:var(--mono);min-height:14px;margin-bottom:10px;text-align:center;"></div>
+
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px;font-size:10px;font-family:var(--mono);color:var(--text3);margin-bottom:14px;">
+        <span id="statsLiveStatus" style="display:flex;align-items:center;gap:6px;">
+          <span id="setupDot" style="width:7px;height:7px;border-radius:50%;background:var(--text3);flex-shrink:0;"></span>
+          <span id="setupLabel">checking connection...</span>
+        </span>
+      </div>
+
+      <div class="modal-btns">
+        <button class="modal-btn" id="dlClose">close</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // download py
+  overlay.querySelector('#dlPy').addEventListener('click', () => {
+    const blob = new Blob([STATS_SERVER_PY], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'stats_server.py';
+    a.click();
+    overlay.querySelector('#dlStatus').textContent = 'stats_server.py downloaded ✓';
+  });
+
+  // download bat
+  overlay.querySelector('#dlBat').addEventListener('click', () => {
+    const blob = new Blob([STATS_SERVER_BAT.replace(/\\r\\n/g, '\r\n')], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'startpage_stats.bat';
+    a.click();
+    overlay.querySelector('#dlStatus').textContent = 'startpage_stats.bat downloaded ✓';
+  });
+
+  // live connection check inside modal
+  const setupDot   = overlay.querySelector('#setupDot');
+  const setupLabel = overlay.querySelector('#setupLabel');
+  async function checkConnection() {
+    try {
+      const r = await fetch(CONFIG.stats_api, { signal: AbortSignal.timeout(1500) });
+      if (r.ok) {
+        setupDot.style.background   = 'var(--accent)';
+        setupLabel.textContent      = 'stats server is running ✓ — live data active';
+        setupLabel.style.color      = 'var(--accent)';
+      } else { throw new Error(); }
+    } catch {
+      setupDot.style.background = 'var(--text3)';
+      setupLabel.textContent    = 'stats server not detected — start it and this will update';
+      setupLabel.style.color    = 'var(--text3)';
+    }
+  }
+  checkConnection();
+  const checkInterval = setInterval(checkConnection, 2000);
+
+  overlay.querySelector('#dlClose').addEventListener('click', () => {
+    clearInterval(checkInterval);
+    overlay.remove();
+  });
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) { clearInterval(checkInterval); overlay.remove(); }
+  });
+}
+
+// click stats indicator to open setup
+document.getElementById('statsIndicator').addEventListener('click', downloadStatsFiles);
+
+
+// ══════════════════════════════
+//  LIVE FEEDS
+// ══════════════════════════════
+const LIVE_FEEDS = [
+  {
+    id: 'gmtlJ_m2r5A',
+    title: 'Middle East — Iran & Israel',
+    thumb: 'https://img.youtube.com/vi/gmtlJ_m2r5A/maxresdefault.jpg',
+  },
+  {
+    id: '7QOsmyPEZIM',
+    title: 'Kensington Ave — Philadelphia',
+    thumb: 'https://img.youtube.com/vi/7QOsmyPEZIM/maxresdefault.jpg',
+  },
+];
+
+function buildFeeds() {
+  const container = document.getElementById('feedsContainer');
+  container.innerHTML = '';
+  LIVE_FEEDS.forEach(feed => {
+    const wrap = document.createElement('div');
+    wrap.className = 'feed-item';
+    wrap.dataset.id = feed.id;
+    wrap.innerHTML = `
+      <img class="feed-thumb" src="${feed.thumb}"
+           onerror="this.src='https://img.youtube.com/vi/${feed.id}/hqdefault.jpg'"
+           alt="${feed.title}">
+      <div class="feed-overlay">
+        <div class="feed-live-badge">LIVE</div>
+        <div class="feed-title">${feed.title}</div>
+      </div>
+      <div class="feed-play-btn">▶</div>`;
+
+    wrap.addEventListener('click', () => playFeedInline(feed, wrap));
+    container.appendChild(wrap);
+  });
+}
+
+function playFeedInline(feed, thumbEl) {
+  // replace thumbnail with embedded player
+  const wrap = document.createElement('div');
+  wrap.className = 'feed-iframe-wrap';
+  wrap.innerHTML = `
+    <iframe
+      src="https://www.youtube.com/embed/${feed.id}?autoplay=1&mute=0&rel=0&modestbranding=1"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowfullscreen>
+    </iframe>
+    <div class="feed-iframe-label">${feed.title}</div>
+    <button class="feed-close-btn" title="close">✕</button>`;
+
+  wrap.querySelector('.feed-close-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    // restore thumbnail
+    wrap.replaceWith(thumbEl);
+  });
+
+  thumbEl.replaceWith(wrap);
+}
+
+buildFeeds();
+
+</script>
+</body>
+</html>        self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
         self.end_headers()
 
