@@ -551,6 +551,20 @@
   }
   .todo-item:hover .todo-del { opacity: 1; }
   .todo-del:hover { color: var(--red); }
+  .todo-edit-input {
+    flex: 1;
+    background: var(--bg3);
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 2px 6px;
+    outline: none;
+    caret-color: var(--accent);
+    line-height: 1.4;
+    min-width: 0;
+  }
   .todo-footer {
     display: flex;
     justify-content: space-between;
@@ -2868,8 +2882,46 @@ function renderTodos() {
     const item = document.createElement('div');
     item.className = 'todo-item' + (t.done ? ' done' : '');
     item.innerHTML = `<div class="todo-check"></div><div class="todo-text">${escHtml(t.text)}</div><div class="todo-del" data-i="${i}">×</div>`;
-    item.querySelector('.todo-check').addEventListener('click', () => { todos[i].done = !todos[i].done; saveTodos(); renderTodos(); });
-    item.querySelector('.todo-del').addEventListener('click', e => { e.stopPropagation(); todos.splice(i, 1); saveTodos(); renderTodos(); });
+
+    // check/uncheck
+    item.querySelector('.todo-check').addEventListener('click', e => {
+      e.stopPropagation();
+      todos[i].done = !todos[i].done;
+      saveTodos(); renderTodos();
+    });
+
+    // delete
+    item.querySelector('.todo-del').addEventListener('click', e => {
+      e.stopPropagation();
+      todos.splice(i, 1);
+      saveTodos(); renderTodos();
+    });
+
+    // click text to edit inline
+    item.querySelector('.todo-text').addEventListener('click', e => {
+      e.stopPropagation();
+      const textEl = item.querySelector('.todo-text');
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'todo-edit-input';
+      input.value = t.text;
+      textEl.replaceWith(input);
+      input.focus();
+      // put cursor at end
+      input.setSelectionRange(input.value.length, input.value.length);
+
+      function commitEdit() {
+        const newText = input.value.trim();
+        if (newText) todos[i].text = newText;
+        saveTodos(); renderTodos();
+      }
+
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
+        if (e.key === 'Escape') { renderTodos(); } // cancel
+      });
+      input.addEventListener('blur', commitEdit);
+    });
     list.appendChild(item);
   });
   const remaining = todos.filter(t => !t.done).length;
@@ -4580,11 +4632,40 @@ async function fbPushData(data) {
 async function fbPush() {
   if (!fbUser || fbSyncing) return;
   try {
-    const { db, doc, setDoc } = window._fb;
+    const { db, doc, setDoc, getDoc } = window._fb;
     fbSyncing = true;
     fbSetStatus('syncing...', 'var(--accent)');
+
+    const payload = fbGetData();
+
+    // Read + clear the intent flag. Set only by saveTodos() (user action).
+    const userClearedTodos = window._fbTodoIntent === true;
+    window._fbTodoIntent = false;
+
+    // Guard: if local todos are empty AND this push was NOT triggered by a user todo action,
+    // refuse to overwrite non-empty remote todos. Fetch remote first and preserve its todos.
+    if (!userClearedTodos && (!Array.isArray(payload.todos) || payload.todos.length === 0)) {
+      try {
+        const snap = await getDoc(doc(db, 'users', fbUser.uid));
+        if (snap.exists()) {
+          const remoteTodos = snap.data().todos;
+          if (Array.isArray(remoteTodos) && remoteTodos.length > 0) {
+            payload.todos = remoteTodos;
+            // also restore locally so UI reflects what cloud has
+            localStorage.setItem('sp_todos', JSON.stringify(remoteTodos));
+            if (typeof todos !== 'undefined') { todos = remoteTodos; renderTodos(); }
+          }
+        }
+      } catch(e) { /* if the guard check fails, do not push — safer to abort */
+        console.error('todo guard check failed', e);
+        fbSetStatus('sync paused', 'var(--text3)');
+        setTimeout(() => fbSetStatus(''), 2000);
+        return;
+      }
+    }
+
     localStorage.setItem('sp_last_updated', Date.now().toString());
-    await setDoc(doc(db, 'users', fbUser.uid), fbGetData());
+    await setDoc(doc(db, 'users', fbUser.uid), payload);
     fbSetStatus('synced ✓', 'var(--accent)');
     setTimeout(() => fbSetStatus(''), 2000);
   } catch(e) {
@@ -4672,7 +4753,7 @@ window.saveBookmarks = function() { _origSaveBookmarks(); fbPush(); };
 saveBookmarks = window.saveBookmarks;
 
 const _origSaveTodos = saveTodos;
-window.saveTodos = function() { _origSaveTodos(); fbPush(); };
+window.saveTodos = function() { window._fbTodoIntent = true; _origSaveTodos(); fbPush(); };
 saveTodos = window.saveTodos;
 
 // patch notes autosave
@@ -6220,6 +6301,80 @@ function downloadStatsFiles() {
     clearInterval(checkInterval);
     overlay.remove();
   });
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) { clearInterval(checkInterval); overlay.remove(); }
+  });
+}
+
+// click stats indicator to open setup
+document.getElementById('statsIndicator').addEventListener('click', downloadStatsFiles);
+
+
+// ══════════════════════════════
+//  LIVE FEEDS
+// ══════════════════════════════
+const LIVE_FEEDS = [
+  {
+    id: 'gmtlJ_m2r5A',
+    title: 'Middle East — Iran & Israel',
+    thumb: 'https://img.youtube.com/vi/gmtlJ_m2r5A/maxresdefault.jpg',
+  },
+  {
+    id: '7QOsmyPEZIM',
+    title: 'Kensington Ave — Philadelphia',
+    thumb: 'https://img.youtube.com/vi/7QOsmyPEZIM/maxresdefault.jpg',
+  },
+];
+
+function buildFeeds() {
+  const container = document.getElementById('feedsContainer');
+  container.innerHTML = '';
+  LIVE_FEEDS.forEach(feed => {
+    const wrap = document.createElement('div');
+    wrap.className = 'feed-item';
+    wrap.dataset.id = feed.id;
+    wrap.innerHTML = `
+      <img class="feed-thumb" src="${feed.thumb}"
+           onerror="this.src='https://img.youtube.com/vi/${feed.id}/hqdefault.jpg'"
+           alt="${feed.title}">
+      <div class="feed-overlay">
+        <div class="feed-live-badge">LIVE</div>
+        <div class="feed-title">${feed.title}</div>
+      </div>
+      <div class="feed-play-btn">▶</div>`;
+
+    wrap.addEventListener('click', () => playFeedInline(feed, wrap));
+    container.appendChild(wrap);
+  });
+}
+
+function playFeedInline(feed, thumbEl) {
+  // replace thumbnail with embedded player
+  const wrap = document.createElement('div');
+  wrap.className = 'feed-iframe-wrap';
+  wrap.innerHTML = `
+    <iframe
+      src="https://www.youtube.com/embed/${feed.id}?autoplay=1&mute=0&rel=0&modestbranding=1"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowfullscreen>
+    </iframe>
+    <div class="feed-iframe-label">${feed.title}</div>
+    <button class="feed-close-btn" title="close">✕</button>`;
+
+  wrap.querySelector('.feed-close-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    // restore thumbnail
+    wrap.replaceWith(thumbEl);
+  });
+
+  thumbEl.replaceWith(wrap);
+}
+
+buildFeeds();
+
+</script>
+</body>
+</html>  });
   overlay.addEventListener('click', e => {
     if (e.target === overlay) { clearInterval(checkInterval); overlay.remove(); }
   });
