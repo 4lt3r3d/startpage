@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1220,6 +1219,7 @@
   }
   @keyframes fadeOut { 0%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
 
+  #feedsEditBtn:hover { color: var(--accent) !important; }
   /* ── LIVE FEEDS ── */
   .feed-item {
     position: relative;
@@ -1630,7 +1630,12 @@
           <span class="drag-handle" title="drag to move">⠿</span>
           <span class="dot" style="background:var(--red);"></span>live feeds
         </span>
-        <span style="font-size:9px;color:var(--text3);font-family:var(--mono);">click to play inline</span>
+        <button id="feedsEditBtn" title="Edit feeds" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px 4px;display:flex;align-items:center;transition:color 0.15s;outline:none;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="13" rx="2" ry="2"></rect>
+            <polyline points="8 3 12 7 16 3"></polyline>
+          </svg>
+        </button>
       </div>
       <div id="feedsContainer" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
     </div>
@@ -4632,6 +4637,8 @@ async function fbPushData(data) {
 
 async function fbPush() {
   if (!fbUser || fbSyncing) return;
+  // Initial-load gate: refuse to write until remote has been fetched and applied on sign-in.
+  if (window._fbLoading === true) return;
   try {
     const { db, doc, setDoc, getDoc } = window._fb;
     fbSyncing = true;
@@ -4694,10 +4701,34 @@ function fbStartListening() {
 
       const remote     = snap.data();
       const local      = fbGetData();
-      const localBm    = local.bookmarks || {};
-      const remoteBm   = remote.bookmarks || {};
-      const localHas   = Object.keys(localBm).length > 0;
-      const remoteHas  = Object.keys(remoteBm).length > 0;
+
+      // "has meaningful data" = bookmarks OR todos OR notes (not bookmarks-only).
+      // Bookmarks always carry defaults on first load so they can't be the sole signal.
+      // We treat bookmarks as meaningful only if the user has customized them
+      // (different from the seeded defaults), and todos/notes as meaningful when non-empty.
+      const bmCustomized = (obj) => {
+        if (!obj || typeof obj !== 'object') return false;
+        const keys = Object.keys(obj);
+        if (keys.length === 0) return false;
+        const defKeys = Object.keys(DEFAULT_BOOKMARKS);
+        // different set of categories = customized
+        if (keys.length !== defKeys.length) return true;
+        for (const k of keys) if (!defKeys.includes(k)) return true;
+        // same categories — check counts per category
+        for (const k of keys) {
+          const cur = obj[k] || [];
+          const def = DEFAULT_BOOKMARKS[k] || [];
+          if (cur.length !== def.length) return true;
+        }
+        return false;
+      };
+      const hasMeaningful = (side) =>
+        bmCustomized(side.bookmarks) ||
+        (Array.isArray(side.todos) && side.todos.length > 0) ||
+        (typeof side.notes === 'string' && side.notes.trim().length > 0);
+
+      const localHas   = hasMeaningful(local);
+      const remoteHas  = hasMeaningful(remote);
 
       if (!localHas && remoteHas) {
         // empty local, cloud has data — restore silently
@@ -4729,14 +4760,66 @@ function fbStartListening() {
   });
 }
 
-function fbOnSignIn(user) {
+async function fbOnSignIn(user) {
+  // Gate writes immediately — nothing can fbPush before remote loads.
+  window._fbLoading = true;
+
   fbUser = user;
   document.getElementById('fbSignInBtn').style.display  = 'none';
   document.getElementById('fbSignOutBtn').style.display = '';
   document.getElementById('fbUserInfo').style.display   = '';
   document.getElementById('fbUserInfo').textContent     = user.displayName || user.email;
-  fbSetStatus('connecting...', 'var(--accent)');
-  fbStartListening();
+  fbSetStatus('loading...', 'var(--accent)');
+
+  try {
+    const { db, doc, getDoc } = window._fb;
+    const snap = await getDoc(doc(db, 'users', fbUser.uid));
+    if (snap.exists()) {
+      const remote = snap.data();
+      const local  = fbGetData();
+
+      // "has meaningful data" — same definition as fbStartListening first-load.
+      const bmCustomized = (obj) => {
+        if (!obj || typeof obj !== 'object') return false;
+        const keys = Object.keys(obj);
+        if (keys.length === 0) return false;
+        const defKeys = Object.keys(DEFAULT_BOOKMARKS);
+        if (keys.length !== defKeys.length) return true;
+        for (const k of keys) if (!defKeys.includes(k)) return true;
+        for (const k of keys) {
+          const cur = obj[k] || [];
+          const def = DEFAULT_BOOKMARKS[k] || [];
+          if (cur.length !== def.length) return true;
+        }
+        return false;
+      };
+      const hasMeaningful = (side) =>
+        bmCustomized(side.bookmarks) ||
+        (Array.isArray(side.todos) && side.todos.length > 0) ||
+        (typeof side.notes === 'string' && side.notes.trim().length > 0);
+
+      const localHas  = hasMeaningful(local);
+      const remoteHas = hasMeaningful(remote);
+
+      if (remoteHas && !localHas) {
+        // Silent restore — the common new-device case.
+        fbApplyData(remote);
+        fbSetStatus('restored ✓', 'var(--accent)');
+        setTimeout(() => fbSetStatus(''), 2000);
+      } else if (remoteHas && localHas) {
+        // Real conflict — keep existing modal behavior.
+        fbShowSyncChoice(local, remote);
+      }
+      // If only local has data, or neither has data, let the listener handle it below.
+    }
+  } catch(e) {
+    console.error('initial sync fetch failed', e);
+    fbSetStatus('sync fetch failed', 'var(--red)');
+  } finally {
+    // Release the gate, then start realtime listening.
+    window._fbLoading = false;
+    fbStartListening();
+  }
 }
 
 function fbOnSignOut() {
@@ -4778,7 +4861,7 @@ function fbInit() {
   const { auth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } = window._fb;
 
   onAuthStateChanged(auth, user => {
-    if (user) fbOnSignIn(user);
+    if (user) { window._fbLoading = true; fbOnSignIn(user); }
     else fbOnSignOut();
   });
 
@@ -6314,33 +6397,62 @@ document.getElementById('statsIndicator').addEventListener('click', downloadStat
 // ══════════════════════════════
 //  LIVE FEEDS
 // ══════════════════════════════
-const LIVE_FEEDS = [
-  {
-    id: 'gmtlJ_m2r5A',
-    title: 'Middle East — Iran & Israel',
-    thumb: 'https://img.youtube.com/vi/gmtlJ_m2r5A/maxresdefault.jpg',
-  },
-  {
-    id: '7QOsmyPEZIM',
-    title: 'Kensington Ave — Philadelphia',
-    thumb: 'https://img.youtube.com/vi/7QOsmyPEZIM/maxresdefault.jpg',
-  },
+const LIVE_FEEDS_DEFAULT = [
+  { id: 'gmtlJ_m2r5A', title: 'Middle East — Iran & Israel' },
+  { id: '7QOsmyPEZIM', title: 'Kensington Ave — Philadelphia' },
 ];
+
+let LIVE_FEEDS = JSON.parse(localStorage.getItem('sp_feeds') || 'null') || JSON.parse(JSON.stringify(LIVE_FEEDS_DEFAULT));
+
+function saveFeeds() { localStorage.setItem('sp_feeds', JSON.stringify(LIVE_FEEDS)); }
+
+// Extract YouTube video ID from any URL format (watch, youtu.be, embed, live)
+function extractYtId(url) {
+  if (!url) return null;
+  url = url.trim();
+  // already just an ID?
+  if (/^[a-zA-Z0-9_-]{11}$/.test(url)) return url;
+  // parse out common patterns
+  const patterns = [
+    /(?:v=|\/v\/|\/embed\/|\/live\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
 
 function buildFeeds() {
   const container = document.getElementById('feedsContainer');
   container.innerHTML = '';
-  LIVE_FEEDS.forEach(feed => {
+  const count = LIVE_FEEDS.length;
+
+  // Adjust grid layout based on feed count
+  if (count === 1) {
+    container.style.gridTemplateColumns = '1fr';
+  } else if (count === 2) {
+    container.style.gridTemplateColumns = '1fr 1fr';
+  } else if (count === 3) {
+    container.style.gridTemplateColumns = '1fr 1fr';
+  } else if (count === 4) {
+    container.style.gridTemplateColumns = '1fr 1fr';
+  }
+
+  LIVE_FEEDS.forEach((feed, i) => {
     const wrap = document.createElement('div');
     wrap.className = 'feed-item';
     wrap.dataset.id = feed.id;
+    // when there are 3 feeds, make the 3rd one span both columns
+    if (count === 3 && i === 2) wrap.style.gridColumn = '1 / -1';
     wrap.innerHTML = `
-      <img class="feed-thumb" src="${feed.thumb}"
+      <img class="feed-thumb" src="https://img.youtube.com/vi/${feed.id}/maxresdefault.jpg"
            onerror="this.src='https://img.youtube.com/vi/${feed.id}/hqdefault.jpg'"
-           alt="${feed.title}">
+           alt="${escHtml(feed.title || '')}">
       <div class="feed-overlay">
         <div class="feed-live-badge">LIVE</div>
-        <div class="feed-title">${feed.title}</div>
+        <div class="feed-title">${escHtml(feed.title || '')}</div>
       </div>
       <div class="feed-play-btn">▶</div>`;
 
@@ -6350,7 +6462,6 @@ function buildFeeds() {
 }
 
 function playFeedInline(feed, thumbEl) {
-  // replace thumbnail with embedded player
   const wrap = document.createElement('div');
   wrap.className = 'feed-iframe-wrap';
   wrap.innerHTML = `
@@ -6359,17 +6470,164 @@ function playFeedInline(feed, thumbEl) {
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
       allowfullscreen>
     </iframe>
-    <div class="feed-iframe-label">${feed.title}</div>
+    <div class="feed-iframe-label">${escHtml(feed.title || '')}</div>
     <button class="feed-close-btn" title="close">✕</button>`;
 
   wrap.querySelector('.feed-close-btn').addEventListener('click', e => {
     e.stopPropagation();
-    // restore thumbnail
     wrap.replaceWith(thumbEl);
   });
 
   thumbEl.replaceWith(wrap);
 }
+
+// ── Edit modal ──
+function openFeedsEdit() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay visible';
+  overlay.style.zIndex = '10000';
+  overlay.innerHTML = `
+    <div class="modal" style="width:460px;max-width:95vw;max-height:85vh;overflow-y:auto;">
+      <h3 style="margin-bottom:6px;">edit live feeds</h3>
+      <p style="font-size:10px;color:var(--text3);margin-bottom:14px;line-height:1.6;">
+        paste any youtube URL (watch, live, youtu.be) or just the video ID
+      </p>
+
+      <div id="feedsEditList"></div>
+
+      <div id="feedsEditError" style="font-size:10px;color:var(--red);font-family:var(--mono);margin-top:8px;min-height:14px;"></div>
+
+      <div class="modal-btns" style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:9px;color:var(--text3);font-family:var(--mono);letter-spacing:0.08em;">FEEDS</span>
+          <div style="display:flex;gap:3px;" id="feedsCountDial">
+            <button class="feeds-dial-btn" data-n="1">1</button>
+            <button class="feeds-dial-btn" data-n="2">2</button>
+            <button class="feeds-dial-btn" data-n="3">3</button>
+            <button class="feeds-dial-btn" data-n="4">4</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="modal-btn" id="feedsEditCancel">cancel</button>
+          <button class="modal-btn primary" id="feedsEditSave">save</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // Inject dial button styling once
+  if (!document.getElementById('feedsDialStyle')) {
+    const s = document.createElement('style');
+    s.id = 'feedsDialStyle';
+    s.textContent = `
+      .feeds-dial-btn {
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        color: var(--text3);
+        font-family: var(--mono);
+        font-size: 10px;
+        width: 22px; height: 22px;
+        border-radius: 3px;
+        cursor: pointer;
+        transition: all 0.12s;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .feeds-dial-btn:hover { border-color: var(--border2); color: var(--text); }
+      .feeds-dial-btn.active { background: var(--accent3); border-color: var(--accent); color: var(--accent); }
+    `;
+    document.head.appendChild(s);
+  }
+
+  // Work on a draft copy so we can discard on cancel
+  let draft = JSON.parse(JSON.stringify(LIVE_FEEDS));
+  while (draft.length < 4) draft.push({ id: '', title: '' });
+
+  let feedCount = LIVE_FEEDS.length;
+
+  function renderEditList() {
+    const list = overlay.querySelector('#feedsEditList');
+    list.innerHTML = '';
+    for (let i = 0; i < feedCount; i++) {
+      const row = document.createElement('div');
+      row.style.marginBottom = '14px';
+      row.innerHTML = `
+        <label>FEED ${i+1} · TITLE</label>
+        <input type="text" class="feed-edit-title" data-i="${i}" value="${escHtml(draft[i]?.title || '')}" placeholder="Feed name" maxlength="60">
+        <label>FEED ${i+1} · YOUTUBE URL</label>
+        <input type="text" class="feed-edit-url" data-i="${i}" placeholder="https://www.youtube.com/watch?v=..." style="font-family:var(--mono);font-size:11px;">`;
+      list.appendChild(row);
+      // pre-fill URL with current id
+      const urlInput = row.querySelector('.feed-edit-url');
+      urlInput.value = draft[i]?.id ? 'https://www.youtube.com/watch?v=' + draft[i].id : '';
+
+      // bind input to draft
+      row.querySelector('.feed-edit-title').addEventListener('input', e => {
+        draft[i].title = e.target.value;
+      });
+      urlInput.addEventListener('input', e => {
+        draft[i].urlInput = e.target.value; // store raw for save-time parsing
+      });
+    }
+
+    // update dial state
+    overlay.querySelectorAll('.feeds-dial-btn').forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.n) === feedCount);
+    });
+  }
+
+  // wire up the dial
+  overlay.querySelectorAll('.feeds-dial-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      // snapshot current inputs into draft so switching doesn't lose them
+      overlay.querySelectorAll('.feed-edit-title').forEach(inp => {
+        const idx = parseInt(inp.dataset.i);
+        draft[idx].title = inp.value;
+      });
+      overlay.querySelectorAll('.feed-edit-url').forEach(inp => {
+        const idx = parseInt(inp.dataset.i);
+        draft[idx].urlInput = inp.value;
+      });
+      feedCount = parseInt(btn.dataset.n);
+      renderEditList();
+    });
+  });
+
+  renderEditList();
+  overlay.querySelector('.feed-edit-title')?.focus();
+
+  overlay.querySelector('#feedsEditSave').addEventListener('click', () => {
+    const errEl = overlay.querySelector('#feedsEditError');
+    const newFeeds = [];
+
+    // read current inputs fresh
+    const titles = overlay.querySelectorAll('.feed-edit-title');
+    const urls   = overlay.querySelectorAll('.feed-edit-url');
+
+    for (let i = 0; i < feedCount; i++) {
+      const title = titles[i].value.trim() || ('Feed ' + (i+1));
+      const raw   = urls[i].value.trim();
+      const id    = extractYtId(raw);
+      if (!id) {
+        errEl.textContent = 'invalid youtube URL in feed ' + (i+1);
+        return;
+      }
+      newFeeds.push({ id, title });
+    }
+
+    LIVE_FEEDS = newFeeds;
+    saveFeeds();
+    buildFeeds();
+    overlay.remove();
+  });
+
+  overlay.querySelector('#feedsEditCancel').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+document.getElementById('feedsEditBtn').addEventListener('click', openFeedsEdit);
 
 buildFeeds();
 
