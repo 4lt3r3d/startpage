@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6301,80 +6302,6 @@ function downloadStatsFiles() {
     clearInterval(checkInterval);
     overlay.remove();
   });
-  overlay.addEventListener('click', e => {
-    if (e.target === overlay) { clearInterval(checkInterval); overlay.remove(); }
-  });
-}
-
-// click stats indicator to open setup
-document.getElementById('statsIndicator').addEventListener('click', downloadStatsFiles);
-
-
-// ══════════════════════════════
-//  LIVE FEEDS
-// ══════════════════════════════
-const LIVE_FEEDS = [
-  {
-    id: 'gmtlJ_m2r5A',
-    title: 'Middle East — Iran & Israel',
-    thumb: 'https://img.youtube.com/vi/gmtlJ_m2r5A/maxresdefault.jpg',
-  },
-  {
-    id: '7QOsmyPEZIM',
-    title: 'Kensington Ave — Philadelphia',
-    thumb: 'https://img.youtube.com/vi/7QOsmyPEZIM/maxresdefault.jpg',
-  },
-];
-
-function buildFeeds() {
-  const container = document.getElementById('feedsContainer');
-  container.innerHTML = '';
-  LIVE_FEEDS.forEach(feed => {
-    const wrap = document.createElement('div');
-    wrap.className = 'feed-item';
-    wrap.dataset.id = feed.id;
-    wrap.innerHTML = `
-      <img class="feed-thumb" src="${feed.thumb}"
-           onerror="this.src='https://img.youtube.com/vi/${feed.id}/hqdefault.jpg'"
-           alt="${feed.title}">
-      <div class="feed-overlay">
-        <div class="feed-live-badge">LIVE</div>
-        <div class="feed-title">${feed.title}</div>
-      </div>
-      <div class="feed-play-btn">▶</div>`;
-
-    wrap.addEventListener('click', () => playFeedInline(feed, wrap));
-    container.appendChild(wrap);
-  });
-}
-
-function playFeedInline(feed, thumbEl) {
-  // replace thumbnail with embedded player
-  const wrap = document.createElement('div');
-  wrap.className = 'feed-iframe-wrap';
-  wrap.innerHTML = `
-    <iframe
-      src="https://www.youtube.com/embed/${feed.id}?autoplay=1&mute=0&rel=0&modestbranding=1"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-      allowfullscreen>
-    </iframe>
-    <div class="feed-iframe-label">${feed.title}</div>
-    <button class="feed-close-btn" title="close">✕</button>`;
-
-  wrap.querySelector('.feed-close-btn').addEventListener('click', e => {
-    e.stopPropagation();
-    // restore thumbnail
-    wrap.replaceWith(thumbEl);
-  });
-
-  thumbEl.replaceWith(wrap);
-}
-
-buildFeeds();
-
-</script>
-</body>
-</html>  });
   overlay.addEventListener('click', e => {
     if (e.target === overlay) { clearInterval(checkInterval); overlay.remove(); }
   });
