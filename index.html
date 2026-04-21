@@ -4510,44 +4510,56 @@ function fbGetData() {
 
 function fbApplyData(data) {
   if (!data) return;
+
+  // ── Always write localStorage first so widgets pick up data from fresh state. ──
+  // Rendering is guarded so a missing function does not abort the rest.
+
   if (data.bookmarks && Object.keys(data.bookmarks).length) {
     localStorage.setItem('sp_bookmarks', JSON.stringify(data.bookmarks));
-    bookmarks = data.bookmarks;
-    buildCategoryTabs(); renderBookmarks();
+    if (typeof bookmarks !== 'undefined') bookmarks = data.bookmarks;
+    if (typeof buildCategoryTabs === 'function') try { buildCategoryTabs(); } catch(e){ console.error(e); }
+    if (typeof renderBookmarks    === 'function') try { renderBookmarks();    } catch(e){ console.error(e); }
   }
   if (data.osint && Object.keys(data.osint).length) {
     localStorage.setItem('sp_osint', JSON.stringify(data.osint));
-    osintData = data.osint;
-    buildOsintTabs(); renderOsint();
+    if (typeof osintData !== 'undefined') osintData = data.osint;
+    if (typeof buildOsintTabs === 'function') try { buildOsintTabs(); } catch(e){ console.error(e); }
+    if (typeof renderOsint    === 'function') try { renderOsint();    } catch(e){ console.error(e); }
   }
-  if (data.todos) {
+  if (Array.isArray(data.todos)) {
     localStorage.setItem('sp_todos', JSON.stringify(data.todos));
-    todos = data.todos;
-    renderTodos();
+    if (typeof todos !== 'undefined') todos = data.todos;
+    if (typeof renderTodos === 'function') try { renderTodos(); } catch(e){ console.error(e); }
   }
   if (data.notes !== undefined) {
     localStorage.setItem('sp_notes', data.notes);
-    document.getElementById('notesArea').value = data.notes;
+    const na = document.getElementById('notesArea');
+    if (na) na.value = data.notes;
   }
   if (Array.isArray(data.feeds) && data.feeds.length > 0) {
     localStorage.setItem('sp_feeds', JSON.stringify(data.feeds));
-    if (typeof LIVE_FEEDS !== 'undefined') {
-      LIVE_FEEDS = data.feeds;
-      if (typeof buildFeeds === 'function') buildFeeds();
-    }
+    if (typeof LIVE_FEEDS !== 'undefined') LIVE_FEEDS = data.feeds;
+    if (typeof buildFeeds === 'function') try { buildFeeds(); } catch(e){ console.error(e); }
   }
   if (data.greet && data.greet.phrase) {
     localStorage.setItem('sp_greet', JSON.stringify(data.greet));
-    greetData = data.greet;
-    greetApplyColor(greetData.color || '#7ecfb3');
-    document.getElementById('greetingPhrase').textContent = greetData.phrase;
-    document.getElementById('greetingName').textContent   = greetData.name;
+    if (typeof greetData !== 'undefined') greetData = data.greet;
+    if (typeof greetApplyColor === 'function') try { greetApplyColor(data.greet.color || '#7ecfb3'); } catch(e){ console.error(e); }
+    const gp = document.getElementById('greetingPhrase');
+    const gn = document.getElementById('greetingName');
+    if (gp) gp.textContent = data.greet.phrase;
+    if (gn) gn.textContent = data.greet.name || '';
   }
-  if (data.bg) { localStorage.setItem('sp_bg', JSON.stringify(data.bg)); applyBg(data.bg); }
-  if (data.accent) greetApplyColor(data.accent);
+  if (data.bg) {
+    localStorage.setItem('sp_bg', JSON.stringify(data.bg));
+    if (typeof applyBg === 'function') try { applyBg(data.bg); } catch(e){ console.error(e); }
+  }
+  if (data.accent && typeof greetApplyColor === 'function') {
+    try { greetApplyColor(data.accent); } catch(e){ console.error(e); }
+  }
   if (data.widgetOrder) {
     localStorage.setItem('sp_widget_order', JSON.stringify(data.widgetOrder));
-    applyWidgetOrder();
+    if (typeof applyWidgetOrder === 'function') try { applyWidgetOrder(); } catch(e){ console.error(e); }
   }
 }
 
@@ -5439,13 +5451,14 @@ async function fetchWeather() {
     descEl.textContent = desc;
     document.getElementById('weatherDisplay').title = desc + ' — click to refresh';
   } catch(e) {
-    iconEl.innerHTML = weatherSvg('wind', 'var(--text3)');
-    tempEl.textContent = '—';
-    descEl.textContent = 'allow location';
+    if (iconEl) iconEl.innerHTML = weatherSvg('wind', 'var(--text3)');
+    if (tempEl) tempEl.textContent = '—';
+    if (descEl) descEl.textContent = 'click to allow location';
   }
 }
 
-document.getElementById('weatherDisplay').addEventListener('click', fetchWeather);
+const _wd = document.getElementById('weatherDisplay');
+if (_wd) _wd.addEventListener('click', fetchWeather);
 fetchWeather();
 setInterval(fetchWeather, 10 * 60 * 1000);
 
