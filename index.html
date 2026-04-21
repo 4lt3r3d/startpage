@@ -4166,12 +4166,14 @@ applyBg(bgData);
 // ══════════════════════════════
 document.getElementById('exportBtn').addEventListener('click', () => {
   const data = {
-    version: '1.0',
+    version: '1.1',
     exported: new Date().toISOString(),
     bookmarks:  JSON.parse(localStorage.getItem('sp_bookmarks') || '{}'),
-    bg:         JSON.parse(localStorage.getItem('sp_bg')        || '{}'),
+    osint:      JSON.parse(localStorage.getItem('sp_osint')     || '{}'),
     todos:      JSON.parse(localStorage.getItem('sp_todos')     || '[]'),
     notes:      localStorage.getItem('sp_notes')  || '',
+    feeds:      JSON.parse(localStorage.getItem('sp_feeds')     || '[]'),
+    bg:         JSON.parse(localStorage.getItem('sp_bg')        || '{}'),
     greet:      JSON.parse(localStorage.getItem('sp_greet')     || '{}'),
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -4191,9 +4193,11 @@ document.getElementById('importFile').addEventListener('change', e => {
     try {
       const data = JSON.parse(evt.target.result);
       if (data.bookmarks) localStorage.setItem('sp_bookmarks', JSON.stringify(data.bookmarks));
+      if (data.osint)     localStorage.setItem('sp_osint',     JSON.stringify(data.osint));
       if (data.todos)     localStorage.setItem('sp_todos',     JSON.stringify(data.todos));
       if (data.notes !== undefined) localStorage.setItem('sp_notes', data.notes);
-      if (data.bg)        localStorage.setItem('sp_bg',    JSON.stringify(data.bg));
+      if (data.feeds)     localStorage.setItem('sp_feeds',     JSON.stringify(data.feeds));
+      if (data.bg)        localStorage.setItem('sp_bg',        JSON.stringify(data.bg));
       if (data.greet)     localStorage.setItem('sp_greet',     JSON.stringify(data.greet));
       // reload to apply everything
       window.location.reload();
@@ -6019,20 +6023,19 @@ async function doSpellCheck(word) {
   showInlineLoading('spell check · ' + word);
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 200,
-        system: 'You are a spellchecker. The user gives you a word or phrase that may be misspelled. Respond ONLY with a JSON object like this: {"correct": true/false, "suggestions": ["word1","word2","word3"]}. If already correct, suggestions should contain just the correct word. Give 1-4 suggestions max. No other text.',
-        messages: [{ role: 'user', content: word }]
-      })
-    });
-    const data = await resp.json();
-    const text = data.content?.[0]?.text || '{}';
-    const clean = text.replace(/```json|```/g, '').trim();
-    const result = JSON.parse(clean);
+    // Try exact match first via dictionary API — if it exists, it's spelled correctly
+    const directResp = await fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word));
+    const isCorrect = directResp.ok;
+
+    let suggestions = [];
+    if (isCorrect) {
+      suggestions = [word];
+    } else {
+      // Use Datamuse API for "sounds like" / typo correction suggestions
+      const dmResp = await fetch('https://api.datamuse.com/sug?s=' + encodeURIComponent(word) + '&max=4');
+      const dmData = await dmResp.json();
+      suggestions = dmData.map(x => x.word).slice(0, 4);
+    }
 
     inlineResult.innerHTML = `
       <div class="inline-result-header">
@@ -6043,20 +6046,22 @@ async function doSpellCheck(word) {
 
     const container = document.getElementById('spellSuggestions');
 
-    if (result.correct) {
+    if (isCorrect) {
       const chip = document.createElement('div');
       chip.className = 'spell-chip primary';
-      chip.innerHTML = `<span>${escHtml(result.suggestions[0] || word)}</span><span class="chip-copy">✓ correct · click to copy</span>`;
-      chip.addEventListener('click', () => copySpelling(result.suggestions[0] || word, chip));
+      chip.innerHTML = `<span>${escHtml(word)}</span><span class="chip-copy">✓ correct · click to copy</span>`;
+      chip.addEventListener('click', () => copySpelling(word, chip));
       container.appendChild(chip);
-    } else {
-      result.suggestions.forEach((s, i) => {
+    } else if (suggestions.length > 0) {
+      suggestions.forEach((s, i) => {
         const chip = document.createElement('div');
         chip.className = 'spell-chip' + (i === 0 ? ' primary' : '');
         chip.innerHTML = `<span>${escHtml(s)}</span><span class="chip-copy">click to copy</span>`;
         chip.addEventListener('click', () => copySpelling(s, chip));
         container.appendChild(chip);
       });
+    } else {
+      container.innerHTML = `<div style="font-size:11px;color:var(--text3);font-family:var(--mono);">no suggestions found</div>`;
     }
   } catch(e) {
     inlineResult.innerHTML = `<div class="inline-result-header"><span>spell check</span><span class="inline-close" onclick="closeInlineResult()">✕</span></div><div style="font-size:11px;color:var(--text3);font-family:var(--mono);">error — check connection</div>`;
@@ -6077,29 +6082,40 @@ async function doDefine(word) {
   showInlineLoading('define · ' + word);
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 500,
-        system: 'You are a dictionary. Respond ONLY with a JSON object like: {"word":"...","phonetic":"...","definitions":[{"pos":"noun","meaning":"...","example":"..."}]}. Give 1-3 definitions max. Keep meanings concise (1-2 sentences). Examples are short. No markdown, no extra text.',
-        messages: [{ role: 'user', content: word }]
-      })
-    });
+    const resp = await fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word));
+    if (!resp.ok) {
+      inlineResult.innerHTML = `
+        <div class="inline-result-header">
+          <span>define</span>
+          <span class="inline-close" onclick="closeInlineResult()">✕</span>
+        </div>
+        <div class="define-word">${escHtml(word)}</div>
+        <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:4px;">no definition found — try 'spell ${escHtml(word)}' to check the spelling</div>`;
+      return;
+    }
     const data = await resp.json();
-    const text = data.content?.[0]?.text || '{}';
-    const clean = text.replace(/```json|```/g, '').trim();
-    const result = JSON.parse(clean);
+    const entry = data[0] || {};
+    const displayWord = entry.word || word;
+    // pick the first phonetic that has actual text
+    const phoneticObj = (entry.phonetics || []).find(p => p.text) || {};
+    const phonetic = phoneticObj.text || entry.phonetic || '';
 
+    // up to 3 definitions across all parts of speech
     let defsHtml = '';
-    (result.definitions || []).forEach(d => {
-      defsHtml += `
-        <div class="define-section">
-          <div class="define-pos">${escHtml(d.pos || '')}</div>
-          <div class="define-meaning">${escHtml(d.meaning || '')}</div>
-          ${d.example ? `<div class="define-example">"${escHtml(d.example)}"</div>` : ''}
-        </div>`;
+    let count = 0;
+    (entry.meanings || []).forEach(m => {
+      if (count >= 3) return;
+      const pos = m.partOfSpeech || '';
+      (m.definitions || []).forEach(d => {
+        if (count >= 3) return;
+        defsHtml += `
+          <div class="define-section">
+            <div class="define-pos">${escHtml(pos)}</div>
+            <div class="define-meaning">${escHtml(d.definition || '')}</div>
+            ${d.example ? `<div class="define-example">"${escHtml(d.example)}"</div>` : ''}
+          </div>`;
+        count++;
+      });
     });
 
     inlineResult.innerHTML = `
@@ -6107,8 +6123,8 @@ async function doDefine(word) {
         <span>define</span>
         <span class="inline-close" onclick="closeInlineResult()">✕</span>
       </div>
-      <div class="define-word">${escHtml(result.word || word)}</div>
-      ${result.phonetic ? `<div class="define-phonetic">${escHtml(result.phonetic)}</div>` : ''}
+      <div class="define-word">${escHtml(displayWord)}</div>
+      ${phonetic ? `<div class="define-phonetic">${escHtml(phonetic)}</div>` : ''}
       ${defsHtml || '<div style="font-size:11px;color:var(--text3);font-family:var(--mono);">no definition found</div>'}`;
   } catch(e) {
     inlineResult.innerHTML = `<div class="inline-result-header"><span>define</span><span class="inline-close" onclick="closeInlineResult()">✕</span></div><div style="font-size:11px;color:var(--text3);font-family:var(--mono);">error — check connection</div>`;
