@@ -4499,6 +4499,7 @@ function fbGetData() {
     osint:     JSON.parse(localStorage.getItem('sp_osint')     || '{}'),
     todos:     JSON.parse(localStorage.getItem('sp_todos')     || '[]'),
     notes:     localStorage.getItem('sp_notes') || '',
+    feeds:     JSON.parse(localStorage.getItem('sp_feeds')     || '[]'),
     greet:     JSON.parse(localStorage.getItem('sp_greet')     || '{}'),
     bg:        JSON.parse(localStorage.getItem('sp_bg')        || '{}'),
     accent:    document.documentElement.style.getPropertyValue('--accent') || '',
@@ -4527,6 +4528,13 @@ function fbApplyData(data) {
   if (data.notes !== undefined) {
     localStorage.setItem('sp_notes', data.notes);
     document.getElementById('notesArea').value = data.notes;
+  }
+  if (Array.isArray(data.feeds) && data.feeds.length > 0) {
+    localStorage.setItem('sp_feeds', JSON.stringify(data.feeds));
+    if (typeof LIVE_FEEDS !== 'undefined') {
+      LIVE_FEEDS = data.feeds;
+      if (typeof buildFeeds === 'function') buildFeeds();
+    }
   }
   if (data.greet && data.greet.phrase) {
     localStorage.setItem('sp_greet', JSON.stringify(data.greet));
@@ -4843,6 +4851,8 @@ saveBookmarks = window.saveBookmarks;
 const _origSaveTodos = saveTodos;
 window.saveTodos = function() { window._fbTodoIntent = true; _origSaveTodos(); fbPush(); };
 saveTodos = window.saveTodos;
+
+
 
 // patch notes autosave
 const notesAreaEl = document.getElementById('notesArea');
@@ -5514,7 +5524,10 @@ let osintActive = Object.keys(osintData)[0];
 let osintDragSrc = null;
 let osintCtxTarget = null;
 
-function saveOsint() { localStorage.setItem('sp_osint', JSON.stringify(osintData)); }
+function saveOsint() {
+  localStorage.setItem('sp_osint', JSON.stringify(osintData));
+  if (typeof fbPush === 'function') fbPush();
+}
 
 // ── Context menu for OSINT items ──
 const osintCtxMenu = document.createElement('div');
@@ -6420,7 +6433,10 @@ const LIVE_FEEDS_DEFAULT = [
 
 let LIVE_FEEDS = JSON.parse(localStorage.getItem('sp_feeds') || 'null') || JSON.parse(JSON.stringify(LIVE_FEEDS_DEFAULT));
 
-function saveFeeds() { localStorage.setItem('sp_feeds', JSON.stringify(LIVE_FEEDS)); }
+function saveFeeds() {
+  localStorage.setItem('sp_feeds', JSON.stringify(LIVE_FEEDS));
+  if (typeof fbPush === 'function') fbPush();
+}
 
 // Extract YouTube video ID from any URL format (watch, youtu.be, embed, live)
 function extractYtId(url) {
