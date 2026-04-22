@@ -4173,6 +4173,7 @@ document.getElementById('exportBtn').addEventListener('click', () => {
     todos:      JSON.parse(localStorage.getItem('sp_todos')     || '[]'),
     notes:      localStorage.getItem('sp_notes')  || '',
     feeds:      JSON.parse(localStorage.getItem('sp_feeds')     || '[]'),
+    engines:    JSON.parse(localStorage.getItem('sp_engines_custom') || '[]'),
     bg:         JSON.parse(localStorage.getItem('sp_bg')        || '{}'),
     greet:      JSON.parse(localStorage.getItem('sp_greet')     || '{}'),
   };
@@ -4197,6 +4198,7 @@ document.getElementById('importFile').addEventListener('change', e => {
       if (data.todos)     localStorage.setItem('sp_todos',     JSON.stringify(data.todos));
       if (data.notes !== undefined) localStorage.setItem('sp_notes', data.notes);
       if (data.feeds)     localStorage.setItem('sp_feeds',     JSON.stringify(data.feeds));
+      if (data.engines)   localStorage.setItem('sp_engines_custom', JSON.stringify(data.engines));
       if (data.bg)        localStorage.setItem('sp_bg',        JSON.stringify(data.bg));
       if (data.greet)     localStorage.setItem('sp_greet',     JSON.stringify(data.greet));
       // reload to apply everything
@@ -4494,17 +4496,18 @@ function fbSetStatus(msg, color) {
 
 // ── Data helpers ──
 function fbGetData() {
+  // Only user-customized data is synced. OSINT is baked-into-site (always present locally) and not synced.
   return {
-    bookmarks: JSON.parse(localStorage.getItem('sp_bookmarks') || '{}'),
-    osint:     JSON.parse(localStorage.getItem('sp_osint')     || '{}'),
-    todos:     JSON.parse(localStorage.getItem('sp_todos')     || '[]'),
-    notes:     localStorage.getItem('sp_notes') || '',
-    feeds:     JSON.parse(localStorage.getItem('sp_feeds')     || '[]'),
-    greet:     JSON.parse(localStorage.getItem('sp_greet')     || '{}'),
-    bg:        JSON.parse(localStorage.getItem('sp_bg')        || '{}'),
-    accent:    document.documentElement.style.getPropertyValue('--accent') || '',
+    bookmarks:   JSON.parse(localStorage.getItem('sp_bookmarks') || '{}'),
+    todos:       JSON.parse(localStorage.getItem('sp_todos')     || '[]'),
+    notes:       localStorage.getItem('sp_notes') || '',
+    feeds:       JSON.parse(localStorage.getItem('sp_feeds')     || '[]'),
+    engines:     JSON.parse(localStorage.getItem('sp_engines_custom') || '[]'),
+    greet:       JSON.parse(localStorage.getItem('sp_greet')     || '{}'),
+    bg:          JSON.parse(localStorage.getItem('sp_bg')        || '{}'),
+    accent:      document.documentElement.style.getPropertyValue('--accent') || '',
     widgetOrder: JSON.parse(localStorage.getItem('sp_widget_order') || '{}'),
-    updated:   Date.now(),
+    updated:     Date.now(),
   };
 }
 
@@ -4520,11 +4523,11 @@ function fbApplyData(data) {
     if (typeof buildCategoryTabs === 'function') try { buildCategoryTabs(); } catch(e){ console.error(e); }
     if (typeof renderBookmarks    === 'function') try { renderBookmarks();    } catch(e){ console.error(e); }
   }
-  if (data.osint && Object.keys(data.osint).length) {
-    localStorage.setItem('sp_osint', JSON.stringify(data.osint));
-    if (typeof osintData !== 'undefined') osintData = data.osint;
-    if (typeof buildOsintTabs === 'function') try { buildOsintTabs(); } catch(e){ console.error(e); }
-    if (typeof renderOsint    === 'function') try { renderOsint();    } catch(e){ console.error(e); }
+  // OSINT intentionally not synced — it is baked into the site and persists locally only.
+
+  if (Array.isArray(data.engines) && data.engines.length > 0) {
+    localStorage.setItem('sp_engines_custom', JSON.stringify(data.engines));
+    if (typeof rebuildVisibleEngines === 'function') try { rebuildVisibleEngines(); buildEngines(); } catch(e){ console.error(e); }
   }
   if (Array.isArray(data.todos)) {
     localStorage.setItem('sp_todos', JSON.stringify(data.todos));
@@ -4580,18 +4583,17 @@ function fbMergeData(local, remote) {
     }
   });
 
-  // osint — same merge strategy
-  const osLocal  = local.osint  || {};
-  const osRemote = remote.osint || {};
-  merged.osint = { ...osRemote };
-  Object.keys(osLocal).forEach(cat => {
-    if (!merged.osint[cat]) {
-      merged.osint[cat] = osLocal[cat];
-    } else {
-      const existingUrls = new Set(merged.osint[cat].map(b => b.url));
-      osLocal[cat].forEach(b => { if (!existingUrls.has(b.url)) merged.osint[cat].push(b); });
-    }
-  });
+  // OSINT intentionally not merged — local-only by design.
+
+  // feeds — prefer whichever side has a non-empty array, with remote winning if both non-empty
+  if (Array.isArray(remote.feeds) && remote.feeds.length > 0) merged.feeds = remote.feeds;
+  else if (Array.isArray(local.feeds) && local.feeds.length > 0) merged.feeds = local.feeds;
+
+  // engines — merge by nick, deduplicate
+  const engLocal  = Array.isArray(local.engines)  ? local.engines  : [];
+  const engRemote = Array.isArray(remote.engines) ? remote.engines : [];
+  const engNicks  = new Set(engRemote.map(e => (e.nick || '').toLowerCase()));
+  merged.engines  = [...engRemote, ...engLocal.filter(e => !engNicks.has((e.nick || '').toLowerCase()))];
 
   // todos — merge by text content, deduplicate
   const todosLocal  = local.todos  || [];
@@ -4748,8 +4750,10 @@ function fbStartListening() {
       };
       const hasMeaningful = (side) =>
         bmCustomized(side.bookmarks) ||
-        (Array.isArray(side.todos) && side.todos.length > 0) ||
-        (typeof side.notes === 'string' && side.notes.trim().length > 0);
+        (Array.isArray(side.todos)   && side.todos.length > 0) ||
+        (typeof side.notes === 'string' && side.notes.trim().length > 0) ||
+        (Array.isArray(side.feeds)   && side.feeds.length > 0) ||
+        (Array.isArray(side.engines) && side.engines.length > 0);
 
       const localHas   = hasMeaningful(local);
       const remoteHas  = hasMeaningful(remote);
@@ -4819,8 +4823,10 @@ async function fbOnSignIn(user) {
       };
       const hasMeaningful = (side) =>
         bmCustomized(side.bookmarks) ||
-        (Array.isArray(side.todos) && side.todos.length > 0) ||
-        (typeof side.notes === 'string' && side.notes.trim().length > 0);
+        (Array.isArray(side.todos)   && side.todos.length > 0) ||
+        (typeof side.notes === 'string' && side.notes.trim().length > 0) ||
+        (Array.isArray(side.feeds)   && side.feeds.length > 0) ||
+        (Array.isArray(side.engines) && side.engines.length > 0);
 
       const localHas  = hasMeaningful(local);
       const remoteHas = hasMeaningful(remote);
@@ -5538,8 +5544,8 @@ let osintDragSrc = null;
 let osintCtxTarget = null;
 
 function saveOsint() {
+  // OSINT is local-only by design. Not synced to cloud.
   localStorage.setItem('sp_osint', JSON.stringify(osintData));
-  if (typeof fbPush === 'function') fbPush();
 }
 
 // ── Context menu for OSINT items ──
