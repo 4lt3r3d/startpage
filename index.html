@@ -1728,23 +1728,23 @@
       <button class="sb-btn" id="bgBtn" title="Change background">wallpaper</button>
       <button class="sb-btn" id="exportBtn" title="Export all data">export</button>
       <label class="sb-btn" id="importLabel" title="Import data">import<input type="file" id="importFile" accept=".json" style="display:none;"></label>
-      <div id="fbAuthArea" style="display:flex;align-items:center;gap:8px;">
-        <button class="sb-btn" id="fbSignInBtn" style="display:none;">⟳ sign in</button>
-        <span id="fbUserInfo" style="font-size:10px;color:var(--text3);display:none;"></span>
-        <button class="sb-btn" id="fbSignOutBtn" style="display:none;">sign out</button>
-        <span id="fbSyncStatus" style="font-size:9px;color:var(--text3);letter-spacing:0.05em;"></span>
-      </div>
       <span id="statsIndicator" style="display:flex;align-items:center;gap:5px;font-size:10px;font-family:var(--mono);color:var(--text3);cursor:pointer;" title="click to download stats server">
         <span id="statsIndicatorDot" style="width:6px;height:6px;border-radius:50%;background:var(--text3);flex-shrink:0;transition:background 0.3s;"></span>
         <span id="statsIndicatorLabel">stats offline</span>
       </span>
       <span id="syncIndicator" style="display:none;align-items:center;gap:5px;font-size:10px;font-family:var(--mono);color:var(--text3);cursor:pointer;padding-left:8px;border-left:1px solid var(--border);" title="force sync (click)">
-        <span id="syncIcon" style="display:flex;align-items:center;color:var(--text3);transition:color 0.3s;">
+        <span id="syncIcon" style="display:flex;align-items:center;color:var(--accent);transition:color 0.3s;">
           <svg id="syncIconCloud" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></svg>
           <svg id="syncIconSpin" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display:none;animation:syncSpin 0.9s linear infinite;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         </span>
         <span id="syncLabel"></span>
       </span>
+      <div id="fbAuthArea" style="display:flex;align-items:center;gap:8px;padding-left:8px;border-left:1px solid var(--border);">
+        <button class="sb-btn" id="fbSignInBtn" style="display:none;">⟳ sign in</button>
+        <span id="fbUserInfo" style="font-size:10px;color:var(--text3);display:none;"></span>
+        <button class="sb-btn" id="fbSignOutBtn" style="display:none;">sign out</button>
+        <span id="fbSyncStatus" style="font-size:9px;color:var(--text3);letter-spacing:0.05em;"></span>
+      </div>
       <span style="color:var(--text3);">startpage v1.0</span>
     </div>
   </div>
@@ -4556,7 +4556,8 @@ function syncIndicatorIdle(flashLabel) {
   const ico   = document.getElementById('syncIcon');
   if (cloud) cloud.style.display = '';
   if (spin)  spin.style.display  = 'none';
-  if (ico)   ico.style.color = 'var(--text3)';
+  // Cloud stays accent-colored whether busy or idle so it's always easy to see.
+  if (ico)   ico.style.color = 'var(--accent)';
   if (lbl) {
     if (flashLabel) {
       lbl.textContent = flashLabel;
@@ -4834,11 +4835,9 @@ function fbStartListening() {
         if (fbDataEqual(local, remote)) {
           // No real difference — silent.
           syncIndicatorIdle();
-        } else if (window._fbInteractiveSignIn === true) {
-          // Real conflict and the user just clicked sign-in: show the modal.
-          fbShowSyncChoice(local, remote);
         } else {
-          // Refresh / auto-restore — pick the newer side silently, no modal nag.
+          // Sign-in / refresh — newer side wins silently, no modal nag.
+          // (The conflict modal only shows on explicit force-sync via the cloud icon.)
           const remoteTs = remote.updated || 0;
           const localTs  = parseInt(localStorage.getItem('sp_last_updated') || '0');
           if (remoteTs > localTs) {
