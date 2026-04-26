@@ -1741,7 +1741,7 @@
       </span>
       <div id="fbAuthArea" style="display:flex;align-items:center;gap:8px;padding-left:8px;border-left:1px solid var(--border);">
         <button class="sb-btn" id="fbSignInBtn" style="display:none;">⟳ sign in</button>
-        <span id="fbUserInfo" style="font-size:10px;color:var(--text3);display:none;"></span>
+        <span id="fbUserInfo" style="font-size:10px;color:var(--accent);display:none;"></span>
         <button class="sb-btn" id="fbSignOutBtn" style="display:none;">sign out</button>
         <span id="fbSyncStatus" style="font-size:9px;color:var(--text3);letter-spacing:0.05em;"></span>
       </div>
@@ -4952,17 +4952,28 @@ async function fbOnSignIn(user) {
       if (remoteHas && !localHas) {
         // Silent restore — the common new-device case.
         fbApplyData(remote);
-        fbSetStatus('restored ✓', 'var(--accent)');
-        setTimeout(() => fbSetStatus(''), 2000);
+        syncIndicatorIdle('restored ✓');
       } else if (remoteHas && localHas) {
-        // Real conflict — keep existing modal behavior.
-        fbShowSyncChoice(local, remote);
+        if (fbDataEqual(local, remote)) {
+          // Identical — no action needed.
+          syncIndicatorIdle();
+        } else {
+          // Sign-in / refresh — newer side wins silently, no modal nag.
+          // (The conflict modal only shows on explicit force-sync.)
+          const remoteTs = remote.updated || 0;
+          const localTs  = parseInt(localStorage.getItem('sp_last_updated') || '0');
+          if (remoteTs > localTs) {
+            fbApplyData(remote);
+            syncIndicatorIdle('synced ✓');
+          }
+          // else: local is newer — listener will push it up after first snapshot.
+        }
       }
       // If only local has data, or neither has data, let the listener handle it below.
     }
   } catch(e) {
     console.error('initial sync fetch failed', e);
-    fbSetStatus('sync fetch failed', 'var(--red)');
+    syncIndicatorIdle('failed');
   } finally {
     // Keep _fbLoading TRUE here. The listener (fbStartListening) will release the
     // gate only after its first authoritative snapshot fires, closing the race window
