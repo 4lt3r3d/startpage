@@ -4720,7 +4720,8 @@ function fbStartListening() {
       firstSnapshot = false;
 
       if (!snap.exists()) {
-        // no cloud data — push local up silently
+        // no cloud data — release gate then push local up silently
+        window._fbLoading = false;
         fbPush();
         return;
       }
@@ -4773,6 +4774,9 @@ function fbStartListening() {
         // both empty — nothing to do
         fbPush();
       }
+
+      // First-snapshot handling complete — release the gate so normal pushes can run.
+      window._fbLoading = false;
     } else {
       // subsequent real-time updates from another device
       const remote   = snap.data();
@@ -4846,8 +4850,9 @@ async function fbOnSignIn(user) {
     console.error('initial sync fetch failed', e);
     fbSetStatus('sync fetch failed', 'var(--red)');
   } finally {
-    // Release the gate, then start realtime listening.
-    window._fbLoading = false;
+    // Keep _fbLoading TRUE here. The listener (fbStartListening) will release the
+    // gate only after its first authoritative snapshot fires, closing the race window
+    // where a stale getDoc result lets fbPush corrupt the cloud doc.
     fbStartListening();
   }
 }
@@ -6685,3 +6690,4 @@ buildFeeds();
 </script>
 </body>
 </html>
+  
