@@ -5546,6 +5546,8 @@ const OSINT_DEFAULT = {
 };
 
 let osintData = JSON.parse(localStorage.getItem('sp_osint') || 'null') || JSON.parse(JSON.stringify(OSINT_DEFAULT));
+// Persist defaults so OSINT survives — local-only by design.
+if (!localStorage.getItem('sp_osint')) localStorage.setItem('sp_osint', JSON.stringify(osintData));
 let osintActive = Object.keys(osintData)[0];
 let osintDragSrc = null;
 let osintCtxTarget = null;
