@@ -1340,6 +1340,8 @@
   }
   .feed-close-btn:hover { background: rgba(220,30,30,0.8); }
 
+  @keyframes syncSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  #syncIndicator:hover #syncIcon { color: var(--accent); }
   /* ── WIDGET DRAG ── */
   .drag-handle {
     cursor: grab;
@@ -1735,6 +1737,13 @@
       <span id="statsIndicator" style="display:flex;align-items:center;gap:5px;font-size:10px;font-family:var(--mono);color:var(--text3);cursor:pointer;" title="click to download stats server">
         <span id="statsIndicatorDot" style="width:6px;height:6px;border-radius:50%;background:var(--text3);flex-shrink:0;transition:background 0.3s;"></span>
         <span id="statsIndicatorLabel">stats offline</span>
+      </span>
+      <span id="syncIndicator" style="display:none;align-items:center;gap:5px;font-size:10px;font-family:var(--mono);color:var(--text3);cursor:pointer;padding-left:8px;border-left:1px solid var(--border);" title="force sync (click)">
+        <span id="syncIcon" style="display:flex;align-items:center;color:var(--text3);transition:color 0.3s;">
+          <svg id="syncIconCloud" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></svg>
+          <svg id="syncIconSpin" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display:none;animation:syncSpin 0.9s linear infinite;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </span>
+        <span id="syncLabel"></span>
       </span>
       <span style="color:var(--text3);">startpage v1.0</span>
     </div>
@@ -4501,6 +4510,64 @@ function fbSetStatus(msg, color) {
 }
 
 // ── Data helpers ──
+// Returns true if local + remote have functionally identical synced data
+// (ignoring timestamps and irrelevant differences). Used to skip the modal
+// when nothing actually changed.
+function fbDataEqual(local, remote) {
+  if (!local || !remote) return false;
+  // Stable JSON — sort keys so object order doesn't cause false negatives
+  const stable = (v) => {
+    if (Array.isArray(v)) return JSON.stringify(v);
+    if (v && typeof v === 'object') {
+      const keys = Object.keys(v).sort();
+      const out = {};
+      keys.forEach(k => { out[k] = v[k]; });
+      return JSON.stringify(out);
+    }
+    return JSON.stringify(v);
+  };
+  if (stable(local.bookmarks || {}) !== stable(remote.bookmarks || {})) return false;
+  if (stable(local.todos     || []) !== stable(remote.todos     || [])) return false;
+  if ((local.notes || '')           !==  (remote.notes || ''))           return false;
+  if (stable(local.feeds     || []) !== stable(remote.feeds     || [])) return false;
+  if (stable(local.engines   || []) !== stable(remote.engines   || [])) return false;
+  if (stable(local.greet     || {}) !== stable(remote.greet     || {})) return false;
+  if (stable(local.bg        || {}) !== stable(remote.bg        || {})) return false;
+  if ((local.accent || '')          !==  (remote.accent || ''))          return false;
+  return true;
+}
+
+// Sync indicator UI helpers
+function syncIndicatorShow() { const el = document.getElementById('syncIndicator'); if (el) el.style.display = 'flex'; }
+function syncIndicatorBusy(label) {
+  const cloud = document.getElementById('syncIconCloud');
+  const spin  = document.getElementById('syncIconSpin');
+  const lbl   = document.getElementById('syncLabel');
+  const ico   = document.getElementById('syncIcon');
+  if (cloud) cloud.style.display = 'none';
+  if (spin)  spin.style.display  = '';
+  if (lbl)   { lbl.textContent = label || 'syncing'; lbl.style.color = 'var(--accent)'; }
+  if (ico)   ico.style.color = 'var(--accent)';
+}
+function syncIndicatorIdle(flashLabel) {
+  const cloud = document.getElementById('syncIconCloud');
+  const spin  = document.getElementById('syncIconSpin');
+  const lbl   = document.getElementById('syncLabel');
+  const ico   = document.getElementById('syncIcon');
+  if (cloud) cloud.style.display = '';
+  if (spin)  spin.style.display  = 'none';
+  if (ico)   ico.style.color = 'var(--text3)';
+  if (lbl) {
+    if (flashLabel) {
+      lbl.textContent = flashLabel;
+      lbl.style.color = 'var(--accent)';
+      setTimeout(() => { lbl.textContent = ''; }, 1500);
+    } else {
+      lbl.textContent = '';
+    }
+  }
+}
+
 function fbGetData() {
   // Only user-customized data is synced. OSINT is baked-into-site (always present locally) and not synced.
   return {
@@ -4674,7 +4741,7 @@ async function fbPush() {
   try {
     const { db, doc, setDoc, getDoc } = window._fb;
     fbSyncing = true;
-    fbSetStatus('syncing...', 'var(--accent)');
+    syncIndicatorBusy('syncing');
 
     const payload = fbGetData();
 
@@ -4706,10 +4773,9 @@ async function fbPush() {
 
     localStorage.setItem('sp_last_updated', Date.now().toString());
     await setDoc(doc(db, 'users', fbUser.uid), payload);
-    fbSetStatus('synced ✓', 'var(--accent)');
-    setTimeout(() => fbSetStatus(''), 2000);
+    syncIndicatorIdle('synced ✓');
   } catch(e) {
-    fbSetStatus('sync failed', 'var(--red)');
+    syncIndicatorIdle('failed');
     console.error('FB push error', e);
   } finally {
     fbSyncing = false;
@@ -4726,28 +4792,21 @@ function fbStartListening() {
       firstSnapshot = false;
 
       if (!snap.exists()) {
-        // no cloud data — release gate then push local up silently
         window._fbLoading = false;
         fbPush();
         return;
       }
 
-      const remote     = snap.data();
-      const local      = fbGetData();
+      const remote = snap.data();
+      const local  = fbGetData();
 
-      // "has meaningful data" = bookmarks OR todos OR notes (not bookmarks-only).
-      // Bookmarks always carry defaults on first load so they can't be the sole signal.
-      // We treat bookmarks as meaningful only if the user has customized them
-      // (different from the seeded defaults), and todos/notes as meaningful when non-empty.
       const bmCustomized = (obj) => {
         if (!obj || typeof obj !== 'object') return false;
         const keys = Object.keys(obj);
         if (keys.length === 0) return false;
         const defKeys = Object.keys(DEFAULT_BOOKMARKS);
-        // different set of categories = customized
         if (keys.length !== defKeys.length) return true;
         for (const k of keys) if (!defKeys.includes(k)) return true;
-        // same categories — check counts per category
         for (const k of keys) {
           const cur = obj[k] || [];
           const def = DEFAULT_BOOKMARKS[k] || [];
@@ -4762,40 +4821,89 @@ function fbStartListening() {
         (Array.isArray(side.feeds)   && side.feeds.length > 0) ||
         (Array.isArray(side.engines) && side.engines.length > 0);
 
-      const localHas   = hasMeaningful(local);
-      const remoteHas  = hasMeaningful(remote);
+      const localHas  = hasMeaningful(local);
+      const remoteHas = hasMeaningful(remote);
 
+      // Smart sync — modal ONLY for genuine conflicts, and only if user just signed in.
       if (!localHas && remoteHas) {
-        // empty local, cloud has data — restore silently
         fbApplyData(remote);
-        fbSetStatus('restored ✓', 'var(--accent)');
-        setTimeout(() => fbSetStatus(''), 2000);
+        syncIndicatorIdle('restored ✓');
       } else if (localHas && !remoteHas) {
-        // local has data, cloud empty — push silently
         fbPush();
       } else if (localHas && remoteHas) {
-        // both have data — show the choice modal
-        fbShowSyncChoice(local, remote);
+        if (fbDataEqual(local, remote)) {
+          // No real difference — silent.
+          syncIndicatorIdle();
+        } else if (window._fbInteractiveSignIn === true) {
+          // Real conflict and the user just clicked sign-in: show the modal.
+          fbShowSyncChoice(local, remote);
+        } else {
+          // Refresh / auto-restore — pick the newer side silently, no modal nag.
+          const remoteTs = remote.updated || 0;
+          const localTs  = parseInt(localStorage.getItem('sp_last_updated') || '0');
+          if (remoteTs > localTs) {
+            fbApplyData(remote);
+            syncIndicatorIdle('synced ✓');
+          } else {
+            fbPush();
+          }
+        }
       } else {
-        // both empty — nothing to do
         fbPush();
       }
 
-      // First-snapshot handling complete — release the gate so normal pushes can run.
+      window._fbInteractiveSignIn = false;
       window._fbLoading = false;
     } else {
-      // subsequent real-time updates from another device
+      // Subsequent real-time updates from another device.
       const remote   = snap.data();
+      const local    = fbGetData();
+      if (fbDataEqual(local, remote)) return; // ignore timestamp-only deltas
       const remoteTs = remote.updated || 0;
       const localTs  = parseInt(localStorage.getItem('sp_last_updated') || '0');
       if (remoteTs > localTs + 3000) {
         fbApplyData(remote);
         localStorage.setItem('sp_last_updated', remoteTs.toString());
-        fbSetStatus('synced ✓', 'var(--accent)');
-        setTimeout(() => fbSetStatus(''), 2000);
+        syncIndicatorIdle('synced ✓');
       }
     }
   });
+}
+
+// Force-sync click handler — push local to cloud + pull cloud down.
+async function fbForceSync() {
+  if (!fbUser) return;
+  if (fbSyncing) return;
+  try {
+    const { db, doc, getDoc } = window._fb;
+    syncIndicatorBusy('syncing');
+    const snap = await getDoc(doc(db, 'users', fbUser.uid));
+    if (snap.exists()) {
+      const remote = snap.data();
+      const local  = fbGetData();
+      if (!fbDataEqual(local, remote)) {
+        const remoteTs = remote.updated || 0;
+        const localTs  = parseInt(localStorage.getItem('sp_last_updated') || '0');
+        // Genuine conflict — show modal so user decides.
+        if (remoteTs && localTs && Math.abs(remoteTs - localTs) < 3000) {
+          fbShowSyncChoice(local, remote);
+          syncIndicatorIdle();
+          return;
+        }
+        // Otherwise newer side wins automatically.
+        if (remoteTs > localTs) {
+          fbApplyData(remote);
+          syncIndicatorIdle('synced ✓');
+          return;
+        }
+      }
+    }
+    // Local is current or cloud is empty — push.
+    await fbPush();
+  } catch(e) {
+    syncIndicatorIdle('failed');
+    console.error('force sync error', e);
+  }
 }
 
 async function fbOnSignIn(user) {
@@ -4807,7 +4915,8 @@ async function fbOnSignIn(user) {
   document.getElementById('fbSignOutBtn').style.display = '';
   document.getElementById('fbUserInfo').style.display   = '';
   document.getElementById('fbUserInfo').textContent     = user.displayName || user.email;
-  fbSetStatus('loading...', 'var(--accent)');
+  syncIndicatorShow();
+  syncIndicatorBusy('loading');
 
   try {
     const { db, doc, getDoc } = window._fb;
@@ -4869,6 +4978,8 @@ function fbOnSignOut() {
   document.getElementById('fbSignInBtn').style.display  = '';
   document.getElementById('fbSignOutBtn').style.display = 'none';
   document.getElementById('fbUserInfo').style.display   = 'none';
+  const si = document.getElementById('syncIndicator');
+  if (si) si.style.display = 'none';
   fbSetStatus('');
 }
 
@@ -4910,9 +5021,11 @@ function fbInit() {
 
   document.getElementById('fbSignInBtn').addEventListener('click', async () => {
     try {
+      window._fbInteractiveSignIn = true;
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
     } catch(e) {
+      window._fbInteractiveSignIn = false;
       fbSetStatus('sign in failed', 'var(--red)');
       console.error('FB signin error', e);
     }
@@ -4924,6 +5037,10 @@ function fbInit() {
 
   // show sign in button
   document.getElementById('fbSignInBtn').style.display = '';
+
+  // Wire force-sync click on the cloud indicator
+  const si = document.getElementById('syncIndicator');
+  if (si) si.addEventListener('click', fbForceSync);
 }
 
 fbInit();
