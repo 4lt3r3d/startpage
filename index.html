@@ -4239,16 +4239,20 @@ function applyWidgetOrder() {
   if (!saved) return;
   const leftCol = document.querySelector('.left-col');
   const rightCol = document.querySelector('.right-col');
-  // reorder left column
-  saved.left.forEach(id => {
-    const el = document.getElementById(id);
-    if (el && el.parentElement === leftCol) leftCol.appendChild(el);
-  });
+  // reorder left column — guard against malformed/empty objects from older pushes
+  if (Array.isArray(saved.left)) {
+    saved.left.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.parentElement === leftCol) leftCol.appendChild(el);
+    });
+  }
   // reorder right column
-  saved.right.forEach(id => {
-    const el = document.getElementById(id);
-    if (el && el.parentElement === rightCol) rightCol.appendChild(el);
-  });
+  if (Array.isArray(saved.right)) {
+    saved.right.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.parentElement === rightCol) rightCol.appendChild(el);
+    });
+  }
 }
 
 function setWidgetsLocked(locked) {
