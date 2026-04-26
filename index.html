@@ -3012,6 +3012,8 @@ const DEFAULT_BOOKMARKS = {
 };
 
 let bookmarks = JSON.parse(localStorage.getItem('sp_bookmarks') || 'null') || JSON.parse(JSON.stringify(DEFAULT_BOOKMARKS));
+// Persist defaults to localStorage so fbGetData reflects what the user is actually seeing.
+if (!localStorage.getItem('sp_bookmarks')) localStorage.setItem('sp_bookmarks', JSON.stringify(bookmarks));
 let activeCategory = Object.keys(bookmarks)[0];
 
 function saveBookmarks() { localStorage.setItem('sp_bookmarks', JSON.stringify(bookmarks)); }
@@ -6456,6 +6458,8 @@ const LIVE_FEEDS_DEFAULT = [
 ];
 
 let LIVE_FEEDS = JSON.parse(localStorage.getItem('sp_feeds') || 'null') || JSON.parse(JSON.stringify(LIVE_FEEDS_DEFAULT));
+// Persist defaults to localStorage so fbGetData reflects what the user is actually seeing.
+if (!localStorage.getItem('sp_feeds')) localStorage.setItem('sp_feeds', JSON.stringify(LIVE_FEEDS));
 
 function saveFeeds() {
   localStorage.setItem('sp_feeds', JSON.stringify(LIVE_FEEDS));
@@ -6690,4 +6694,3 @@ buildFeeds();
 </script>
 </body>
 </html>
-  
