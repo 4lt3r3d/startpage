@@ -1342,6 +1342,170 @@
 
   @keyframes syncSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   #syncIndicator:hover #syncIcon { color: var(--accent); }
+  /* ── CHEAT SHEET PANEL ── */
+  #cheatTab {
+    position: fixed;
+    left: 0; top: 50%;
+    transform: translateY(-50%);
+    z-index: 8000;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: none;
+    border-radius: 0 6px 6px 0;
+    padding: 10px 6px;
+    cursor: pointer;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--text3);
+    transition: color 0.15s, background 0.15s;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  #cheatTab:hover { color: var(--accent); background: var(--bg3); }
+  #cheatTab.open { color: var(--accent); background: var(--bg3); }
+
+  #cheatPanel {
+    position: fixed;
+    left: -420px;
+    top: 0; bottom: 0;
+    width: 420px;
+    z-index: 7999;
+    background: var(--bg1);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    transition: left 0.25s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+    overflow: hidden;
+  }
+  #cheatPanel.open { left: 0; }
+
+  .cheat-header {
+    padding: 16px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .cheat-header-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  .cheat-close {
+    background: none; border: none; color: var(--text3);
+    cursor: pointer; font-size: 16px; padding: 2px 4px;
+    transition: color 0.15s;
+  }
+  .cheat-close:hover { color: var(--text); }
+
+  .cheat-cat-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    overflow-y: auto;
+    max-height: 100px;
+  }
+  .cheat-cat-tab {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text3);
+    cursor: pointer;
+    transition: all 0.12s;
+    white-space: nowrap;
+  }
+  .cheat-cat-tab:hover { border-color: var(--border2); color: var(--text); }
+  .cheat-cat-tab.active { border-color: var(--accent); background: var(--accent3); color: var(--accent); }
+
+  .cheat-search {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .cheat-search input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 8px;
+    outline: none;
+    caret-color: var(--accent);
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+  }
+  .cheat-search input:focus { border-color: var(--accent); }
+
+  .cheat-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 12px;
+  }
+  .cheat-section { margin-bottom: 16px; }
+  .cheat-section-title {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .cheat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    gap: 12px;
+    transition: opacity 0.1s;
+  }
+  .cheat-row:last-child { border-bottom: none; }
+  .cheat-action {
+    font-size: 11px;
+    color: var(--text2);
+    flex: 1;
+    line-height: 1.4;
+  }
+  .cheat-keys {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .cheat-key {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text);
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    padding: 1px 5px;
+    white-space: nowrap;
+    box-shadow: 0 1px 0 var(--border2);
+  }
+  .cheat-sep { font-size: 9px; color: var(--text3); }
+  .cheat-row.hidden { display: none; }
+
   /* ── WIDGET DRAG ── */
   .drag-handle {
     cursor: grab;
@@ -3018,6 +3182,96 @@ const DEFAULT_BOOKMARKS = {
     { name: 'ArsTechnica',  url: 'https://arstechnica.com',      icon: '📰' },
     { name: 'TheVerge',     url: 'https://theverge.com',         icon: '◤' },
   ],
+  cloud: [
+    { name: 'Google Drive', url: 'https://drive.google.com',     icon: '📁' },
+    { name: 'Dropbox',      url: 'https://dropbox.com',          icon: '📦' },
+    { name: 'OneDrive',     url: 'https://onedrive.live.com',    icon: '☁' },
+    { name: 'Mega',         url: 'https://mega.nz',              icon: '🔐' },
+    { name: 'Proton Drive', url: 'https://drive.proton.me',      icon: '🛡' },
+    { name: 'Backblaze',    url: 'https://backblaze.com',        icon: '🔥' },
+    { name: 'pCloud',       url: 'https://pcloud.com',           icon: '☁' },
+    { name: 'iCloud',       url: 'https://icloud.com',           icon: '🍎' },
+  ],
+  archives: [
+    { name: 'Wayback Machine', url: 'https://web.archive.org',   icon: '📦' },
+    { name: 'Archive.ph',   url: 'https://archive.ph',           icon: '🗃' },
+    { name: "Anna's Archive", url: 'https://annas-archive.org',  icon: '📚' },
+    { name: 'Lib Genesis',  url: 'https://libgen.is',            icon: '📖' },
+    { name: 'Z-Library',    url: 'https://z-lib.id',             icon: '📚' },
+    { name: 'Open Library', url: 'https://openlibrary.org',      icon: '🏛' },
+    { name: 'Gutenberg',    url: 'https://gutenberg.org',        icon: '📜' },
+    { name: 'Sci-Hub',      url: 'https://sci-hub.se',           icon: '🔬' },
+  ],
+  pirating: [
+    { name: 'RARBG Mirror', url: 'https://rarbgmirror.com',      icon: '🏴' },
+    { name: '1337x',        url: 'https://1337x.to',             icon: '⚡' },
+    { name: 'YTS',          url: 'https://yts.mx',               icon: '🎬' },
+    { name: 'EZTV',         url: 'https://eztv.re',              icon: '📺' },
+    { name: 'Nyaa',         url: 'https://nyaa.si',              icon: '🐱' },
+    { name: 'RuTracker',    url: 'https://rutracker.org',        icon: '🇷🇺' },
+    { name: 'The Pirate Bay', url: 'https://thepiratebay.org',   icon: '☠' },
+    { name: 'FitGirl',      url: 'https://fitgirl-repacks.site', icon: '🎮' },
+  ],
+  'chat & boards': [
+    { name: 'Discord',      url: 'https://discord.com',          icon: '💬' },
+    { name: 'Telegram',     url: 'https://web.telegram.org',     icon: '✈' },
+    { name: 'Signal',       url: 'https://signal.org',           icon: '🔒' },
+    { name: 'Element',      url: 'https://app.element.io',       icon: '🔷' },
+    { name: '4chan',         url: 'https://4chan.org',            icon: '🍀' },
+    { name: 'Lemmy',        url: 'https://lemmy.world',          icon: '🐭' },
+    { name: 'Guilded',      url: 'https://guilded.gg',           icon: '🟡' },
+    { name: 'Kbin',         url: 'https://kbin.social',          icon: '📌' },
+  ],
+  tech: [
+    { name: 'GitHub',       url: 'https://github.com',           icon: '🐙' },
+    { name: 'Stack Overflow', url: 'https://stackoverflow.com',  icon: '📚' },
+    { name: 'HackerNews',   url: 'https://news.ycombinator.com', icon: '🅈' },
+    { name: 'ProductHunt',  url: 'https://producthunt.com',      icon: '🐱' },
+    { name: "Tom's Hardware", url: 'https://tomshardware.com',   icon: '🖥' },
+    { name: 'LTT',          url: 'https://linustechtips.com',    icon: '🔧' },
+    { name: 'AnandTech',    url: 'https://anandtech.com',        icon: '💻' },
+    { name: 'Lobsters',     url: 'https://lobste.rs',            icon: '🦞' },
+  ],
+  music: [
+    { name: 'Spotify',      url: 'https://open.spotify.com',     icon: '🎵' },
+    { name: 'SoundCloud',   url: 'https://soundcloud.com',       icon: '🔊' },
+    { name: 'Bandcamp',     url: 'https://bandcamp.com',         icon: '🎸' },
+    { name: 'Last.fm',      url: 'https://last.fm',              icon: '📻' },
+    { name: 'YouTube Music', url: 'https://music.youtube.com',   icon: '▶' },
+    { name: 'Tidal',        url: 'https://tidal.com',            icon: '🌊' },
+    { name: 'Musixmatch',   url: 'https://musixmatch.com',       icon: '🎤' },
+    { name: 'Deezer',       url: 'https://deezer.com',           icon: '🎶' },
+  ],
+  movies: [
+    { name: 'Letterboxd',   url: 'https://letterboxd.com',       icon: '🎬' },
+    { name: 'IMDb',         url: 'https://imdb.com',             icon: '⭐' },
+    { name: 'JustWatch',    url: 'https://justwatch.com',        icon: '📺' },
+    { name: 'Trakt',        url: 'https://trakt.tv',             icon: '📊' },
+    { name: 'Plex',         url: 'https://app.plex.tv',          icon: '🟡' },
+    { name: 'Stremio',      url: 'https://www.stremio.com',      icon: '🎯' },
+    { name: 'RT',           url: 'https://rottentomatoes.com',   icon: '🍅' },
+    { name: 'Jellyfin',     url: 'https://jellyfin.org',         icon: '🪼' },
+  ],
+  games: [
+    { name: 'Steam',        url: 'https://store.steampowered.com', icon: '♨' },
+    { name: 'GOG',          url: 'https://gog.com',              icon: '🎮' },
+    { name: 'Epic',         url: 'https://epicgames.com',        icon: '⚡' },
+    { name: 'itch.io',      url: 'https://itch.io',              icon: '🕹' },
+    { name: 'PCGamingWiki', url: 'https://pcgamingwiki.com',     icon: '📖' },
+    { name: 'HowLongToBeat', url: 'https://howlongtobeat.com',   icon: '⏱' },
+    { name: 'Nexus Mods',   url: 'https://nexusmods.com',        icon: '🔧' },
+    { name: 'GG.deals',     url: 'https://gg.deals',             icon: '💰' },
+  ],
+  diy: [
+    { name: 'Instructables', url: 'https://instructables.com',   icon: '🔨' },
+    { name: 'Hackaday',     url: 'https://hackaday.com',         icon: '⚡' },
+    { name: 'Thingiverse',  url: 'https://thingiverse.com',      icon: '🖨' },
+    { name: 'Printables',   url: 'https://printables.com',       icon: '🖨' },
+    { name: 'iFixit',       url: 'https://ifixit.com',           icon: '🔧' },
+    { name: 'SparkFun',     url: 'https://sparkfun.com',         icon: '⚡' },
+    { name: 'Adafruit',     url: 'https://adafruit.com',         icon: '🔌' },
+    { name: 'Hackaday.io',  url: 'https://hackaday.io',          icon: '🛠' },
+  ],
 };
 
 let bookmarks = JSON.parse(localStorage.getItem('sp_bookmarks') || 'null') || JSON.parse(JSON.stringify(DEFAULT_BOOKMARKS));
@@ -3169,41 +3423,47 @@ function buildCategoryTabs() {
     // drag — always attached, locked check at dragstart
     btn.draggable = true;
     btn.style.userSelect = 'none';
+    btn.style.cursor = 'pointer';
+
+    btn.addEventListener('mousedown', () => { if (!bmLocked) btn.style.cursor = 'grabbing'; });
+    btn.addEventListener('mouseup',   () => { btn.style.cursor = 'pointer'; });
 
     btn.addEventListener('dragstart', e => {
       if (bmLocked) { e.preventDefault(); return; }
       catDragSrc = cat;
+      btn.style.opacity = '0.4';
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', cat);
-      requestAnimationFrame(() => btn.classList.add('dragging'));
     });
 
     btn.addEventListener('dragend', () => {
+      btn.style.opacity = '';
+      btn.style.outline = '';
+      btn.style.cursor = 'pointer';
       catDragSrc = null;
-      document.querySelectorAll('.cat-tab').forEach(b => b.classList.remove('dragging','drag-over'));
-    });
-
-    btn.addEventListener('dragenter', e => {
-      if (bmLocked || !catDragSrc || catDragSrc === cat) return;
-      e.preventDefault();
-      btn.classList.add('drag-over');
+      document.querySelectorAll('.cat-tab').forEach(b => {
+        b.style.outline = '';
+        b.style.opacity = '';
+      });
     });
 
     btn.addEventListener('dragover', e => {
-      if (bmLocked || !catDragSrc) return;
+      if (bmLocked || !catDragSrc || catDragSrc === cat) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
+      btn.style.outline = '1px dashed var(--accent)';
+      btn.style.outlineOffset = '2px';
     });
 
     btn.addEventListener('dragleave', e => {
-      if (!btn.contains(e.relatedTarget)) btn.classList.remove('drag-over');
+      if (!btn.contains(e.relatedTarget)) btn.style.outline = '';
     });
 
     btn.addEventListener('drop', e => {
       if (bmLocked) return;
       e.preventDefault();
       e.stopPropagation();
-      btn.classList.remove('drag-over');
+      btn.style.outline = '';
       const src = catDragSrc;
       if (!src || src === cat) return;
       const keys = Object.keys(bookmarks);
@@ -3246,41 +3506,47 @@ function renderBookmarks() {
     // drag to reorder (only when unlocked)
     if (!bmLocked) {
       a.draggable = true;
+      a.style.cursor = 'pointer';
+
+      a.addEventListener('mousedown', () => { if (!bmLocked) a.style.cursor = 'grabbing'; });
+      a.addEventListener('mouseup',   () => { a.style.cursor = 'pointer'; });
 
       a.addEventListener('dragstart', e => {
         if (bmLocked) { e.preventDefault(); return; }
         bmDragSrc = i;
+        a.style.opacity = '0.3';
+        a.style.transform = 'scale(0.95)';
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', String(i));
-        requestAnimationFrame(() => a.classList.add('dragging'));
       });
 
       a.addEventListener('dragend', () => {
         bmDragSrc = null;
-        document.querySelectorAll('.bm-item').forEach(el => el.classList.remove('dragging','drag-over'));
-      });
-
-      a.addEventListener('dragenter', e => {
-        if (bmLocked || bmDragSrc === null || bmDragSrc === i) return;
-        e.preventDefault();
-        a.classList.add('drag-over');
+        document.querySelectorAll('.bm-item').forEach(el => {
+          el.style.outline = '';
+          el.style.opacity = '';
+          el.style.transform = '';
+          el.style.cursor = 'pointer';
+        });
       });
 
       a.addEventListener('dragover', e => {
-        if (bmLocked || bmDragSrc === null) return;
+        if (bmLocked || bmDragSrc === null || bmDragSrc === i) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
+        a.style.outline = '2px dashed var(--accent)';
+        a.style.outlineOffset = '2px';
       });
 
       a.addEventListener('dragleave', e => {
-        if (!a.contains(e.relatedTarget)) a.classList.remove('drag-over');
+        if (!a.contains(e.relatedTarget)) a.style.outline = '';
       });
 
       a.addEventListener('drop', e => {
         if (bmLocked) return;
         e.preventDefault();
         e.stopPropagation();
-        a.classList.remove('drag-over');
+        a.style.outline = '';
         const src = bmDragSrc;
         if (src === null || src === i) return;
         const arr = bookmarks[activeCategory];
@@ -5826,24 +6092,44 @@ function renderOsint() {
 
     // drag to reorder
     a.draggable = true;
+    a.style.cursor = 'pointer';
+
+    a.addEventListener('mousedown', () => { a.style.cursor = 'grabbing'; });
+    a.addEventListener('mouseup',   () => { a.style.cursor = 'pointer'; });
+
     a.addEventListener('dragstart', e => {
       osintDragSrc = i;
+      a.style.opacity = '0.3';
+      a.style.transform = 'scale(0.95)';
       e.dataTransfer.effectAllowed = 'move';
-      requestAnimationFrame(() => a.classList.add('dragging'));
+      e.dataTransfer.setData('text/plain', String(i));
     });
+
     a.addEventListener('dragend', () => {
       osintDragSrc = null;
-      grid.querySelectorAll('.bm-item').forEach(el => el.classList.remove('dragging','drag-over'));
+      grid.querySelectorAll('.bm-item').forEach(el => {
+        el.style.outline = '';
+        el.style.opacity = '';
+        el.style.transform = '';
+        el.style.cursor = 'pointer';
+      });
     });
-    a.addEventListener('dragenter', e => {
+
+    a.addEventListener('dragover', e => {
+      if (osintDragSrc === null || osintDragSrc === i) return;
       e.preventDefault();
-      if (osintDragSrc !== null && osintDragSrc !== i) a.classList.add('drag-over');
+      e.dataTransfer.dropEffect = 'move';
+      a.style.outline = '2px dashed var(--accent)';
+      a.style.outlineOffset = '2px';
     });
-    a.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
-    a.addEventListener('dragleave', e => { if (!a.contains(e.relatedTarget)) a.classList.remove('drag-over'); });
+
+    a.addEventListener('dragleave', e => {
+      if (!a.contains(e.relatedTarget)) a.style.outline = '';
+    });
+
     a.addEventListener('drop', e => {
       e.preventDefault(); e.stopPropagation();
-      a.classList.remove('drag-over');
+      a.style.outline = '';
       const src = osintDragSrc;
       if (src === null || src === i) return;
       const arr = osintData[osintActive];
@@ -5851,6 +6137,7 @@ function renderOsint() {
       arr.splice(i, 0, moved);
       saveOsint(); renderOsint();
     });
+
     a.addEventListener('click', e => { if (osintDragSrc !== null) e.preventDefault(); });
 
     grid.appendChild(a);
@@ -6824,6 +7111,312 @@ document.getElementById('feedsEditBtn').addEventListener('click', openFeedsEdit)
 
 buildFeeds();
 
+
+// ══════════════════════════════
+//  CHEAT SHEET PANEL
+// ══════════════════════════════
+const CHEAT_DATA = {
+  'windows 10': [
+    { section: 'general', rows: [
+      { action: 'Open Start Menu', keys: [['Win']] },
+      { action: 'Open Action Center', keys: [['Win','A']] },
+      { action: 'Open Settings', keys: [['Win','I']] },
+      { action: 'Open Task Manager', keys: [['Ctrl','Shift','Esc']] },
+      { action: 'Open Task View', keys: [['Win','Tab']] },
+      { action: 'Open File Explorer', keys: [['Win','E']] },
+      { action: 'Lock Screen', keys: [['Win','L']] },
+      { action: 'Run Dialog', keys: [['Win','R']] },
+      { action: 'Search', keys: [['Win','S']] },
+      { action: 'Screenshot (full)', keys: [['Win','PrtScn']] },
+      { action: 'Screenshot (region)', keys: [['Win','Shift','S']] },
+      { action: 'Open Clipboard History', keys: [['Win','V']] },
+      { action: 'Shut Down Menu', keys: [['Win','X']] },
+      { action: 'Connect Bluetooth / Devices', keys: [['Win','K']] },
+      { action: 'Screen Projection', keys: [['Win','P']] },
+      { action: 'Minimize All Windows', keys: [['Win','D']] },
+      { action: 'Snap Window Left/Right', keys: [['Win','← / →']] },
+      { action: 'Maximize / Restore Window', keys: [['Win','↑ / ↓']] },
+      { action: 'Duplicate Window', keys: [['Ctrl','N']] },
+      { action: 'Navigate to Bottom Right', keys: [['Win','B']] },
+    ]},
+    { section: 'file explorer', rows: [
+      { action: 'Address Bar', keys: [['Alt','D']] },
+      { action: 'New Folder', keys: [['Ctrl','Shift','N']] },
+      { action: 'Select All', keys: [['Ctrl','A']] },
+      { action: 'Properties', keys: [['Alt','Enter']] },
+      { action: 'Delete Permanently', keys: [['Shift','Del']] },
+      { action: 'Rename', keys: [['F2']] },
+      { action: 'Go Up a Folder', keys: [['Alt','↑']] },
+      { action: 'Go Back / Forward', keys: [['Alt','← / →']] },
+      { action: 'Preview Pane', keys: [['Alt','P']] },
+      { action: 'Folder Options', keys: [['Alt','F → O']] },
+    ]},
+  ],
+  'brave': [
+    { section: 'navigation', rows: [
+      { action: 'New Tab', keys: [['Ctrl','T']] },
+      { action: 'New Window', keys: [['Ctrl','N']] },
+      { action: 'New Private Window', keys: [['Ctrl','Shift','N']] },
+      { action: 'Close Tab', keys: [['Ctrl','W']] },
+      { action: 'Reopen Closed Tab', keys: [['Ctrl','Shift','T']] },
+      { action: 'Next / Prev Tab', keys: [['Ctrl','Tab']] },
+      { action: 'Jump to Tab 1-8', keys: [['Ctrl','1-8']] },
+      { action: 'Address Bar Focus', keys: [['Ctrl','L']] },
+      { action: 'Hard Refresh', keys: [['Ctrl','Shift','R']] },
+      { action: 'Bookmark Page', keys: [['Ctrl','D']] },
+      { action: 'History', keys: [['Ctrl','H']] },
+      { action: 'Downloads', keys: [['Ctrl','J']] },
+      { action: 'Find on Page', keys: [['Ctrl','F']] },
+      { action: 'Developer Tools', keys: [['F12']] },
+      { action: 'Zoom In / Out', keys: [['Ctrl','+ / -']] },
+      { action: 'Full Screen', keys: [['F11']] },
+    ]},
+  ],
+  'discord': [
+    { section: 'navigation', rows: [
+      { action: 'Quick Switcher', keys: [['Ctrl','K']] },
+      { action: 'Previous / Next Server', keys: [['Ctrl','Alt','↑ / ↓']] },
+      { action: 'Previous / Next Channel', keys: [['Alt','↑ / ↓']] },
+      { action: 'Toggle Mute', keys: [['Ctrl','Shift','M']] },
+      { action: 'Toggle Deafen', keys: [['Ctrl','Shift','D']] },
+      { action: 'Upload File', keys: [['Ctrl','Shift','U']] },
+      { action: 'Toggle Emoji Picker', keys: [['Ctrl','E']] },
+      { action: 'Edit Last Message', keys: [['↑']] },
+      { action: 'Search', keys: [['Ctrl','F']] },
+      { action: 'Settings', keys: [['Ctrl',',']] },
+      { action: 'Strikethrough', keys: [['Ctrl','Shift','S']] },
+      { action: 'Spoiler Tag', keys: [['Ctrl','Shift','P']] },
+    ]},
+  ],
+  'vivaldi': [
+    { section: 'navigation', rows: [
+      { action: 'New Tab', keys: [['Ctrl','T']] },
+      { action: 'Quick Commands', keys: [['F2']] },
+      { action: 'Tab Cycler', keys: [['Ctrl','Tab']] },
+      { action: 'Clone Tab', keys: [['Ctrl','Shift','K']] },
+      { action: 'Toggle Sidebar', keys: [['F4']] },
+      { action: 'Toggle UI / Zen Mode', keys: [['F8']] },
+      { action: 'Toggle Tab Bar', keys: [['F6']] },
+      { action: 'Reader View', keys: [['F9']] },
+      { action: 'Bookmark Page', keys: [['Ctrl','D']] },
+      { action: 'Developer Tools', keys: [['F12']] },
+    ]},
+  ],
+  'linux bash': [
+    { section: 'terminal', rows: [
+      { action: 'Clear Screen', keys: [['Ctrl','L']] },
+      { action: 'Cancel Command', keys: [['Ctrl','C']] },
+      { action: 'Exit', keys: [['Ctrl','D']] },
+      { action: 'Search History', keys: [['Ctrl','R']] },
+      { action: 'Previous / Next Command', keys: [['↑ / ↓']] },
+      { action: 'Beginning of Line', keys: [['Ctrl','A']] },
+      { action: 'End of Line', keys: [['Ctrl','E']] },
+      { action: 'Delete Word Before Cursor', keys: [['Ctrl','W']] },
+      { action: 'Delete to End of Line', keys: [['Ctrl','K']] },
+      { action: 'Paste (Yank)', keys: [['Ctrl','Y']] },
+      { action: 'Stop Running Process', keys: [['Ctrl','Z']] },
+      { action: 'Run as Sudo', keys: [['sudo !!']] },
+      { action: 'Previous Directory', keys: [['cd -']] },
+    ]},
+  ],
+  'powershell': [
+    { section: 'commands', rows: [
+      { action: 'Get Help', keys: [['Get-Help']] },
+      { action: 'List All Commands', keys: [['Get-Command']] },
+      { action: 'List Processes', keys: [['Get-Process']] },
+      { action: 'Stop Process', keys: [['Stop-Process -Name']] },
+      { action: 'List Files', keys: [['Get-ChildItem']] },
+      { action: 'Read File', keys: [['Get-Content']] },
+      { action: 'Copy / Move / Delete', keys: [['Copy/Move/Remove-Item']] },
+      { action: 'Get IP Address', keys: [['Get-NetIPAddress']] },
+      { action: 'Ping', keys: [['Test-Connection']] },
+      { action: 'System Info', keys: [['Get-ComputerInfo']] },
+      { action: 'Check Disk', keys: [['chkdsk X: /f /r /x']] },
+      { action: 'Clear Screen', keys: [['cls']] },
+    ]},
+  ],
+  'powertoys': [
+    { section: 'shortcuts', rows: [
+      { action: 'Launcher (Run)', keys: [['Alt','Space']] },
+      { action: 'Color Picker', keys: [['Win','Shift','C']] },
+      { action: 'FancyZones Editor', keys: [['Win','Shift','`']] },
+      { action: 'Screen Ruler', keys: [['Win','Shift','M']] },
+      { action: 'Text Extractor (OCR)', keys: [['Win','Shift','T']] },
+      { action: 'Peek (File Preview)', keys: [['Ctrl','Space']] },
+      { action: 'Mouse Highlighter', keys: [['Win','Shift','H']] },
+      { action: 'Shortcut Guide', keys: [['Win','Shift','/']] },
+    ]},
+  ],
+  'youtube': [
+    { section: 'playback', rows: [
+      { action: 'Play / Pause', keys: [['K']] },
+      { action: 'Mute / Unmute', keys: [['M']] },
+      { action: 'Fullscreen', keys: [['F']] },
+      { action: 'Theater Mode', keys: [['T']] },
+      { action: 'Mini Player', keys: [['I']] },
+      { action: 'Skip 5s Back / Forward', keys: [['← / →']] },
+      { action: 'Skip 10s Back / Forward', keys: [['J / L']] },
+      { action: 'Next / Prev Video', keys: [['Shift','N / P']] },
+      { action: 'Speed Up / Down', keys: [['Shift','> / <']] },
+      { action: 'Jump to % of Video', keys: [['0-9']] },
+      { action: 'Subtitles', keys: [['C']] },
+      { action: 'Go to Search', keys: [['/']] },
+    ]},
+  ],
+  'keyboard': [
+    { section: 'universal', rows: [
+      { action: 'Cut / Copy / Paste', keys: [['Ctrl','X/C/V']] },
+      { action: 'Paste Without Formatting', keys: [['Ctrl','Shift','V']] },
+      { action: 'Undo / Redo', keys: [['Ctrl','Z / Y']] },
+      { action: 'Select All', keys: [['Ctrl','A']] },
+      { action: 'Find', keys: [['Ctrl','F']] },
+      { action: 'Save / Save As', keys: [['Ctrl','S / Ctrl','Shift','S']] },
+      { action: 'Print', keys: [['Ctrl','P']] },
+      { action: 'Bold / Italic / Underline', keys: [['Ctrl','B/I/U']] },
+      { action: 'Switch App', keys: [['Alt','Tab']] },
+    ]},
+  ],
+  'sharex': [
+    { section: 'capture', rows: [
+      { action: 'Capture Fullscreen', keys: [['Print Screen']] },
+      { action: 'Capture Active Window', keys: [['Alt','Print Screen']] },
+      { action: 'Capture Region', keys: [['Ctrl','Print Screen']] },
+      { action: 'Record Screen', keys: [['Ctrl','Shift','Print Screen']] },
+      { action: 'Record GIF', keys: [['Ctrl','Shift','G']] },
+      { action: 'Open Main Window', keys: [['Ctrl','Shift','1']] },
+    ]},
+  ],
+  'onenote': [
+    { section: 'notes', rows: [
+      { action: 'New Page', keys: [['Ctrl','N']] },
+      { action: 'New Section', keys: [['Ctrl','T']] },
+      { action: 'Search Notes', keys: [['Ctrl','F']] },
+      { action: 'Sync Notebook', keys: [['Shift','F9']] },
+      { action: 'Insert Link', keys: [['Ctrl','K']] },
+      { action: 'Insert Date', keys: [['Alt','Shift','D']] },
+      { action: 'Insert Time', keys: [['Alt','Shift','T']] },
+      { action: 'To-Do Tag', keys: [['Ctrl','1']] },
+      { action: 'Full Page View', keys: [['F11']] },
+    ]},
+  ],
+};
+
+let cheatActiveTab = Object.keys(CHEAT_DATA)[0];
+let cheatOpen = false;
+
+function renderCheatKeys(keys) {
+  return keys.map(combo => {
+    if (combo.length === 1 && combo[0].length > 5) {
+      return '<span class="cheat-key" style="font-size:8px;">' + combo[0] + '</span>';
+    }
+    return combo.map(k => '<span class="cheat-key">' + k + '</span>').join('<span class="cheat-sep">+</span>');
+  }).join('<span class="cheat-sep" style="margin:0 4px;">|</span>');
+}
+
+function buildCheatTabs() {
+  const el = document.getElementById('cheatCatTabs');
+  el.innerHTML = '';
+  Object.keys(CHEAT_DATA).forEach(function(cat) {
+    const btn = document.createElement('button');
+    btn.className = 'cheat-cat-tab' + (cat === cheatActiveTab ? ' active' : '');
+    btn.textContent = cat;
+    btn.addEventListener('click', function() {
+      cheatActiveTab = cat;
+      buildCheatTabs();
+      renderCheatContent();
+      document.getElementById('cheatFilter').value = '';
+    });
+    el.appendChild(btn);
+  });
+}
+
+function renderCheatContent(filter) {
+  const el = document.getElementById('cheatContent');
+  el.innerHTML = '';
+  const sections = CHEAT_DATA[cheatActiveTab] || [];
+  const q = (filter || '').toLowerCase().trim();
+  sections.forEach(function(sec) {
+    const secEl = document.createElement('div');
+    secEl.className = 'cheat-section';
+    let html = '<div class="cheat-section-title">' + sec.section + '</div>';
+    let hasVisible = false;
+    sec.rows.forEach(function(row) {
+      const match = !q || row.action.toLowerCase().includes(q) ||
+                    row.keys.map(function(k){return k.join(' ');}).join(' ').toLowerCase().includes(q);
+      if (match) hasVisible = true;
+      html += '<div class="cheat-row' + (match ? '' : ' hidden') + '">' +
+              '<span class="cheat-action">' + row.action + '</span>' +
+              '<span class="cheat-keys">' + renderCheatKeys(row.keys) + '</span>' +
+              '</div>';
+    });
+    secEl.innerHTML = html;
+    secEl.style.display = hasVisible ? '' : 'none';
+    el.appendChild(secEl);
+  });
+}
+
+function toggleCheat(forceClose) {
+  if (forceClose) cheatOpen = true;
+  cheatOpen = !cheatOpen;
+  document.getElementById('cheatPanel').classList.toggle('open', cheatOpen);
+  document.getElementById('cheatTab').classList.toggle('open', cheatOpen);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  var cheatTabEl    = document.getElementById('cheatTab');
+  var cheatCloseEl  = document.getElementById('cheatClose');
+  var cheatFilterEl = document.getElementById('cheatFilter');
+
+  if (cheatTabEl) {
+    cheatTabEl.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (!cheatOpen) { buildCheatTabs(); renderCheatContent(); }
+      toggleCheat();
+    });
+  }
+
+  if (cheatCloseEl) {
+    cheatCloseEl.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (cheatOpen) toggleCheat();
+    });
+  }
+
+  if (cheatFilterEl) {
+    cheatFilterEl.addEventListener('input', function(e) {
+      renderCheatContent(e.target.value);
+    });
+  }
+
+  document.addEventListener('click', function(e) {
+    if (!cheatOpen) return;
+    var panel = document.getElementById('cheatPanel');
+    var tab   = document.getElementById('cheatTab');
+    if (panel && tab && !panel.contains(e.target) && !tab.contains(e.target)) {
+      toggleCheat();
+    }
+  });
+});
+
 </script>
+
+<!-- ── CHEAT SHEET PANEL ── -->
+<div id="cheatTab" title="Hotkey cheat sheet">
+  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(90deg);">
+    <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+  </svg>
+  hotkeys
+</div>
+
+<div id="cheatPanel">
+  <div class="cheat-header">
+    <span class="cheat-header-title">⌨ hotkey cheat sheet</span>
+    <button class="cheat-close" id="cheatClose">✕</button>
+  </div>
+  <div class="cheat-cat-tabs" id="cheatCatTabs"></div>
+  <div class="cheat-search"><input type="text" id="cheatFilter" placeholder="filter hotkeys..." autocomplete="off" spellcheck="false"></div>
+  <div class="cheat-content" id="cheatContent"></div>
+</div>
+
 </body>
 </html>
