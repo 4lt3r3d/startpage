@@ -7320,7 +7320,8 @@ function buildCheatTabs() {
     const btn = document.createElement('button');
     btn.className = 'cheat-cat-tab' + (cat === cheatActiveTab ? ' active' : '');
     btn.textContent = cat;
-    btn.addEventListener('click', function() {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
       cheatActiveTab = cat;
       buildCheatTabs();
       renderCheatContent();
