@@ -4552,8 +4552,18 @@ function setWidgetsLocked(locked) {
 function initWidgetDrag() {
   document.querySelectorAll('.widget').forEach(widget => {
     widget.addEventListener('dragstart', e => {
+      // If the drag began on an inner draggable (category tab, bookmark tile,
+      // engine button, osint tile, etc.) rather than this widget's own drag
+      // handle, step aside and let that element handle its own drag. Calling
+      // preventDefault here would cancel the child's drag too, since this is
+      // the same event bubbling up — that was silently breaking category /
+      // bookmark / osint reordering inside widgets.
+      const innerDraggable = e.target.closest('[draggable="true"]');
+      if (innerDraggable && innerDraggable !== widget && !e.target.closest('.drag-handle')) {
+        return; // do NOT preventDefault — inner drag proceeds normally
+      }
       if (widgetsLocked) { e.preventDefault(); return; }
-      // only start drag from handle
+      // only start widget drag from the widget's own drag handle
       if (!e.target.closest('.drag-handle')) { e.preventDefault(); return; }
       widgetDragSrc = widget;
       widget.classList.add('dragging');
@@ -5835,16 +5845,75 @@ function wmoToType(code, isDay) {
   return 'storm';
 }
 
+// ── Resolve coordinates via a fallback chain ──
+// 1. Cached coords from a previous successful lookup (instant, no network)
+// 2. Browser geolocation (precise, but depends on googleapis.com — blocked on some PCs)
+// 3. IP-based geolocation (city-level, free, no API key, doesn't touch googleapis.com)
+// 4. Hardcoded Houston coordinates so it always shows something
+async function resolveLocation() {
+  // 1. Cached
+  const cached = JSON.parse(localStorage.getItem('sp_geo') || 'null');
+  const cacheAge = cached ? (Date.now() - (cached.ts || 0)) : Infinity;
+  // Use cached coords if they're under 24h old.
+  if (cached && cacheAge < 24 * 60 * 60 * 1000) {
+    // Still try to refresh in the background, but return cached immediately.
+    refreshLocationInBackground();
+    return { lat: cached.lat, lon: cached.lon, source: 'cache' };
+  }
+
+  // 2. Browser geolocation — short timeout so we don't hang when blocked
+  try {
+    const pos = await new Promise((res, rej) => {
+      if (!navigator.geolocation) { rej(new Error('no geolocation api')); return; }
+      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 4000, maximumAge: 300000 });
+    });
+    const lat = pos.coords.latitude, lon = pos.coords.longitude;
+    localStorage.setItem('sp_geo', JSON.stringify({ lat, lon, ts: Date.now(), source: 'browser' }));
+    return { lat, lon, source: 'browser' };
+  } catch(e) { /* fall through */ }
+
+  // 3. IP-based geolocation — try a couple of free providers in case one is down
+  const ipProviders = [
+    { url: 'https://ipapi.co/json/',          pick: d => ({ lat: d.latitude, lon: d.longitude }) },
+    { url: 'https://api.ipify.org/?format=json', pick: null }, // placeholder, skip if reached
+    { url: 'https://ipwho.is/',               pick: d => ({ lat: d.latitude, lon: d.longitude }) },
+  ];
+  for (const prov of ipProviders) {
+    if (!prov.pick) continue;
+    try {
+      const r = await fetch(prov.url, { signal: AbortSignal.timeout(3500) });
+      if (!r.ok) continue;
+      const d = await r.json();
+      const { lat, lon } = prov.pick(d);
+      if (typeof lat === 'number' && typeof lon === 'number') {
+        localStorage.setItem('sp_geo', JSON.stringify({ lat, lon, ts: Date.now(), source: 'ip' }));
+        return { lat, lon, source: 'ip' };
+      }
+    } catch(e) { /* try next */ }
+  }
+
+  // 4. Hardcoded fallback — Houston, TX
+  return { lat: 29.7604, lon: -95.3698, source: 'default' };
+}
+
+// Background refresh — improves cached coords without blocking initial render.
+async function refreshLocationInBackground() {
+  try {
+    const pos = await new Promise((res, rej) => {
+      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 4000, maximumAge: 600000 });
+    });
+    const lat = pos.coords.latitude, lon = pos.coords.longitude;
+    localStorage.setItem('sp_geo', JSON.stringify({ lat, lon, ts: Date.now(), source: 'browser' }));
+  } catch(e) { /* keep cached value */ }
+}
+
 async function fetchWeather() {
   const iconEl = document.getElementById('weatherSvgIcon');
   const tempEl = document.getElementById('weatherTemp');
   const descEl = document.getElementById('weatherDesc');
 
   try {
-    const pos = await new Promise((res, rej) =>
-      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 6000 })
-    );
-    const { latitude: lat, longitude: lon } = pos.coords;
+    const { lat, lon, source } = await resolveLocation();
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode,is_day&temperature_unit=fahrenheit&timezone=auto`;
     const r   = await fetch(url);
     const d   = await r.json();
@@ -5859,11 +5928,15 @@ async function fetchWeather() {
     iconEl.innerHTML = weatherSvg(type, accent);
     tempEl.textContent = temp + '°F';
     descEl.textContent = desc;
-    document.getElementById('weatherDisplay').title = desc + ' — click to refresh';
+    // tooltip shows where the coordinates came from so you can tell whether
+    // it's precise (browser), city-level (ip), or just the default.
+    const srcLabel = source === 'browser' ? 'precise' : source === 'ip' ? 'city-level' : source === 'cache' ? 'cached' : 'default location';
+    document.getElementById('weatherDisplay').title = desc + ' · ' + srcLabel + ' — click to refresh';
   } catch(e) {
     if (iconEl) iconEl.innerHTML = weatherSvg('wind', 'var(--text3)');
     if (tempEl) tempEl.textContent = '—';
-    if (descEl) descEl.textContent = 'click to allow location';
+    if (descEl) descEl.textContent = 'weather unavailable';
+    console.error('weather error:', e);
   }
 }
 
