@@ -987,7 +987,7 @@
   }
   .modal h3 { font-size: 13px; color: var(--text); margin-bottom: 14px; font-weight: 500; }
   .modal label { font-size: 10px; color: var(--text2); display: block; margin-bottom: 4px; letter-spacing: 0.08em; }
-  .modal input, .modal select {
+  .modal input, .modal select, .modal textarea {
     width: 100%;
     background: var(--bg3);
     border: 1px solid var(--border);
@@ -1000,7 +1000,8 @@
     margin-bottom: 10px;
     caret-color: var(--accent);
   }
-  .modal input:focus, .modal select:focus { border-color: var(--accent); }
+  .modal textarea { resize: vertical; line-height: 1.5; }
+  .modal input:focus, .modal select:focus, .modal textarea:focus { border-color: var(--accent); }
   .modal select option { background: var(--bg3); }
   .modal-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
   .modal-btn {
@@ -2055,7 +2056,8 @@
 <!-- ── CONTEXT MENU ── -->
 <div class="ctx-menu" id="ctxMenu">
   <div class="ctx-item" id="ctxAdd">＋ &nbsp;add bookmark</div>
-  <div class="ctx-sep"></div>
+  <div class="ctx-item" id="ctxAddMulti">⧉ &nbsp;add multiple bookmarks</div>
+  <div class="ctx-sep" id="ctxSep"></div>
   <div class="ctx-item" id="ctxEdit" style="display:none">✎ &nbsp;edit</div>
   <div class="ctx-item" id="ctxRemove" style="display:none">✕ &nbsp;remove</div>
 </div>
@@ -2097,6 +2099,21 @@
     <div class="modal-btns">
       <button class="modal-btn" id="modalCancel">cancel</button>
       <button class="modal-btn primary" id="modalSave">save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── BULK ADD BOOKMARKS ── -->
+<div class="modal-overlay" id="bulkOverlay">
+  <div class="modal">
+    <h3>add multiple bookmarks</h3>
+    <label>CATEGORY</label>
+    <select id="bulkCat"></select>
+    <label>URLS <span style="color:var(--text3);font-size:9px;letter-spacing:0;">— one per line · names auto-filled</span></label>
+    <textarea id="bulkInput" rows="10" placeholder="https://github.com&#10;https://reddit.com&#10;https://news.ycombinator.com"></textarea>
+    <div class="modal-btns">
+      <button class="modal-btn" id="bulkCancel">cancel</button>
+      <button class="modal-btn primary" id="bulkSave">add all</button>
     </div>
   </div>
 </div>
@@ -3577,6 +3594,7 @@ let ctxTarget = null;
 function showCtxOnCat(e, cat) {
   ctxTarget = { type: 'cat', cat };
   document.getElementById('ctxAdd').style.display = 'none';
+  document.getElementById('ctxAddMulti').style.display = 'none';
   document.getElementById('ctxEdit').style.display = '';
   document.getElementById('ctxRemove').style.display = '';
   posCtx(e.clientX, e.clientY);
@@ -3584,7 +3602,9 @@ function showCtxOnCat(e, cat) {
 
 function showCtxOnBm(e, idx) {
   ctxTarget = { type: 'bm', idx };
-  document.getElementById('ctxAdd').style.display = '';
+  document.getElementById('ctxAdd').style.display = 'none';
+  document.getElementById('ctxAddMulti').style.display = 'none';
+  document.getElementById('ctxSep').style.display = 'none';
   document.getElementById('ctxEdit').style.display = '';
   document.getElementById('ctxRemove').style.display = '';
   posCtx(e.clientX, e.clientY);
@@ -3598,6 +3618,8 @@ document.getElementById('bookmarkGrid').addEventListener('contextmenu', e => {
     document.getElementById('ctxEdit').style.display = 'none';
     document.getElementById('ctxRemove').style.display = 'none';
     document.getElementById('ctxAdd').style.display = '';
+    document.getElementById('ctxAddMulti').style.display = '';
+    document.getElementById('ctxSep').style.display = 'none';
     posCtx(e.clientX, e.clientY);
   }
 });
@@ -3610,19 +3632,32 @@ document.querySelector('.mid-col .panel').addEventListener('contextmenu', e => {
     document.getElementById('ctxEdit').style.display = 'none';
     document.getElementById('ctxRemove').style.display = 'none';
     document.getElementById('ctxAdd').style.display = '';
+    document.getElementById('ctxAddMulti').style.display = '';
+    document.getElementById('ctxSep').style.display = 'none';
     posCtx(e.clientX, e.clientY);
   }
 });
 
 function posCtx(x, y) {
   ctxMenu.style.left = Math.min(x, window.innerWidth - 160) + 'px';
-  ctxMenu.style.top = Math.min(y, window.innerHeight - 100) + 'px';
+  ctxMenu.style.top = Math.min(y, window.innerHeight - 130) + 'px';
   ctxMenu.classList.add('visible');
 }
 
 document.addEventListener('click', () => ctxMenu.classList.remove('visible'));
 
 document.getElementById('ctxAdd').addEventListener('click', () => { openModal(); });
+document.getElementById('ctxAddMulti').addEventListener('click', () => {
+  document.getElementById('bulkInput').value = '';
+  const sel = document.getElementById('bulkCat');
+  sel.innerHTML = '';
+  const cats = Object.keys(bookmarks);
+  if (!cats.includes('unlisted')) cats.unshift('unlisted');
+  cats.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
+  sel.value = 'unlisted';
+  document.getElementById('bulkOverlay').classList.add('visible');
+  document.getElementById('bulkInput').focus();
+});
 document.getElementById('ctxEdit').addEventListener('click', () => {
   if (!ctxTarget) return;
   if (ctxTarget.type === 'bm') {
@@ -3716,7 +3751,38 @@ document.getElementById('modalSave').addEventListener('click', () => {
 });
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') document.getElementById('modalOverlay').classList.remove('visible');
+  if (e.key === 'Escape') {
+    document.getElementById('modalOverlay').classList.remove('visible');
+    document.getElementById('bulkOverlay').classList.remove('visible');
+  }
+});
+
+// ── BULK ADD ──
+function deriveName(url) {
+  let raw = url.trim();
+  if (!/^[a-z]+:\/\//i.test(raw)) raw = 'https://' + raw;   // assume https if no scheme
+  let host;
+  try { host = new URL(raw).hostname; } catch { return { name: url.trim(), url: raw }; }
+  const label = host.replace(/^www\./i, '').split('.')[0] || host;
+  return { name: label.charAt(0).toUpperCase() + label.slice(1), url: raw };
+}
+
+document.getElementById('bulkCancel').addEventListener('click', () => document.getElementById('bulkOverlay').classList.remove('visible'));
+document.getElementById('bulkOverlay').addEventListener('click', e => { if (e.target === document.getElementById('bulkOverlay')) document.getElementById('bulkOverlay').classList.remove('visible'); });
+
+document.getElementById('bulkSave').addEventListener('click', () => {
+  const lines = document.getElementById('bulkInput').value
+    .split('\n').map(l => l.trim()).filter(Boolean);
+  if (!lines.length) { document.getElementById('bulkOverlay').classList.remove('visible'); return; }
+  const cat = document.getElementById('bulkCat').value || 'unlisted';
+  if (!bookmarks[cat]) bookmarks[cat] = [];
+  lines.forEach(line => {
+    const { name, url } = deriveName(line);
+    bookmarks[cat].push({ name, url, icon: '🔗' });
+  });
+  activeCategory = cat;
+  saveBookmarks(); buildCategoryTabs(); renderBookmarks();
+  document.getElementById('bulkOverlay').classList.remove('visible');
 });
 
 // ══════════════════════════════
