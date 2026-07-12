@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>startpage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@400;600;700&family=Share+Tech+Mono&family=VT323&family=Major+Mono+Display&family=IBM+Plex+Mono:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg:        #0d0d0d;
@@ -987,7 +988,7 @@
   }
   .modal h3 { font-size: 13px; color: var(--text); margin-bottom: 14px; font-weight: 500; }
   .modal label { font-size: 10px; color: var(--text2); display: block; margin-bottom: 4px; letter-spacing: 0.08em; }
-  .modal input, .modal select, .modal textarea {
+  .modal input, .modal select {
     width: 100%;
     background: var(--bg3);
     border: 1px solid var(--border);
@@ -1000,8 +1001,7 @@
     margin-bottom: 10px;
     caret-color: var(--accent);
   }
-  .modal textarea { resize: vertical; line-height: 1.5; }
-  .modal input:focus, .modal select:focus, .modal textarea:focus { border-color: var(--accent); }
+  .modal input:focus, .modal select:focus { border-color: var(--accent); }
   .modal select option { background: var(--bg3); }
   .modal-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
   .modal-btn {
@@ -1891,6 +1891,7 @@
       <button class="sb-btn" id="layoutLockBtn" title="Lock/unlock widget positions">⠿ unlock widgets</button>
       <button class="sb-btn" id="clockVizOpenBtn" title="Top widget visualizer">top widget</button>
       <button class="sb-btn" id="bgBtn" title="Change background">wallpaper</button>
+      <button class="sb-btn" id="fontBtn" title="Change font">font</button>
       <button class="sb-btn" id="exportBtn" title="Export all data">export</button>
       <label class="sb-btn" id="importLabel" title="Import data">import<input type="file" id="importFile" accept=".json" style="display:none;"></label>
       <span id="statsIndicator" style="display:flex;align-items:center;gap:5px;font-size:10px;font-family:var(--mono);color:var(--text3);cursor:pointer;" title="click to download stats server">
@@ -2056,8 +2057,7 @@
 <!-- ── CONTEXT MENU ── -->
 <div class="ctx-menu" id="ctxMenu">
   <div class="ctx-item" id="ctxAdd">＋ &nbsp;add bookmark</div>
-  <div class="ctx-item" id="ctxAddMulti">⧉ &nbsp;add multiple bookmarks</div>
-  <div class="ctx-sep" id="ctxSep"></div>
+  <div class="ctx-sep"></div>
   <div class="ctx-item" id="ctxEdit" style="display:none">✎ &nbsp;edit</div>
   <div class="ctx-item" id="ctxRemove" style="display:none">✕ &nbsp;remove</div>
 </div>
@@ -2090,8 +2090,8 @@
     <input type="text" id="bmName" placeholder="GitHub" maxlength="30">
     <label>URL</label>
     <input type="text" id="bmUrl" placeholder="https://github.com">
-    <label>ICON (emoji)</label>
-    <input type="text" id="bmIcon" placeholder="🐙" maxlength="4">
+    <label>ICON (emoji) <span style="color:var(--text3);font-size:9px;letter-spacing:0;">— auto-picked from name · edit to override</span></label>
+    <input type="text" id="bmIcon" placeholder="🔗" maxlength="4">
     <label>NICKNAME <span style="color:var(--text3);font-size:9px;letter-spacing:0;">— optional · type this in search bar to open directly</span></label>
     <input type="text" id="bmNick" placeholder="gh" maxlength="20" style="font-family:var(--mono);">
     <label>CATEGORY</label>
@@ -2099,21 +2099,6 @@
     <div class="modal-btns">
       <button class="modal-btn" id="modalCancel">cancel</button>
       <button class="modal-btn primary" id="modalSave">save</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── BULK ADD BOOKMARKS ── -->
-<div class="modal-overlay" id="bulkOverlay">
-  <div class="modal">
-    <h3>add multiple bookmarks</h3>
-    <label>CATEGORY</label>
-    <select id="bulkCat"></select>
-    <label>URLS <span style="color:var(--text3);font-size:9px;letter-spacing:0;">— one per line · names auto-filled</span></label>
-    <textarea id="bulkInput" rows="10" placeholder="https://github.com&#10;https://reddit.com&#10;https://news.ycombinator.com"></textarea>
-    <div class="modal-btns">
-      <button class="modal-btn" id="bulkCancel">cancel</button>
-      <button class="modal-btn primary" id="bulkSave">add all</button>
     </div>
   </div>
 </div>
@@ -2139,6 +2124,34 @@
     <!-- ANIMATED TAB -->
     <div id="bgTab-animated" class="bg-tab-content" style="display:none;">
       <div id="bgAnimPresets" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;"></div>
+
+      <!-- dither fluid settings — shown only when dither fluid is active -->
+      <div id="ditherSettings" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+        <div style="font-family:var(--mono);font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;">dither fluid settings</div>
+
+        <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:5px;letter-spacing:0.06em;">TONE MODE</label>
+        <div style="display:flex;gap:4px;margin-bottom:12px;" id="ditherToneMode">
+          <button class="bg-tab" data-mode="2">2-tone</button>
+          <button class="bg-tab" data-mode="3">3-tone</button>
+          <button class="bg-tab" data-mode="auto">auto-cycle</button>
+        </div>
+
+        <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:5px;letter-spacing:0.06em;">GLYPHS</label>
+        <div style="display:flex;gap:4px;margin-bottom:12px;" id="ditherGlyphSet">
+          <button class="bg-tab" data-glyph="squares">squares ▢■</button>
+          <button class="bg-tab" data-glyph="ascii">ascii :wW</button>
+        </div>
+
+        <div id="ditherColorRow">
+          <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:5px;letter-spacing:0.06em;">COLORS</label>
+          <div style="display:flex;gap:8px;align-items:center;" id="ditherColorPickers">
+            <input type="color" class="dither-color" data-i="0" style="width:36px;height:28px;border:1px solid var(--border);border-radius:4px;background:var(--bg3);cursor:pointer;padding:2px;">
+            <input type="color" class="dither-color" data-i="1" style="width:36px;height:28px;border:1px solid var(--border);border-radius:4px;background:var(--bg3);cursor:pointer;padding:2px;">
+            <input type="color" class="dither-color" data-i="2" style="width:36px;height:28px;border:1px solid var(--border);border-radius:4px;background:var(--bg3);cursor:pointer;padding:2px;">
+            <span style="font-size:9px;color:var(--text3);font-family:var(--mono);">auto-cycle ignores these</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- CUSTOM TAB -->
@@ -2189,6 +2202,20 @@
   </div>
 </div>
 
+<!-- ── FONT PICKER ── -->
+<div class="modal-overlay" id="fontOverlay">
+  <div class="modal" style="width:420px;max-width:96vw;max-height:90vh;overflow-y:auto;">
+    <h3 style="margin-bottom:6px;">font</h3>
+    <p style="font-size:10px;color:var(--text3);margin-bottom:14px;line-height:1.5;">
+      changes the monospace font across the entire page
+    </p>
+    <div id="fontPickerList" style="display:flex;flex-direction:column;gap:6px;"></div>
+    <div class="modal-btns" style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+      <button class="modal-btn" id="fontCancel">close</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ══════════════════════════════
 //  CONFIG — edit this section
@@ -2201,6 +2228,31 @@ const CONFIG = {
 
 // ── Lock state — declared early so buildEngines can reference it ──
 let bmLocked = localStorage.getItem('sp_bm_locked') === 'true';
+
+// ── Pixel-fluid animation state — declared early so init-time picker previews
+// can reference these without hitting a temporal-dead-zone error. ──
+let _pfBuf = null;      // offscreen low-res canvas
+let _pfCtx = null;
+let _pfImg = null;      // ImageData for the low-res buffer
+let _pfDims = { c: 0, r: 0 };
+let _pfTones = null;    // precomputed [r,g,b] tone bands from the accent color
+
+// ── Dither fluid settings (persisted) ──
+// toneMode: '2' | '3' | 'auto'   glyphSet: 'squares' | 'ascii'
+let ditherCfg = JSON.parse(localStorage.getItem('sp_dither') || 'null') || {
+  toneMode: '3',
+  glyphSet: 'squares',
+  colors: ['#7ecfb3', '#c678dd', '#61afef'], // used for 2/3-tone modes
+};
+let _dfTones = null;       // resolved [r,g,b] palette for current frame
+let _dfTonesDirty = true;
+// glyph ramps for the dither fluid — ordered dark → bright.
+// blank means "draw nothing" (lets black show through). Declared here (early)
+// so init-time picker previews can reference it without a TDZ error.
+const DF_GLYPHS = {
+  squares: [' ', '·', '˙', '▫', '◻', '▢', '◼', '■'],
+  ascii:   [' ', '.', ':', ';', '+', 'o', 'w', 'W'],
+};
 
 // ══════════════════════════════
 //  SEARCH ENGINES
@@ -2810,6 +2862,8 @@ function greetApplyColor(color) {
   document.querySelectorAll('.gc-dot').forEach(s => {
     s.classList.toggle('active', s.dataset.color === color);
   });
+  // recompute pixel-fluid tone bands so the animated bg tracks the accent color
+  window._pfTonesDirty = true;
 }
 
 // build color dots under uptime
@@ -3465,10 +3519,15 @@ function buildCategoryTabs() {
     });
 
     btn.addEventListener('dragover', e => {
-      if (bmLocked || !catDragSrc || catDragSrc === cat) return;
+      if (bmLocked) return;
+      // Accept either a category being reordered OR a bookmark being moved in.
+      const acceptingCat = catDragSrc && catDragSrc !== cat;
+      const acceptingBm  = bmDragSrc !== null && cat !== activeCategory;
+      if (!acceptingCat && !acceptingBm) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
-      btn.style.outline = '1px dashed var(--accent)';
+      // bookmark-into-category gets a bolder highlight so it's clearly a target
+      btn.style.outline = acceptingBm ? '2px dashed var(--accent)' : '1px dashed var(--accent)';
       btn.style.outlineOffset = '2px';
     });
 
@@ -3481,6 +3540,23 @@ function buildCategoryTabs() {
       e.preventDefault();
       e.stopPropagation();
       btn.style.outline = '';
+
+      // ── Case 1: a bookmark was dropped onto this category → move it here ──
+      if (bmDragSrc !== null) {
+        if (cat === activeCategory) return; // dropping on its own category = no-op
+        const srcArr = bookmarks[activeCategory];
+        if (!srcArr || bmDragSrc < 0 || bmDragSrc >= srcArr.length) return;
+        const moved = srcArr.splice(bmDragSrc, 1)[0];
+        if (!bookmarks[cat]) bookmarks[cat] = [];
+        bookmarks[cat].push(moved);
+        bmDragSrc = null;
+        saveBookmarks();
+        buildCategoryTabs();
+        renderBookmarks();
+        return;
+      }
+
+      // ── Case 2: a category was dropped onto another → reorder ──
       const src = catDragSrc;
       if (!src || src === cat) return;
       const keys = Object.keys(bookmarks);
@@ -3594,7 +3670,6 @@ let ctxTarget = null;
 function showCtxOnCat(e, cat) {
   ctxTarget = { type: 'cat', cat };
   document.getElementById('ctxAdd').style.display = 'none';
-  document.getElementById('ctxAddMulti').style.display = 'none';
   document.getElementById('ctxEdit').style.display = '';
   document.getElementById('ctxRemove').style.display = '';
   posCtx(e.clientX, e.clientY);
@@ -3602,9 +3677,7 @@ function showCtxOnCat(e, cat) {
 
 function showCtxOnBm(e, idx) {
   ctxTarget = { type: 'bm', idx };
-  document.getElementById('ctxAdd').style.display = 'none';
-  document.getElementById('ctxAddMulti').style.display = 'none';
-  document.getElementById('ctxSep').style.display = 'none';
+  document.getElementById('ctxAdd').style.display = '';
   document.getElementById('ctxEdit').style.display = '';
   document.getElementById('ctxRemove').style.display = '';
   posCtx(e.clientX, e.clientY);
@@ -3618,8 +3691,6 @@ document.getElementById('bookmarkGrid').addEventListener('contextmenu', e => {
     document.getElementById('ctxEdit').style.display = 'none';
     document.getElementById('ctxRemove').style.display = 'none';
     document.getElementById('ctxAdd').style.display = '';
-    document.getElementById('ctxAddMulti').style.display = '';
-    document.getElementById('ctxSep').style.display = 'none';
     posCtx(e.clientX, e.clientY);
   }
 });
@@ -3632,32 +3703,19 @@ document.querySelector('.mid-col .panel').addEventListener('contextmenu', e => {
     document.getElementById('ctxEdit').style.display = 'none';
     document.getElementById('ctxRemove').style.display = 'none';
     document.getElementById('ctxAdd').style.display = '';
-    document.getElementById('ctxAddMulti').style.display = '';
-    document.getElementById('ctxSep').style.display = 'none';
     posCtx(e.clientX, e.clientY);
   }
 });
 
 function posCtx(x, y) {
   ctxMenu.style.left = Math.min(x, window.innerWidth - 160) + 'px';
-  ctxMenu.style.top = Math.min(y, window.innerHeight - 130) + 'px';
+  ctxMenu.style.top = Math.min(y, window.innerHeight - 100) + 'px';
   ctxMenu.classList.add('visible');
 }
 
 document.addEventListener('click', () => ctxMenu.classList.remove('visible'));
 
 document.getElementById('ctxAdd').addEventListener('click', () => { openModal(); });
-document.getElementById('ctxAddMulti').addEventListener('click', () => {
-  document.getElementById('bulkInput').value = '';
-  const sel = document.getElementById('bulkCat');
-  sel.innerHTML = '';
-  const cats = Object.keys(bookmarks);
-  if (!cats.includes('unlisted')) cats.unshift('unlisted');
-  cats.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
-  sel.value = 'unlisted';
-  document.getElementById('bulkOverlay').classList.add('visible');
-  document.getElementById('bulkInput').focus();
-});
 document.getElementById('ctxEdit').addEventListener('click', () => {
   if (!ctxTarget) return;
   if (ctxTarget.type === 'bm') {
@@ -3701,12 +3759,91 @@ function openModal(bm, idx) {
   document.getElementById('modalTitle').textContent = bm ? 'edit bookmark' : 'add bookmark';
   document.getElementById('bmName').value = bm ? bm.name : '';
   document.getElementById('bmUrl').value = bm ? bm.url : '';
-  document.getElementById('bmIcon').value = bm ? bm.icon : '🔗';
+  document.getElementById('bmIcon').value = bm ? bm.icon : '';
   document.getElementById('bmNick').value = bm ? (bm.nick || '') : '';
   document.getElementById('bmCat').value = activeCategory;
+  // Track whether the user has hand-picked an icon. When editing an existing
+  // bookmark we treat its icon as user-set so we don't clobber it.
+  document.getElementById('bmIcon').dataset.userset = bm && bm.icon ? '1' : '';
   document.getElementById('modalOverlay').classList.add('visible');
   document.getElementById('bmName').focus();
 }
+
+// ── Emoji auto-assignment ──
+// Keyword → emoji table. First match wins; checked against name + url + nick.
+// Order matters: put more specific/branded terms before generic ones.
+const EMOJI_RULES = [
+  // ── specific brands / sites ──
+  [/(youtube|yt\b|ytdl)/, '📺'], [/(twitch)/, '🟣'], [/(kick\.com)/, '🟢'],
+  [/(github|gitlab|git\b)/, '🐙'], [/(stack ?overflow|stackexchange)/, '📚'],
+  [/(reddit)/, '👽'], [/(discord)/, '💬'], [/(telegram)/, '✈️'],
+  [/(twitter|x\.com|tweet)/, '𝕏'], [/(mastodon)/, '🐘'], [/(bluesky|bsky)/, '🦋'],
+  [/(instagram|insta)/, '📸'], [/(tiktok)/, '🎵'], [/(facebook|fb\.com)/, '👤'],
+  [/(spotify)/, '🎧'], [/(soundcloud)/, '🔊'], [/(bandcamp)/, '🎸'],
+  [/(discogs)/, '💿'], [/(last\.?fm)/, '📻'], [/(pitchfork)/, '🎼'],
+  [/(netflix)/, '🔴'], [/(hulu)/, '🟢'], [/(plex)/, '🟡'], [/(letterboxd)/, '🎞️'],
+  [/(imdb)/, '⭐'], [/(rotten ?tomatoes)/, '🍅'], [/(trakt)/, '📊'], [/(justwatch)/, '📺'],
+  [/(amazon)/, '📦'], [/(ebay)/, '🔨'], [/(aliexpress|alibaba)/, '🛒'],
+  [/(etsy)/, '🧵'], [/(newegg)/, '🥚'], [/(steam)/, '♨️'], [/(itch\.io)/, '🕹️'],
+  [/(gog\.com)/, '🎮'], [/(epic ?games)/, '🎮'],
+  [/(wikipedia|wiki)/, '📖'], [/(archive\.org|wayback)/, '📦'], [/(scholar)/, '🎓'],
+  [/(claude|anthropic)/, '🤖'], [/(chatgpt|openai)/, '💬'], [/(perplexity)/, '🔮'],
+  [/(hugging ?face)/, '🤗'], [/(midjourney)/, '🎨'], [/(gemini|bard)/, '✨'],
+  [/(shodan|censys|greynoise)/, '🔍'], [/(pimeyes|facecheck)/, '👁️'],
+  [/(haveibeenpwned|dehashed|breach)/, '🔐'], [/(maltego|spiderfoot)/, '🕸️'],
+  [/(bellingcat|osint)/, '🌐'], [/(tineye|reverse ?image)/, '🖼️'],
+  [/(gmail|mail|outlook|proton ?mail)/, '📧'], [/(calendar|cal\.)/, '📅'],
+  [/(drive|dropbox|onedrive|mega\.nz|pcloud)/, '☁️'], [/(notion)/, '🗒️'],
+  [/(figma)/, '🎨'], [/(dribbble)/, '🏀'], [/(behance)/, '✦'], [/(artstation)/, '🖌️'],
+  [/(unsplash|pexels|pixabay)/, '📷'], [/(coolors|color)/, '🎨'],
+  [/(arch ?wiki|arch ?linux|archlinux)/, '🏔️'], [/(linux|ubuntu|debian|fedora)/, '🐧'],
+  [/(regex)/, '🔣'], [/(cyberchef)/, '🍳'], [/(crontab|cron)/, '⏰'],
+  [/(excalidraw|draw)/, '✏️'], [/(terminal|shell|bash|cli)/, '💻'],
+  [/(hackaday|hack)/, '🛠️'], [/(adafruit|sparkfun|arduino)/, '🔌'],
+  [/(digikey|mouser|electronic)/, '⚡'], [/(pcb|circuit)/, '🔩'],
+  [/(mcmaster|hardware|tools?)/, '🔧'], [/(3d ?print|thingiverse|printable)/, '🖨️'],
+  [/(weather|forecast)/, '🌤️'], [/(map|maps|earth|geo)/, '🗺️'],
+  [/(news|times|post|herald|tribune)/, '📰'], [/(hacker ?news|ycombinator)/, '🅈'],
+  [/(bank|paypal|venmo|finance|invest)/, '💳'], [/(crypto|bitcoin|ethereum)/, '₿'],
+  [/(torrent|1337x|pirate|magnet)/, '🏴‍☠️'], [/(vpn|proxy)/, '🛡️'],
+  [/(password|vault|bitwarden|1password)/, '🔑'], [/(porn|xxx|nsfw|adult)/, '🔞'],
+  [/(food|recipe|cook|kitchen)/, '🍳'], [/(game|gaming|play)/, '🎮'],
+  [/(music|audio|song|track)/, '🎵'], [/(video|movie|film|cinema)/, '🎬'],
+  [/(book|read|library|novel)/, '📚'], [/(photo|image|pic|gallery)/, '📷'],
+  [/(code|dev|program|api)/, '💻'], [/(design|ui|ux)/, '🎨'],
+  [/(chat|forum|board|community)/, '💬'], [/(search|find|lookup)/, '🔍'],
+  [/(shop|store|buy|cart|deal)/, '🛒'], [/(cloud|storage|backup)/, '☁️'],
+  [/(secure|security|encrypt|privacy)/, '🔒'], [/(mail|email|inbox)/, '📧'],
+  [/(wiki|reference|docs?|documentation)/, '📖'], [/(ai|ml|neural|gpt)/, '🤖'],
+];
+
+function guessEmoji(name, url, nick) {
+  const hay = ((name || '') + ' ' + (url || '') + ' ' + (nick || '')).toLowerCase();
+  for (const [rx, emoji] of EMOJI_RULES) {
+    if (rx.test(hay)) return emoji;
+  }
+  return '🔗'; // sensible default
+}
+
+// Auto-fill the icon field as the user types the name — but only until they
+// manually edit the icon themselves (then we leave it alone).
+(function wireEmojiAutofill() {
+  const nameEl = document.getElementById('bmName');
+  const urlEl  = document.getElementById('bmUrl');
+  const iconEl = document.getElementById('bmIcon');
+  const nickEl = document.getElementById('bmNick');
+  if (!nameEl || !iconEl) return;
+
+  function maybeAutofill() {
+    if (iconEl.dataset.userset === '1') return; // user picked one — don't override
+    const guess = guessEmoji(nameEl.value, urlEl.value, nickEl.value);
+    iconEl.value = guess;
+  }
+  nameEl.addEventListener('input', maybeAutofill);
+  urlEl.addEventListener('input', maybeAutofill);
+  // If the user edits the icon by hand, stop auto-filling from then on.
+  iconEl.addEventListener('input', () => { iconEl.dataset.userset = '1'; });
+})();
 
 document.getElementById('modalCancel').addEventListener('click', () => document.getElementById('modalOverlay').classList.remove('visible'));
 document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target === document.getElementById('modalOverlay')) document.getElementById('modalOverlay').classList.remove('visible'); });
@@ -3714,8 +3851,9 @@ document.getElementById('modalOverlay').addEventListener('click', e => { if (e.t
 document.getElementById('modalSave').addEventListener('click', () => {
   const name = document.getElementById('bmName').value.trim();
   const url  = document.getElementById('bmUrl').value.trim();
-  const icon = document.getElementById('bmIcon').value.trim() || '🔗';
   const nick = document.getElementById('bmNick').value.trim().toLowerCase().replace(/\s+/g,'');
+  // Icon: use whatever's in the field; if empty, fall back to an auto-guess.
+  const icon = document.getElementById('bmIcon').value.trim() || guessEmoji(name, url, nick);
   const cat  = document.getElementById('bmCat').value;
   if (!name || !url) return;
   const bm = { name, url, icon };
@@ -3751,38 +3889,7 @@ document.getElementById('modalSave').addEventListener('click', () => {
 });
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    document.getElementById('modalOverlay').classList.remove('visible');
-    document.getElementById('bulkOverlay').classList.remove('visible');
-  }
-});
-
-// ── BULK ADD ──
-function deriveName(url) {
-  let raw = url.trim();
-  if (!/^[a-z]+:\/\//i.test(raw)) raw = 'https://' + raw;   // assume https if no scheme
-  let host;
-  try { host = new URL(raw).hostname; } catch { return { name: url.trim(), url: raw }; }
-  const label = host.replace(/^www\./i, '').split('.')[0] || host;
-  return { name: label.charAt(0).toUpperCase() + label.slice(1), url: raw };
-}
-
-document.getElementById('bulkCancel').addEventListener('click', () => document.getElementById('bulkOverlay').classList.remove('visible'));
-document.getElementById('bulkOverlay').addEventListener('click', e => { if (e.target === document.getElementById('bulkOverlay')) document.getElementById('bulkOverlay').classList.remove('visible'); });
-
-document.getElementById('bulkSave').addEventListener('click', () => {
-  const lines = document.getElementById('bulkInput').value
-    .split('\n').map(l => l.trim()).filter(Boolean);
-  if (!lines.length) { document.getElementById('bulkOverlay').classList.remove('visible'); return; }
-  const cat = document.getElementById('bulkCat').value || 'unlisted';
-  if (!bookmarks[cat]) bookmarks[cat] = [];
-  lines.forEach(line => {
-    const { name, url } = deriveName(line);
-    bookmarks[cat].push({ name, url, icon: '🔗' });
-  });
-  activeCategory = cat;
-  saveBookmarks(); buildCategoryTabs(); renderBookmarks();
-  document.getElementById('bulkOverlay').classList.remove('visible');
+  if (e.key === 'Escape') document.getElementById('modalOverlay').classList.remove('visible');
 });
 
 // ══════════════════════════════
@@ -4090,6 +4197,8 @@ const ANIM_PRESETS = [
   { id:'geometry',      label:'geometry' },
   { id:'constellation', label:'constellation' },
   { id:'void',          label:'void' },
+  { id:'pixelfluid',    label:'pixel fluid' },
+  { id:'ditherfluid',   label:'dither fluid' },
 ];
 
 let bgData = JSON.parse(localStorage.getItem('sp_bg') || '{"id":"none","custom":null,"anim":null}');
@@ -4097,9 +4206,9 @@ let animFrame = null;
 let animCtx = null;
 
 // ── Tab switching ──
-document.querySelectorAll('.bg-tab').forEach(tab => {
+document.querySelectorAll('#bgTabs .bg-tab').forEach(tab => {
   tab.addEventListener('click', () => {
-    document.querySelectorAll('.bg-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('#bgTabs .bg-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.bg-tab-content').forEach(c => c.style.display = 'none');
     tab.classList.add('active');
     document.getElementById('bgTab-' + tab.dataset.tab).style.display = '';
@@ -4133,11 +4242,69 @@ ANIM_PRESETS.forEach(p => {
   lbl.textContent = p.label;
   wrap.appendChild(cv);
   wrap.appendChild(lbl);
-  wrap.addEventListener('click', () => applyBg({ id: 'anim', custom: null, anim: p.id }));
+  wrap.addEventListener('click', () => {
+    applyBg({ id: 'anim', custom: null, anim: p.id });
+    updateDitherSettingsVisibility();
+  });
   animPresetsEl.appendChild(wrap);
   // run mini preview animation
   runMiniAnim(cv, p.id);
 });
+
+// ── Dither fluid settings wiring ──
+function updateDitherSettingsVisibility() {
+  const panel = document.getElementById('ditherSettings');
+  if (!panel) return;
+  panel.style.display = (bgData.anim === 'ditherfluid') ? '' : 'none';
+  syncDitherControls();
+}
+
+function saveDitherCfg() {
+  localStorage.setItem('sp_dither', JSON.stringify(ditherCfg));
+  _dfTonesDirty = true;
+  if (typeof fbPush === 'function') { clearTimeout(window._dfFbTimer); window._dfFbTimer = setTimeout(fbPush, 1500); }
+}
+
+function syncDitherControls() {
+  // reflect current cfg in the button/colours UI
+  document.querySelectorAll('#ditherToneMode .bg-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === ditherCfg.toneMode);
+  });
+  document.querySelectorAll('#ditherGlyphSet .bg-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.glyph === ditherCfg.glyphSet);
+  });
+  // colour pickers — hide the 3rd when 2-tone, hide whole row on auto
+  const row = document.getElementById('ditherColorRow');
+  if (row) row.style.display = (ditherCfg.toneMode === 'auto') ? 'none' : '';
+  document.querySelectorAll('.dither-color').forEach(inp => {
+    const i = parseInt(inp.dataset.i);
+    inp.value = ditherCfg.colors[i] || '#000000';
+    inp.style.display = (ditherCfg.toneMode === '2' && i === 2) ? 'none' : '';
+  });
+}
+
+document.querySelectorAll('#ditherToneMode .bg-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    ditherCfg.toneMode = btn.dataset.mode;
+    saveDitherCfg(); syncDitherControls();
+  });
+});
+document.querySelectorAll('#ditherGlyphSet .bg-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    ditherCfg.glyphSet = btn.dataset.glyph;
+    saveDitherCfg(); syncDitherControls();
+  });
+});
+document.querySelectorAll('.dither-color').forEach(inp => {
+  inp.addEventListener('input', () => {
+    const i = parseInt(inp.dataset.i);
+    ditherCfg.colors[i] = inp.value;
+    saveDitherCfg();
+  });
+});
+
+// set initial visibility once DOM is ready
+updateDitherSettingsVisibility();
 
 // ── Mini canvas previews (small versions of each animation) ──
 function runMiniAnim(canvas, type) {
@@ -4241,6 +4408,58 @@ function runMiniAnim(canvas, type) {
           (10+i*8)*(1+Math.sin(t+i)*0.2), 0, Math.PI*2);
         ctx.strokeStyle = ['rgba(126,207,179,0.15)','rgba(97,175,239,0.1)','rgba(198,120,221,0.1)'][i];
         ctx.lineWidth = 1; ctx.stroke();
+      }
+    }
+
+    if (type === 'pixelfluid') {
+      const PX = 4;
+      const cols = Math.ceil(w / PX), rows = Math.ceil(h / PX);
+      if (!_pfTones || window._pfTonesDirty) { pixelFluidResetTones(); window._pfTonesDirty = false; }
+      const t = frame * 0.012;
+      const scale = 0.07;
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const nx = x * scale, ny = y * scale;
+          const q1 = _pfNoise(nx + t, ny);
+          const q2 = _pfNoise(nx + 5.2, ny + t*0.8 + 1.3);
+          const r1 = _pfNoise(nx + 4*q1 + 1.7 - t*0.5, ny + 4*q2 + 9.2);
+          const r2 = _pfNoise(nx + 4*q1 + 8.3, ny + 4*q2 + 0.4 + t*0.6);
+          let v = _pfNoise(nx + 4*r1, ny + 4*r2);
+          v = Math.min(1, Math.max(0, (v - 0.5) * 1.8 + 0.5));
+          const band = v < 0.30 ? 0 : v < 0.55 ? 1 : v < 0.80 ? 2 : 3;
+          const tone = _pfTones[band];
+          ctx.fillStyle = 'rgb(' + tone[0] + ',' + tone[1] + ',' + tone[2] + ')';
+          ctx.fillRect(x*PX, y*PX, PX, PX);
+        }
+      }
+    }
+
+    if (type === 'ditherfluid') {
+      const CELL = 5;
+      const cols = Math.ceil(w / CELL), rows = Math.ceil(h / CELL);
+      const glyphs = DF_GLYPHS[ditherCfg.glyphSet] || DF_GLYPHS.squares;
+      const tones = ditherResolveTones(frame);
+      const nTones = tones.length;
+      ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,h);
+      ctx.textBaseline = 'top';
+      ctx.font = CELL + 'px monospace';
+      const t = frame * 0.012, scale = 0.09;
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const nx = x*scale, ny = y*scale;
+          const q1 = _pfNoise(nx + t, ny);
+          const q2 = _pfNoise(nx + 5.2, ny + t*0.8 + 1.3);
+          const r1 = _pfNoise(nx + 4*q1 + 1.7 - t*0.5, ny + 4*q2 + 9.2);
+          const r2 = _pfNoise(nx + 4*q1 + 8.3, ny + 4*q2 + 0.4 + t*0.6);
+          let v = _pfNoise(nx + 4*r1, ny + 4*r2);
+          v = Math.min(1, Math.max(0, (v - 0.5) * 1.8 + 0.5));
+          const gi = Math.min(glyphs.length - 1, Math.floor(v * glyphs.length));
+          const ch = glyphs[gi];
+          if (ch === ' ') continue;
+          const tone = tones[Math.min(nTones - 1, Math.floor(v * nTones))];
+          ctx.fillStyle = 'rgba(' + tone[0] + ',' + tone[1] + ',' + tone[2] + ',' + (0.45 + gi/glyphs.length*0.55).toFixed(2) + ')';
+          ctx.fillText(ch, x*CELL, y*CELL);
+        }
       }
     }
 
@@ -4370,8 +4589,185 @@ function startFullAnim(type) {
         ctx2.fillStyle = grad; ctx2.fillRect(0,0,W,H);
       }
     }
+
+    if (type === 'pixelfluid') {
+      drawPixelFluid(ctx2, W, H, frame);
+    }
+
+    if (type === 'ditherfluid') {
+      drawDitherFluid(ctx2, W, H, frame);
+    }
   }
   draw();
+}
+
+// ── Pixel fluid / marbling — domain-warped value noise, quantized to tone bands,
+// rendered as chunky pixels via a low-res offscreen buffer scaled up. Looks like
+// pixelated oil-and-water swirling in 2-3 accent tones.
+// (State vars _pfBuf/_pfCtx/_pfImg/_pfDims/_pfTones are declared near the top of
+// the script so init-time preview code can reference them without a TDZ error.) ──
+
+function pixelFluidResetTones() {
+  // Build 3 tone bands: near-black → mid accent → bright accent.
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#7ecfb3';
+  const m = accent.match(/^#([\da-f]{2})([\da-f]{2})([\da-f]{2})/i);
+  const ar = m ? parseInt(m[1],16) : 126;
+  const ag = m ? parseInt(m[2],16) : 207;
+  const ab = m ? parseInt(m[3],16) : 179;
+  _pfTones = [
+    [Math.round(ar*0.06), Math.round(ag*0.06), Math.round(ab*0.08)], // deep shadow (near black)
+    [Math.round(ar*0.35), Math.round(ag*0.35), Math.round(ab*0.38)], // mid tone
+    [ar, ag, ab],                                                     // full accent
+    [Math.min(255,Math.round(ar*1.25+40)), Math.min(255,Math.round(ag*1.25+40)), Math.min(255,Math.round(ab*1.25+40))], // highlight
+  ];
+}
+
+// cheap 2D value-noise with smooth interpolation
+function _pfNoise(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y);
+  const xf = x - xi, yf = y - yi;
+  const h = (a, b) => {
+    let n = a * 374761393 + b * 668265263;
+    n = (n ^ (n >> 13)) * 1274126177;
+    return ((n ^ (n >> 16)) >>> 0) / 4294967295;
+  };
+  const smooth = v => v * v * (3 - 2 * v);
+  const u = smooth(xf), v = smooth(yf);
+  const n00 = h(xi, yi),     n10 = h(xi+1, yi);
+  const n01 = h(xi, yi+1),   n11 = h(xi+1, yi+1);
+  return (n00*(1-u)+n10*u)*(1-v) + (n01*(1-u)+n11*u)*v;
+}
+
+function drawPixelFluid(ctx, W, H, frame) {
+  const PX = 6; // pixel block size — chunkiness
+  const cols = Math.ceil(W / PX), rows = Math.ceil(H / PX);
+
+  if (!_pfTones || window._pfTonesDirty) { pixelFluidResetTones(); window._pfTonesDirty = false; }
+
+  // (re)create offscreen buffer if size changed
+  if (!_pfBuf || _pfDims.c !== cols || _pfDims.r !== rows) {
+    _pfBuf = document.createElement('canvas');
+    _pfBuf.width = cols; _pfBuf.height = rows;
+    _pfCtx = _pfBuf.getContext('2d');
+    _pfImg = _pfCtx.createImageData(cols, rows);
+    _pfDims = { c: cols, r: rows };
+  }
+
+  const t = frame * 0.012;
+  const data = _pfImg.data;
+  const scale = 0.045; // spatial frequency of the flow
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const nx = x * scale, ny = y * scale;
+      // domain warping — feed noise into noise to get the swirling marble look
+      const q1 = _pfNoise(nx + t,        ny);
+      const q2 = _pfNoise(nx + 5.2,      ny + t*0.8 + 1.3);
+      const r1 = _pfNoise(nx + 4*q1 + 1.7 - t*0.5, ny + 4*q2 + 9.2);
+      const r2 = _pfNoise(nx + 4*q1 + 8.3, ny + 4*q2 + 0.4 + t*0.6);
+      let v = _pfNoise(nx + 4*r1, ny + 4*r2);
+      // boost contrast so the tone bands read as distinct swirls
+      v = Math.min(1, Math.max(0, (v - 0.5) * 1.8 + 0.5));
+
+      // quantize into tone bands
+      const band = v < 0.30 ? 0 : v < 0.55 ? 1 : v < 0.80 ? 2 : 3;
+      const tone = _pfTones[band];
+
+      const idx = (y * cols + x) * 4;
+      data[idx]   = tone[0];
+      data[idx+1] = tone[1];
+      data[idx+2] = tone[2];
+      data[idx+3] = 255;
+    }
+  }
+
+  _pfCtx.putImageData(_pfImg, 0, 0);
+  // scale the low-res buffer up with nearest-neighbor for crisp chunky pixels
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(_pfBuf, 0, 0, cols, rows, 0, 0, cols * PX, rows * PX);
+}
+
+// ── Dither fluid — same domain-warped fluid motion as pixel fluid, but rendered
+// as a dithered glyph field: sparse dots/outlines for mid-tones, denser/filled
+// glyphs for bright areas. Never a solid fill — the grain is the shading.
+// (DF_GLYPHS is declared near the top of the script so init-time preview code
+// can reference it without a temporal-dead-zone error.) ──
+
+function hexToRgb(hex) {
+  const m = (hex || '').match(/^#([\da-f]{2})([\da-f]{2})([\da-f]{2})/i);
+  return m ? [parseInt(m[1],16), parseInt(m[2],16), parseInt(m[3],16)] : [126,207,179];
+}
+
+function ditherResolveTones(frame) {
+  const mode = ditherCfg.toneMode;
+  if (mode === 'auto') {
+    // slowly drift hue over time for each of 3 tones, offset around the wheel
+    const t = frame * 0.0016;
+    const hsl = (h) => {
+      // simple HSL→RGB at full sat, ~62% light
+      h = ((h % 1) + 1) % 1;
+      const s = 0.55, l = 0.62;
+      const c = (1 - Math.abs(2*l - 1)) * s;
+      const x = c * (1 - Math.abs(((h*6) % 2) - 1));
+      const m0 = l - c/2;
+      let r,g,b;
+      if      (h < 1/6) [r,g,b] = [c,x,0];
+      else if (h < 2/6) [r,g,b] = [x,c,0];
+      else if (h < 3/6) [r,g,b] = [0,c,x];
+      else if (h < 4/6) [r,g,b] = [0,x,c];
+      else if (h < 5/6) [r,g,b] = [x,0,c];
+      else              [r,g,b] = [c,0,x];
+      return [Math.round((r+m0)*255), Math.round((g+m0)*255), Math.round((b+m0)*255)];
+    };
+    return [hsl(t), hsl(t + 0.18), hsl(t + 0.42)];
+  }
+  const n = mode === '2' ? 2 : 3;
+  return ditherCfg.colors.slice(0, n).map(hexToRgb);
+}
+
+let _dfCanvasReady = false;
+function drawDitherFluid(ctx, W, H, frame) {
+  const CELL = 9;                       // glyph cell size in px
+  const cols = Math.ceil(W / CELL), rows = Math.ceil(H / CELL);
+  const glyphs = DF_GLYPHS[ditherCfg.glyphSet] || DF_GLYPHS.squares;
+  const tones = ditherResolveTones(frame);
+  const nTones = tones.length;
+
+  // solid black backdrop
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.textBaseline = 'top';
+  ctx.font = CELL + 'px ' + (getComputedStyle(document.documentElement).getPropertyValue('--mono') || 'monospace');
+
+  const t = frame * 0.012;
+  const scale = 0.05;
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const nx = x * scale, ny = y * scale;
+      // identical domain-warp math to pixel fluid → same smooth liquid motion
+      const q1 = _pfNoise(nx + t,        ny);
+      const q2 = _pfNoise(nx + 5.2,      ny + t*0.8 + 1.3);
+      const r1 = _pfNoise(nx + 4*q1 + 1.7 - t*0.5, ny + 4*q2 + 9.2);
+      const r2 = _pfNoise(nx + 4*q1 + 8.3, ny + 4*q2 + 0.4 + t*0.6);
+      let v = _pfNoise(nx + 4*r1, ny + 4*r2);
+      v = Math.min(1, Math.max(0, (v - 0.5) * 1.8 + 0.5));
+
+      // glyph density from brightness
+      const gi = Math.min(glyphs.length - 1, Math.floor(v * glyphs.length));
+      const ch = glyphs[gi];
+      if (ch === ' ') continue; // leave black
+
+      // which tone this cell uses — split the value range across the palette
+      const toneIdx = Math.min(nTones - 1, Math.floor(v * nTones));
+      const tone = tones[toneIdx];
+      // brighter glyphs get a touch more opacity so denser areas pop
+      const alpha = 0.45 + (gi / glyphs.length) * 0.55;
+      ctx.fillStyle = 'rgba(' + tone[0] + ',' + tone[1] + ',' + tone[2] + ',' + alpha.toFixed(3) + ')';
+      ctx.fillText(ch, x * CELL, y * CELL);
+    }
+  }
 }
 
 function stopFullAnim() {
@@ -4430,13 +4826,14 @@ document.getElementById('bgApply').addEventListener('click', () => {
 document.getElementById('bgBtn').addEventListener('click', () => {
   document.getElementById('bgOverlay').classList.add('visible');
   document.getElementById('bgUrl').value = bgData.custom && bgData.custom.startsWith('http') ? bgData.custom : '';
-  // switch to correct tab
+  // switch to correct tab (only the main wallpaper tabs, not the inner dither buttons)
   const tab = bgData.anim ? 'animated' : (bgData.custom ? 'custom' : 'static');
-  document.querySelectorAll('.bg-tab').forEach(t => {
+  document.querySelectorAll('#bgTabs .bg-tab').forEach(t => {
     t.classList.toggle('active', t.dataset.tab === tab);
   });
   document.querySelectorAll('.bg-tab-content').forEach(c => c.style.display = 'none');
   document.getElementById('bgTab-' + tab).style.display = '';
+  updateDitherSettingsVisibility();
 });
 
 document.getElementById('bgCancel').addEventListener('click', () => {
@@ -4503,6 +4900,88 @@ document.getElementById('bgAiApply').addEventListener('click', () => {
 
 // apply saved bg on load
 applyBg(bgData);
+
+// ══════════════════════════════
+//  FONT PICKER
+// ══════════════════════════════
+const FONTS = [
+  { id: 'jetbrains',  label: 'JetBrains Mono',     stack: "'JetBrains Mono', monospace",     desc: 'clean developer default' },
+  { id: 'sharetech',  label: 'Share Tech Mono',    stack: "'Share Tech Mono', monospace",    desc: 'military / spec sheet HUD' },
+  { id: 'vt323',      label: 'VT323',              stack: "'VT323', monospace",              desc: 'crt terminal · 1970s' },
+  { id: 'majormono',  label: 'Major Mono Display', stack: "'Major Mono Display', monospace", desc: 'minimal geometric · all caps' },
+  { id: 'ibmplex',    label: 'IBM Plex Mono',      stack: "'IBM Plex Mono', monospace",      desc: 'modern corporate' },
+  { id: 'spacemono',  label: 'Space Mono',         stack: "'Space Mono', monospace",         desc: 'retro-futuristic typewriter' },
+];
+
+let activeFont = localStorage.getItem('sp_font') || 'jetbrains';
+
+function applyFont(id) {
+  const font = FONTS.find(f => f.id === id) || FONTS[0];
+  document.documentElement.style.setProperty('--mono', font.stack);
+  activeFont = font.id;
+  localStorage.setItem('sp_font', font.id);
+  // update active state in picker if it's open
+  document.querySelectorAll('.font-option').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === font.id);
+  });
+  // sync to firebase (if signed in) — batched so rapid switching doesn't spam writes
+  clearTimeout(window._fontFbTimer);
+  if (typeof fbPush === 'function') window._fontFbTimer = setTimeout(fbPush, 1500);
+}
+
+function buildFontPicker() {
+  const list = document.getElementById('fontPickerList');
+  list.innerHTML = '';
+  FONTS.forEach(f => {
+    const row = document.createElement('div');
+    row.className = 'font-option' + (activeFont === f.id ? ' active' : '');
+    row.dataset.id = f.id;
+    row.style.cssText = `
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: border-color 0.12s, background 0.12s;
+      display: flex; flex-direction: column; gap: 4px;
+    `;
+    row.innerHTML = `
+      <div style="font-family:${f.stack};font-size:16px;color:var(--text);letter-spacing:0.04em;">
+        ${f.label} · ABCxyz123
+      </div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.08em;">
+        ${f.desc}
+      </div>`;
+    row.addEventListener('mouseenter', () => { if (!row.classList.contains('active')) row.style.borderColor = 'var(--accent)'; });
+    row.addEventListener('mouseleave', () => { if (!row.classList.contains('active')) row.style.borderColor = 'var(--border)'; });
+    row.addEventListener('click', () => applyFont(f.id));
+    list.appendChild(row);
+  });
+  // ensure active row stays highlighted
+  const style = document.getElementById('fontPickerStyle') || (() => {
+    const s = document.createElement('style');
+    s.id = 'fontPickerStyle';
+    s.textContent = `.font-option.active { border-color: var(--accent) !important; background: var(--accent3) !important; }`;
+    document.head.appendChild(s);
+    return s;
+  })();
+}
+
+document.getElementById('fontBtn').addEventListener('click', () => {
+  buildFontPicker();
+  document.getElementById('fontOverlay').classList.add('visible');
+});
+document.getElementById('fontCancel').addEventListener('click', () => {
+  document.getElementById('fontOverlay').classList.remove('visible');
+});
+document.getElementById('fontOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('fontOverlay')) {
+    document.getElementById('fontOverlay').classList.remove('visible');
+  }
+});
+
+// apply saved font on load
+applyFont(activeFont);
 
 // ══════════════════════════════
 //  IMPORT / EXPORT
@@ -4623,7 +5102,7 @@ function initWidgetDrag() {
       // handle, step aside and let that element handle its own drag. Calling
       // preventDefault here would cancel the child's drag too, since this is
       // the same event bubbling up — that was silently breaking category /
-      // bookmark / osint reordering inside widgets.
+      // bookmark / osint reordering and cross-category moves inside widgets.
       const innerDraggable = e.target.closest('[draggable="true"]');
       if (innerDraggable && innerDraggable !== widget && !e.target.closest('.drag-handle')) {
         return; // do NOT preventDefault — inner drag proceeds normally
@@ -4922,6 +5401,8 @@ function fbGetData() {
     greet:       JSON.parse(localStorage.getItem('sp_greet')     || '{}'),
     bg:          JSON.parse(localStorage.getItem('sp_bg')        || '{}'),
     accent:      document.documentElement.style.getPropertyValue('--accent') || '',
+    font:        localStorage.getItem('sp_font') || '',
+    dither:      JSON.parse(localStorage.getItem('sp_dither') || 'null'),
     widgetOrder: JSON.parse(localStorage.getItem('sp_widget_order') || '{}'),
     updated:     Date.now(),
   };
@@ -4975,6 +5456,18 @@ function fbApplyData(data) {
   }
   if (data.accent && typeof greetApplyColor === 'function') {
     try { greetApplyColor(data.accent); } catch(e){ console.error(e); }
+  }
+  if (data.font && typeof applyFont === 'function') {
+    localStorage.setItem('sp_font', data.font);
+    try { applyFont(data.font); } catch(e){ console.error(e); }
+  }
+  if (data.dither && typeof ditherCfg !== 'undefined') {
+    localStorage.setItem('sp_dither', JSON.stringify(data.dither));
+    try {
+      ditherCfg = data.dither;
+      _dfTonesDirty = true;
+      if (typeof syncDitherControls === 'function') syncDitherControls();
+    } catch(e){ console.error(e); }
   }
   if (data.widgetOrder) {
     localStorage.setItem('sp_widget_order', JSON.stringify(data.widgetOrder));
@@ -5911,75 +6404,16 @@ function wmoToType(code, isDay) {
   return 'storm';
 }
 
-// ── Resolve coordinates via a fallback chain ──
-// 1. Cached coords from a previous successful lookup (instant, no network)
-// 2. Browser geolocation (precise, but depends on googleapis.com — blocked on some PCs)
-// 3. IP-based geolocation (city-level, free, no API key, doesn't touch googleapis.com)
-// 4. Hardcoded Houston coordinates so it always shows something
-async function resolveLocation() {
-  // 1. Cached
-  const cached = JSON.parse(localStorage.getItem('sp_geo') || 'null');
-  const cacheAge = cached ? (Date.now() - (cached.ts || 0)) : Infinity;
-  // Use cached coords if they're under 24h old.
-  if (cached && cacheAge < 24 * 60 * 60 * 1000) {
-    // Still try to refresh in the background, but return cached immediately.
-    refreshLocationInBackground();
-    return { lat: cached.lat, lon: cached.lon, source: 'cache' };
-  }
-
-  // 2. Browser geolocation — short timeout so we don't hang when blocked
-  try {
-    const pos = await new Promise((res, rej) => {
-      if (!navigator.geolocation) { rej(new Error('no geolocation api')); return; }
-      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 4000, maximumAge: 300000 });
-    });
-    const lat = pos.coords.latitude, lon = pos.coords.longitude;
-    localStorage.setItem('sp_geo', JSON.stringify({ lat, lon, ts: Date.now(), source: 'browser' }));
-    return { lat, lon, source: 'browser' };
-  } catch(e) { /* fall through */ }
-
-  // 3. IP-based geolocation — try a couple of free providers in case one is down
-  const ipProviders = [
-    { url: 'https://ipapi.co/json/',          pick: d => ({ lat: d.latitude, lon: d.longitude }) },
-    { url: 'https://api.ipify.org/?format=json', pick: null }, // placeholder, skip if reached
-    { url: 'https://ipwho.is/',               pick: d => ({ lat: d.latitude, lon: d.longitude }) },
-  ];
-  for (const prov of ipProviders) {
-    if (!prov.pick) continue;
-    try {
-      const r = await fetch(prov.url, { signal: AbortSignal.timeout(3500) });
-      if (!r.ok) continue;
-      const d = await r.json();
-      const { lat, lon } = prov.pick(d);
-      if (typeof lat === 'number' && typeof lon === 'number') {
-        localStorage.setItem('sp_geo', JSON.stringify({ lat, lon, ts: Date.now(), source: 'ip' }));
-        return { lat, lon, source: 'ip' };
-      }
-    } catch(e) { /* try next */ }
-  }
-
-  // 4. Hardcoded fallback — Houston, TX
-  return { lat: 29.7604, lon: -95.3698, source: 'default' };
-}
-
-// Background refresh — improves cached coords without blocking initial render.
-async function refreshLocationInBackground() {
-  try {
-    const pos = await new Promise((res, rej) => {
-      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 4000, maximumAge: 600000 });
-    });
-    const lat = pos.coords.latitude, lon = pos.coords.longitude;
-    localStorage.setItem('sp_geo', JSON.stringify({ lat, lon, ts: Date.now(), source: 'browser' }));
-  } catch(e) { /* keep cached value */ }
-}
-
 async function fetchWeather() {
   const iconEl = document.getElementById('weatherSvgIcon');
   const tempEl = document.getElementById('weatherTemp');
   const descEl = document.getElementById('weatherDesc');
 
   try {
-    const { lat, lon, source } = await resolveLocation();
+    const pos = await new Promise((res, rej) =>
+      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 6000 })
+    );
+    const { latitude: lat, longitude: lon } = pos.coords;
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode,is_day&temperature_unit=fahrenheit&timezone=auto`;
     const r   = await fetch(url);
     const d   = await r.json();
@@ -5994,15 +6428,11 @@ async function fetchWeather() {
     iconEl.innerHTML = weatherSvg(type, accent);
     tempEl.textContent = temp + '°F';
     descEl.textContent = desc;
-    // tooltip shows where the coordinates came from so you can tell whether
-    // it's precise (browser), city-level (ip), or just the default.
-    const srcLabel = source === 'browser' ? 'precise' : source === 'ip' ? 'city-level' : source === 'cache' ? 'cached' : 'default location';
-    document.getElementById('weatherDisplay').title = desc + ' · ' + srcLabel + ' — click to refresh';
+    document.getElementById('weatherDisplay').title = desc + ' — click to refresh';
   } catch(e) {
     if (iconEl) iconEl.innerHTML = weatherSvg('wind', 'var(--text3)');
     if (tempEl) tempEl.textContent = '—';
-    if (descEl) descEl.textContent = 'weather unavailable';
-    console.error('weather error:', e);
+    if (descEl) descEl.textContent = 'click to allow location';
   }
 }
 
