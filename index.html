@@ -1995,6 +1995,7 @@
     <!-- TABS -->
     <div style="display:flex;gap:4px;margin-bottom:14px;" id="vizTabs">
       <button class="bg-tab active" data-tab="audio">audio reactive</button>
+      <button class="bg-tab" data-tab="led">led matrix</button>
       <button class="bg-tab" data-tab="static">static</button>
       <button class="bg-tab" data-tab="custom">custom</button>
       <button class="bg-tab" data-tab="ai">ai generate</button>
@@ -2004,6 +2005,71 @@
     <div id="vizTab-audio" class="viz-tab-content">
       <p class="viz-mic-note" style="margin-bottom:10px;">reacts to microphone — works with music playing through speakers nearby</p>
       <div class="viz-anim-grid" id="vizPresets"></div>
+    </div>
+
+    <!-- LED MATRIX TAB -->
+    <div id="vizTab-led" class="viz-tab-content" style="display:none;">
+      <p class="viz-mic-note" style="margin-bottom:10px;">LED dot-matrix background — marquee text and ambient effects</p>
+
+      <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:5px;letter-spacing:0.06em;">MODE</label>
+      <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;" id="ledModeRow">
+        <button class="bg-tab" data-mode="off">off</button>
+        <button class="bg-tab" data-mode="marquee">marquee</button>
+        <button class="bg-tab" data-mode="rain">rain</button>
+        <button class="bg-tab" data-mode="wave">wave</button>
+        <button class="bg-tab" data-mode="marquee+rain">text + rain</button>
+        <button class="bg-tab" data-mode="marquee+wave">text + wave</button>
+      </div>
+
+      <div id="ledTextRow">
+        <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:5px;letter-spacing:0.06em;">MARQUEE TEXT</label>
+        <input type="text" id="ledText" placeholder="4lt_ · welcome back" maxlength="120"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;outline:none;caret-color:var(--accent);margin-bottom:12px;box-sizing:border-box;">
+      </div>
+
+      <div style="display:flex;gap:12px;margin-bottom:12px;">
+        <div style="flex:1;">
+          <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:5px;letter-spacing:0.06em;">DOT SHAPE</label>
+          <div style="display:flex;gap:4px;" id="ledShapeRow">
+            <button class="bg-tab" data-shape="round">round</button>
+            <button class="bg-tab" data-shape="square">square</button>
+          </div>
+        </div>
+        <div style="flex:1;">
+          <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:5px;letter-spacing:0.06em;">DOT SIZE</label>
+          <div style="display:flex;gap:4px;" id="ledSizeRow">
+            <button class="bg-tab" data-size="4">S</button>
+            <button class="bg-tab" data-size="6">M</button>
+            <button class="bg-tab" data-size="9">L</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:5px;letter-spacing:0.06em;">SPEED</label>
+        <input type="range" id="ledSpeed" min="1" max="10" value="4" class="sp-vol-slider" style="width:100%;">
+      </div>
+
+      <div style="margin-bottom:6px;">
+        <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:5px;letter-spacing:0.06em;">COLOR</label>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;" id="ledColorRow">
+          <button class="bg-tab" data-color="accent">accent</button>
+          <button class="bg-tab" data-color="#00FF41">green</button>
+          <button class="bg-tab" data-color="#FF0033">red</button>
+          <button class="bg-tab" data-color="#FFB800">amber</button>
+          <button class="bg-tab" data-color="#00FFFF">cyan</button>
+          <input type="color" id="ledColorCustom" value="#7ecfb3" title="custom color"
+            style="width:30px;height:26px;border:1px solid var(--border);border-radius:4px;background:var(--bg3);cursor:pointer;padding:2px;">
+        </div>
+        <label style="font-size:10px;color:var(--text2);display:block;margin:10px 0 5px;letter-spacing:0.06em;">MULTICOLOR PALETTES</label>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;" id="ledPaletteRow">
+          <button class="bg-tab" data-color="palette:rainbow">rainbow</button>
+          <button class="bg-tab" data-color="palette:fire">fire</button>
+          <button class="bg-tab" data-color="palette:ocean">ocean</button>
+          <button class="bg-tab" data-color="palette:cyber">cyber</button>
+          <button class="bg-tab" data-color="palette:sunset">sunset</button>
+        </div>
+      </div>
     </div>
 
     <!-- STATIC TAB -->
@@ -2252,6 +2318,16 @@ let _dfTonesDirty = true;
 const DF_GLYPHS = {
   squares: [' ', '·', '˙', '▫', '◻', '▢', '◼', '■'],
   ascii:   [' ', '.', ':', ';', '+', 'o', 'w', 'W'],
+};
+
+// LED matrix config — declared early so fbApplyData (cloud sync) can reference it safely.
+let ledCfg = JSON.parse(localStorage.getItem('sp_led') || 'null') || {
+  mode: 'off',           // off | marquee | rain | wave | marquee+rain | marquee+wave
+  text: '4lt_ · welcome back',
+  shape: 'round',        // round | square
+  dotSize: 6,            // px pitch
+  speed: 4,              // 1-10
+  color: 'accent',       // 'accent' or hex
 };
 
 // ══════════════════════════════
@@ -4167,6 +4243,7 @@ const QUICK = [
   { icon: '🎵', label: 'Spotify',    url: 'https://open.spotify.com' },
   { icon: '💾', label: 'GitHub',     url: 'https://github.com' },
   { icon: '🛡', label: 'Bitwarden',  url: 'https://vault.bitwarden.com' },
+  { icon: '🔳', label: 'LED Animator', url: 'led-animator/' },
 ];
 
 const qlEl = document.getElementById('quickLinks');
@@ -5403,6 +5480,7 @@ function fbGetData() {
     accent:      document.documentElement.style.getPropertyValue('--accent') || '',
     font:        localStorage.getItem('sp_font') || '',
     dither:      JSON.parse(localStorage.getItem('sp_dither') || 'null'),
+    led:         JSON.parse(localStorage.getItem('sp_led') || 'null'),
     widgetOrder: JSON.parse(localStorage.getItem('sp_widget_order') || '{}'),
     updated:     Date.now(),
   };
@@ -5467,6 +5545,14 @@ function fbApplyData(data) {
       ditherCfg = data.dither;
       _dfTonesDirty = true;
       if (typeof syncDitherControls === 'function') syncDitherControls();
+    } catch(e){ console.error(e); }
+  }
+  if (data.led && typeof ledCfg !== 'undefined') {
+    localStorage.setItem('sp_led', JSON.stringify(data.led));
+    try {
+      ledCfg = data.led;
+      if (typeof ledApply === 'function') ledApply();
+      if (typeof ledSyncControls === 'function') ledSyncControls();
     } catch(e){ console.error(e); }
   }
   if (data.widgetOrder) {
@@ -6194,6 +6280,282 @@ async function selectViz(id) {
 }
 
 // ── Static presets for clock widget ──
+// ══════════════════════════════
+//  LED MATRIX BACKGROUND (clock panel)
+// ══════════════════════════════
+// A grid of evenly-spaced LED "dots". Supports marquee text (5x7 pixel font),
+// ambient rain, ambient wave, and text-over-effect layering. Designed so the
+// same engine can later be pointed at a full-page canvas.
+
+// 5x7 pixel font — each glyph is 7 rows of 5-bit columns (MSB = leftmost dot)
+const LED_FONT = {
+  'A':[0x0E,0x11,0x11,0x1F,0x11,0x11,0x11],'B':[0x1E,0x11,0x11,0x1E,0x11,0x11,0x1E],
+  'C':[0x0E,0x11,0x10,0x10,0x10,0x11,0x0E],'D':[0x1E,0x11,0x11,0x11,0x11,0x11,0x1E],
+  'E':[0x1F,0x10,0x10,0x1E,0x10,0x10,0x1F],'F':[0x1F,0x10,0x10,0x1E,0x10,0x10,0x10],
+  'G':[0x0E,0x11,0x10,0x17,0x11,0x11,0x0F],'H':[0x11,0x11,0x11,0x1F,0x11,0x11,0x11],
+  'I':[0x0E,0x04,0x04,0x04,0x04,0x04,0x0E],'J':[0x07,0x02,0x02,0x02,0x02,0x12,0x0C],
+  'K':[0x11,0x12,0x14,0x18,0x14,0x12,0x11],'L':[0x10,0x10,0x10,0x10,0x10,0x10,0x1F],
+  'M':[0x11,0x1B,0x15,0x15,0x11,0x11,0x11],'N':[0x11,0x11,0x19,0x15,0x13,0x11,0x11],
+  'O':[0x0E,0x11,0x11,0x11,0x11,0x11,0x0E],'P':[0x1E,0x11,0x11,0x1E,0x10,0x10,0x10],
+  'Q':[0x0E,0x11,0x11,0x11,0x15,0x12,0x0D],'R':[0x1E,0x11,0x11,0x1E,0x14,0x12,0x11],
+  'S':[0x0F,0x10,0x10,0x0E,0x01,0x01,0x1E],'T':[0x1F,0x04,0x04,0x04,0x04,0x04,0x04],
+  'U':[0x11,0x11,0x11,0x11,0x11,0x11,0x0E],'V':[0x11,0x11,0x11,0x11,0x11,0x0A,0x04],
+  'W':[0x11,0x11,0x11,0x15,0x15,0x1B,0x11],'X':[0x11,0x11,0x0A,0x04,0x0A,0x11,0x11],
+  'Y':[0x11,0x11,0x0A,0x04,0x04,0x04,0x04],'Z':[0x1F,0x01,0x02,0x04,0x08,0x10,0x1F],
+  '0':[0x0E,0x11,0x13,0x15,0x19,0x11,0x0E],'1':[0x04,0x0C,0x04,0x04,0x04,0x04,0x0E],
+  '2':[0x0E,0x11,0x01,0x02,0x04,0x08,0x1F],'3':[0x1F,0x02,0x04,0x02,0x01,0x11,0x0E],
+  '4':[0x02,0x06,0x0A,0x12,0x1F,0x02,0x02],'5':[0x1F,0x10,0x1E,0x01,0x01,0x11,0x0E],
+  '6':[0x06,0x08,0x10,0x1E,0x11,0x11,0x0E],'7':[0x1F,0x01,0x02,0x04,0x08,0x08,0x08],
+  '8':[0x0E,0x11,0x11,0x0E,0x11,0x11,0x0E],'9':[0x0E,0x11,0x11,0x0F,0x01,0x02,0x0C],
+  ' ':[0,0,0,0,0,0,0],'.':[0,0,0,0,0,0x0C,0x0C],',':[0,0,0,0,0x0C,0x04,0x08],
+  '!':[0x04,0x04,0x04,0x04,0x04,0,0x04],'?':[0x0E,0x11,0x01,0x02,0x04,0,0x04],
+  ':':[0,0x0C,0x0C,0,0x0C,0x0C,0],'-':[0,0,0,0x1F,0,0,0],'_':[0,0,0,0,0,0,0x1F],
+  '+':[0,0x04,0x04,0x1F,0x04,0x04,0],'=':[0,0,0x1F,0,0x1F,0,0],'/':[0x01,0x02,0x02,0x04,0x08,0x08,0x10],
+  '*':[0,0x11,0x0A,0x1F,0x0A,0x11,0],'#':[0x0A,0x0A,0x1F,0x0A,0x1F,0x0A,0x0A],
+  '<':[0x02,0x04,0x08,0x10,0x08,0x04,0x02],'>':[0x08,0x04,0x02,0x01,0x02,0x04,0x08],
+  "'":[0x04,0x04,0x08,0,0,0,0],'"':[0x0A,0x0A,0x0A,0,0,0,0],'@':[0x0E,0x11,0x17,0x15,0x17,0x10,0x0E],
+};
+
+let ledAnimFrame = null;
+let ledRainState = null;
+
+// Named multi-color palettes — cycle across the grid like the reference.
+const LED_PALETTES = {
+  'rainbow':  ['#FF0033','#FF7700','#FFB800','#00FF41','#00FFFF','#4477FF','#AA44FF'],
+  'fire':     ['#FF0033','#FF4400','#FF7700','#FFB800','#FFDD00'],
+  'ocean':    ['#00FFFF','#00CCFF','#0088FF','#4477FF','#00FF99'],
+  'cyber':    ['#00FF41','#00FFFF','#FF00AA','#AA44FF'],
+  'sunset':   ['#FF0066','#FF3366','#FF7700','#FFB800','#FF44AA'],
+};
+
+function ledIsPalette() {
+  return typeof ledCfg.color === 'string' && ledCfg.color.startsWith('palette:');
+}
+
+function ledResolveColor() {
+  if (ledCfg.color === 'accent') {
+    return getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#7ecfb3';
+  }
+  if (ledIsPalette()) {
+    // caller handles per-dot; return the first swatch as a fallback
+    const pal = LED_PALETTES[ledCfg.color.slice(8)] || LED_PALETTES.rainbow;
+    return pal[0];
+  }
+  return ledCfg.color;
+}
+
+// Per-dot color for palette modes — hue cycles across columns + drifts over time.
+function ledDotColor(col, row, cols, frame) {
+  if (!ledIsPalette()) return ledResolveColor();
+  const pal = LED_PALETTES[ledCfg.color.slice(8)] || LED_PALETTES.rainbow;
+  // diagonal band that slowly drifts so colors flow across the grid
+  const idx = Math.floor((col + row) * 0.35 + frame * 0.02) % pal.length;
+  return pal[(idx + pal.length) % pal.length];
+}
+
+// Render one dot at grid cell (col,row) with brightness 0..1
+function ledDrawDot(ctx, cx, cy, radius, color, bright, shape) {
+  if (bright <= 0.02) {
+    // draw the "off" LED — very dim so the grid is faintly visible
+    ctx.globalAlpha = 0.06;
+    ctx.fillStyle = color;
+  } else {
+    ctx.globalAlpha = 0.15 + bright * 0.85;
+    ctx.fillStyle = color;
+  }
+  if (shape === 'square') {
+    const s = radius * 1.6;
+    ctx.fillRect(cx - s/2, cy - s/2, s, s);
+  } else {
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI*2);
+    ctx.fill();
+  }
+  // glow for lit dots
+  if (bright > 0.5) {
+    ctx.globalAlpha = (bright - 0.5) * 0.4;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * 1.8, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// Build a brightness buffer for scrolling text. Returns { width, heightRows, get(col,row) }
+function ledTextBuffer(text) {
+  const glyphs = text.toUpperCase().split('').map(ch => LED_FONT[ch] || LED_FONT['?']);
+  const charW = 5, gap = 1, rows = 7;
+  const totalCols = glyphs.length * (charW + gap);
+  return {
+    cols: totalCols,
+    rows,
+    lit(col, row) {
+      if (row < 0 || row >= rows) return false;
+      const gi = Math.floor(col / (charW + gap));
+      const within = col % (charW + gap);
+      if (gi < 0 || gi >= glyphs.length) return false;
+      if (within >= charW) return false; // gap column
+      const rowBits = glyphs[gi][row];
+      // MSB is leftmost of 5 bits
+      return (rowBits >> (charW - 1 - within)) & 1;
+    }
+  };
+}
+
+function ledStart() {
+  ledStop();
+  const canvas = document.getElementById('clockVizCanvas');
+  const panel = document.getElementById('clockPanel');
+  if (!canvas || !panel) return;
+  panel.classList.add('has-viz');
+  const ctx = canvas.getContext('2d');
+
+  let textBuf = ledCfg.text ? ledTextBuffer(ledCfg.text) : null;
+  let frame = 0;
+
+  function draw() {
+    ledAnimFrame = requestAnimationFrame(draw);
+    const W = canvas.width = canvas.offsetWidth;
+    const H = canvas.height = canvas.offsetHeight;
+    ctx.clearRect(0, 0, W, H);
+    frame++;
+
+    const pitch = ledCfg.dotSize + 3;      // spacing between dot centers
+    const radius = ledCfg.dotSize / 2;
+    const cols = Math.ceil(W / pitch);
+    const rows = Math.ceil(H / pitch);
+    const color = ledResolveColor();
+    const speed = ledCfg.speed;
+    const mode = ledCfg.mode;
+
+    // brightness grid, default 0
+    const grid = new Float32Array(cols * rows);
+
+    // ── ambient: rain ──
+    if (mode === 'rain' || mode === 'marquee+rain') {
+      if (!ledRainState || ledRainState.cols !== cols) {
+        ledRainState = { cols, drops: new Array(cols).fill(0).map(() => Math.random() * rows) };
+      }
+      for (let c = 0; c < cols; c++) {
+        ledRainState.drops[c] += speed * 0.006;   // ~5x slower
+        if (ledRainState.drops[c] > rows + 6) ledRainState.drops[c] = -Math.random() * 8;
+        const head = ledRainState.drops[c];
+        for (let tr = 0; tr < 7; tr++) {
+          const r = Math.floor(head - tr);
+          if (r >= 0 && r < rows) {
+            const b = Math.max(0, 1 - tr * 0.16);
+            grid[r * cols + c] = Math.max(grid[r * cols + c], b);
+          }
+        }
+      }
+    }
+
+    // ── ambient: wave ──
+    if (mode === 'wave' || mode === 'marquee+wave') {
+      const t = frame * 0.004 * speed;            // ~5x slower
+      for (let c = 0; c < cols; c++) {
+        for (let r = 0; r < rows; r++) {
+          const v = Math.sin(c * 0.3 + t) * Math.cos(r * 0.3 - t * 0.7)
+                  + Math.sin((c + r) * 0.2 + t * 1.3);
+          const b = Math.max(0, (v + 2) / 3 - 0.6);
+          grid[r * cols + c] = Math.max(grid[r * cols + c], b * 0.8);
+        }
+      }
+    }
+
+    // ── marquee text ──
+    if ((mode === 'marquee' || mode === 'marquee+rain' || mode === 'marquee+wave') && textBuf) {
+      const scrollSpeed = speed * 0.08;           // ~5x slower — slowest is now very gentle
+      const offset = (frame * scrollSpeed) % (textBuf.cols + cols);
+      const startCol = cols - offset;   // scroll right→left
+      const vCenter = Math.floor((rows - textBuf.rows) / 2);
+      for (let tc = 0; tc < textBuf.cols; tc++) {
+        const gridCol = Math.round(startCol + tc);
+        if (gridCol < 0 || gridCol >= cols) continue;
+        for (let tr = 0; tr < textBuf.rows; tr++) {
+          if (textBuf.lit(tc, tr)) {
+            const gr = vCenter + tr;
+            if (gr >= 0 && gr < rows) grid[gr * cols + gridCol] = 1; // full bright text
+          }
+        }
+      }
+    }
+
+    // ── render the dot grid ──
+    const usePalette = ledIsPalette();
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const cx = c * pitch + pitch/2;
+        const cy = r * pitch + pitch/2;
+        const dotColor = usePalette ? ledDotColor(c, r, cols, frame) : color;
+        ledDrawDot(ctx, cx, cy, radius, dotColor, grid[r * cols + c], ledCfg.shape);
+      }
+    }
+  }
+  draw();
+}
+
+function ledStop() {
+  if (ledAnimFrame) { cancelAnimationFrame(ledAnimFrame); ledAnimFrame = null; }
+}
+
+function ledApply() {
+  localStorage.setItem('sp_led', JSON.stringify(ledCfg));
+  const panel = document.getElementById('clockPanel');
+  if (ledCfg.mode === 'off') {
+    ledStop();
+    // only remove has-viz if audio viz isn't also using it
+    if (!vizActive) panel.classList.remove('has-viz');
+  } else {
+    // LED matrix takes over the canvas — turn off audio viz if running
+    if (vizActive) { try { selectViz(vizActive); } catch(e){} }
+    ledStart();
+  }
+  if (typeof fbPush === 'function') { clearTimeout(window._ledFbTimer); window._ledFbTimer = setTimeout(fbPush, 1500); }
+}
+
+function ledSyncControls() {
+  document.querySelectorAll('#ledModeRow .bg-tab').forEach(b => b.classList.toggle('active', b.dataset.mode === ledCfg.mode));
+  document.querySelectorAll('#ledShapeRow .bg-tab').forEach(b => b.classList.toggle('active', b.dataset.shape === ledCfg.shape));
+  document.querySelectorAll('#ledSizeRow .bg-tab').forEach(b => b.classList.toggle('active', parseInt(b.dataset.size) === ledCfg.dotSize));
+  document.querySelectorAll('#ledColorRow .bg-tab').forEach(b => b.classList.toggle('active', b.dataset.color === ledCfg.color));
+  document.querySelectorAll('#ledPaletteRow .bg-tab').forEach(b => b.classList.toggle('active', b.dataset.color === ledCfg.color));
+  const textInput = document.getElementById('ledText');
+  if (textInput && document.activeElement !== textInput) textInput.value = ledCfg.text;
+  const speedEl = document.getElementById('ledSpeed');
+  if (speedEl) speedEl.value = ledCfg.speed;
+  // show/hide text field depending on whether the mode uses text
+  const textRow = document.getElementById('ledTextRow');
+  if (textRow) textRow.style.display = ledCfg.mode.includes('marquee') ? '' : 'none';
+}
+
+function wireLedControls() {
+  document.querySelectorAll('#ledModeRow .bg-tab').forEach(btn => {
+    btn.addEventListener('click', () => { ledCfg.mode = btn.dataset.mode; ledApply(); ledSyncControls(); });
+  });
+  document.querySelectorAll('#ledShapeRow .bg-tab').forEach(btn => {
+    btn.addEventListener('click', () => { ledCfg.shape = btn.dataset.shape; ledApply(); ledSyncControls(); });
+  });
+  document.querySelectorAll('#ledSizeRow .bg-tab').forEach(btn => {
+    btn.addEventListener('click', () => { ledCfg.dotSize = parseInt(btn.dataset.size); ledApply(); ledSyncControls(); });
+  });
+  document.querySelectorAll('#ledColorRow .bg-tab').forEach(btn => {
+    btn.addEventListener('click', () => { ledCfg.color = btn.dataset.color; ledApply(); ledSyncControls(); });
+  });
+  document.querySelectorAll('#ledPaletteRow .bg-tab').forEach(btn => {
+    btn.addEventListener('click', () => { ledCfg.color = btn.dataset.color; ledApply(); ledSyncControls(); });
+  });
+  const textInput = document.getElementById('ledText');
+  if (textInput) textInput.addEventListener('input', () => {
+    ledCfg.text = textInput.value;
+    if (ledCfg.mode.includes('marquee')) ledApply();
+  });
+  const speedEl = document.getElementById('ledSpeed');
+  if (speedEl) speedEl.addEventListener('input', () => { ledCfg.speed = parseInt(speedEl.value); localStorage.setItem('sp_led', JSON.stringify(ledCfg)); });
+  const colorCustom = document.getElementById('ledColorCustom');
+  if (colorCustom) colorCustom.addEventListener('input', () => { ledCfg.color = colorCustom.value; ledApply(); ledSyncControls(); });
+}
+
 const VIZ_STATIC = [
   { id:'vs_none',    label:'default',   style:'background:#0d0d0d;' },
   { id:'vs_grid',    label:'grid',      style:'background:#0d0d0d;background-image:linear-gradient(rgba(126,207,179,0.07) 1px,transparent 1px),linear-gradient(90deg,rgba(126,207,179,0.07) 1px,transparent 1px);background-size:30px 30px;' },
@@ -6280,10 +6642,12 @@ function openVizModal() {
     });
   });
   // restore correct tab
-  const activeTab = vizActive ? 'audio' : (vizCustomBg ? 'custom' : (vizStaticId ? 'static' : 'audio'));
+  const ledOn = ledCfg && ledCfg.mode && ledCfg.mode !== 'off';
+  const activeTab = ledOn ? 'led' : (vizActive ? 'audio' : (vizCustomBg ? 'custom' : (vizStaticId ? 'static' : 'audio')));
   document.querySelectorAll('#vizTabs .bg-tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===activeTab));
   document.querySelectorAll('.viz-tab-content').forEach(c=>c.style.display='none');
   document.getElementById('vizTab-' + activeTab).style.display='';
+  ledSyncControls();
 }
 
 // custom upload
@@ -6354,6 +6718,13 @@ if (vizActive) {
       localStorage.removeItem('sp_viz');
     }
   });
+}
+
+// ── LED matrix — wire controls + restore saved mode ──
+wireLedControls();
+ledSyncControls();
+if (ledCfg.mode && ledCfg.mode !== 'off' && !vizActive) {
+  ledStart();
 }
 
 
