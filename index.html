@@ -1386,6 +1386,100 @@
   }
   #cheatPanel.open { left: 0; }
 
+  /* ── NOTEPAD SLIDE-OUT (right edge, mirrors cheat tab) ── */
+  #notepadTab {
+    position: fixed;
+    right: 0; top: 50%;
+    transform: translateY(-50%);
+    z-index: 8000;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-right: none;
+    border-radius: 6px 0 0 6px;
+    padding: 10px 6px;
+    cursor: pointer;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--text3);
+    transition: color 0.15s, background 0.15s;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  #notepadTab:hover { color: var(--accent); background: var(--bg3); }
+  #notepadTab.open { color: var(--accent); background: var(--bg3); }
+  #notepadTab svg { transform: rotate(90deg); }
+
+  #notepadPanel {
+    position: fixed;
+    right: -460px;
+    top: 0; bottom: 0;
+    width: 460px;
+    max-width: 92vw;
+    z-index: 7999;
+    background: var(--bg1);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    transition: right 0.25s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: -4px 0 24px rgba(0,0,0,0.4);
+    overflow: hidden;
+  }
+  #notepadPanel.open { right: 0; }
+  .notepad-header {
+    padding: 16px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .notepad-header-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  .notepad-header-actions { display: flex; align-items: center; gap: 10px; }
+  .notepad-popout-btn {
+    background: none; border: 1px solid var(--border); color: var(--text3);
+    cursor: pointer; font-family: var(--mono); font-size: 9px;
+    letter-spacing: 0.08em; padding: 3px 8px; border-radius: 3px;
+    transition: color 0.15s, border-color 0.15s; display: flex; align-items: center; gap: 5px;
+  }
+  .notepad-popout-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .notepad-close {
+    background: none; border: none; color: var(--text3);
+    cursor: pointer; font-size: 16px; padding: 2px 4px; transition: color 0.15s;
+  }
+  .notepad-close:hover { color: var(--text); }
+  #notepadArea {
+    flex: 1;
+    width: 100%;
+    background: var(--bg1);
+    border: none;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 16px;
+    resize: none;
+    outline: none;
+    line-height: 1.7;
+    caret-color: var(--accent);
+    user-select: text;
+  }
+  #notepadArea::placeholder { color: var(--text3); }
+  .notepad-footer {
+    padding: 8px 16px; border-top: 1px solid var(--border);
+    font-size: 10px; color: var(--text3); flex-shrink: 0;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+
   .cheat-header {
     padding: 16px 16px 10px;
     border-bottom: 1px solid var(--border);
@@ -1766,10 +1860,9 @@
 
 
     <!-- NOTES -->
-    <div class="panel widget" id="widget-notes" draggable="false">
-      <div class="panel-title widget-title"><span class="drag-handle" title="drag to move">⠿</span><span class="dot" style="background:var(--purple);"></span>scratch pad</div>
-      <textarea id="notesArea" placeholder="// notes, ideas, commands..."></textarea>
-      <div class="notes-footer" id="notesSaved">auto-saved</div>
+    <div class="panel widget" id="widget-socials" draggable="false">
+      <div class="panel-title widget-title"><span class="drag-handle" title="drag to move">⠿</span><span class="dot" style="background:var(--purple);"></span>socials</div>
+      <div class="quick-links" id="socialLinks"></div>
     </div>
 
   </div>
@@ -2842,7 +2935,7 @@ document.getElementById('searchInput').addEventListener('input', e => {
 document.addEventListener('keydown', e => {
   if (e.key === '/' && document.activeElement !== document.getElementById('searchInput')
     && document.activeElement !== document.getElementById('todoInput')
-    && document.activeElement !== document.getElementById('notesArea')) {
+    && document.activeElement !== document.getElementById('notepadArea')) {
     e.preventDefault();
     document.getElementById('searchInput').focus();
   }
@@ -3269,17 +3362,177 @@ renderTodos();
 // ══════════════════════════════
 //  NOTES
 // ══════════════════════════════
-const notesArea = document.getElementById('notesArea');
-notesArea.value = localStorage.getItem('sp_notes') || '';
+// ══════════════════════════════
+//  SOCIALS LIST (left column)
+// ══════════════════════════════
+const SOCIALS = [
+  { icon: '𝕏',  label: 'X',         url: 'https://x.com' },
+  { icon: '📸', label: 'Instagram', url: 'https://instagram.com' },
+  { icon: '👽', label: 'Reddit',    url: 'https://reddit.com' },
+  { icon: '👤', label: 'Facebook',  url: 'https://facebook.com' },
+  { icon: '💬', label: 'Discord',   url: 'https://discord.com/app' },
+  { icon: '📺', label: 'YouTube',   url: 'https://youtube.com' },
+  { icon: '🟢', label: 'Kick',      url: 'https://kick.com' },
+  { icon: '🟣', label: 'Twitch',    url: 'https://twitch.tv' },
+  { icon: '🎬', label: 'Rumble',    url: 'https://rumble.com' },
+];
+const socialEl = document.getElementById('socialLinks');
+if (socialEl) {
+  SOCIALS.forEach(s => {
+    const a = document.createElement('a');
+    a.className = 'ql-item';
+    a.href = s.url;
+    a.innerHTML = `<span class="ql-icon">${s.icon}</span><span class="ql-label">${s.label}</span><span class="ql-arrow">→</span>`;
+    socialEl.appendChild(a);
+  });
+}
+
+// ══════════════════════════════
+//  NOTEPAD (right-edge slide-out + pop-out window)
+//  Keeps the old 'sp_notes' key so existing scratch-pad content carries over.
+//  NOTE: the notepad HTML lives after the closing script tag, so all element
+//  lookups and listener wiring must wait for DOMContentLoaded (same as the
+//  cheat panel). Never write a literal closing-script-tag in this file, even in
+//  a comment or string — the HTML parser ends the script block on sight.
+// ══════════════════════════════
+let notepadArea  = null;
+let notepadTab   = null;
+let notepadPanel = null;
+let notepadWin   = null;         // reference to the pop-out window
 let notesSaveTimer;
-notesArea.addEventListener('input', () => {
-  clearTimeout(notesSaveTimer);
-  document.getElementById('notesSaved').textContent = 'unsaved...';
-  notesSaveTimer = setTimeout(() => {
-    localStorage.setItem('sp_notes', notesArea.value);
-    document.getElementById('notesSaved').textContent = 'saved ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-  }, 800);
-});
+
+function notepadSave(val) {
+  localStorage.setItem('sp_notes', val);
+  const savedEl = document.getElementById('notepadSaved');
+  if (savedEl) savedEl.textContent = 'saved ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  const countEl = document.getElementById('notepadCount');
+  if (countEl) countEl.textContent = val.length + ' chars';
+  if (typeof fbPush === 'function') { clearTimeout(window._notesFbTimer); window._notesFbTimer = setTimeout(fbPush, 1500); }
+}
+
+function notepadToggle(open) {
+  if (!notepadPanel || !notepadTab) return;
+  const isOpen = open != null ? open : !notepadPanel.classList.contains('open');
+  notepadPanel.classList.toggle('open', isOpen);
+  notepadTab.classList.toggle('open', isOpen);
+  if (isOpen && notepadArea) setTimeout(() => notepadArea.focus(), 260);
+}
+
+function initNotepad() {
+  notepadArea  = document.getElementById('notepadArea');
+  notepadTab   = document.getElementById('notepadTab');
+  notepadPanel = document.getElementById('notepadPanel');
+  if (!notepadArea || !notepadTab || !notepadPanel) return;
+
+  // restore saved content
+  notepadArea.value = localStorage.getItem('sp_notes') || '';
+  const countEl = document.getElementById('notepadCount');
+  if (countEl) countEl.textContent = notepadArea.value.length + ' chars';
+
+  notepadArea.addEventListener('input', () => {
+    clearTimeout(notesSaveTimer);
+    const savedEl = document.getElementById('notepadSaved');
+    if (savedEl) savedEl.textContent = 'unsaved...';
+    const cEl = document.getElementById('notepadCount');
+    if (cEl) cEl.textContent = notepadArea.value.length + ' chars';
+    notesSaveTimer = setTimeout(() => {
+      notepadSave(notepadArea.value);
+      // if the pop-out window is open, keep it in sync
+      if (notepadWin && !notepadWin.closed) {
+        try { const t = notepadWin.document.getElementById('pwArea'); if (t && t.value !== notepadArea.value) t.value = notepadArea.value; } catch(e){}
+      }
+    }, 600);
+  });
+
+  notepadTab.addEventListener('click', e => { e.stopPropagation(); notepadToggle(); });
+
+  const npClose = document.getElementById('notepadClose');
+  if (npClose) npClose.addEventListener('click', e => { e.stopPropagation(); notepadToggle(false); });
+
+  const npPopout = document.getElementById('notepadPopout');
+  if (npPopout) npPopout.addEventListener('click', e => { e.stopPropagation(); notepadPopOut(); });
+
+  // close on outside click (but not the tab or inside the panel)
+  document.addEventListener('click', e => {
+    if (!notepadPanel.classList.contains('open')) return;
+    if (notepadPanel.contains(e.target) || notepadTab.contains(e.target)) return;
+    notepadToggle(false);
+  });
+
+  // Escape closes it
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && notepadPanel.classList.contains('open')) notepadToggle(false);
+  });
+}
+
+// The notepad markup is after the closing script tag, so wait for the DOM.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initNotepad);
+} else {
+  initNotepad();
+}
+
+// ── Pop-out window ──
+function notepadPopOut() {
+  // if already open, just focus it
+  if (notepadWin && !notepadWin.closed) { notepadWin.focus(); return; }
+  const w = window.open('', 'startpage_notepad', 'width=460,height=560');
+  if (!w) { alert('Popup blocked — allow popups for this page to use the notepad window.'); return; }
+  notepadWin = w;
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#7ecfb3';
+  const current = localStorage.getItem('sp_notes') || '';
+  w.document.write(`<!DOCTYPE html><html><head><title>notepad</title><meta charset="utf-8">
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      html,body{height:100%;background:#0d0d0d;color:#e8e8e8;font-family:'JetBrains Mono',monospace}
+      .bar{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid #262626;font-size:10px;letter-spacing:0.1em;color:${accent};text-transform:uppercase}
+      .dock{background:none;border:1px solid #333;color:#888;cursor:pointer;font-family:inherit;font-size:9px;letter-spacing:0.08em;padding:3px 8px;border-radius:3px}
+      .dock:hover{color:${accent};border-color:${accent}}
+      textarea{width:100%;height:calc(100% - 66px);background:#0d0d0d;border:none;color:#e8e8e8;font-family:inherit;font-size:13px;line-height:1.7;padding:14px;resize:none;outline:none;caret-color:${accent}}
+      .ft{padding:6px 12px;border-top:1px solid #262626;font-size:10px;color:#666;display:flex;justify-content:space-between}
+    </style></head><body>
+    <div class="bar"><span>✎ notepad</span><button class="dock" id="pwDock">◱ dock to page</button></div>
+    <textarea id="pwArea" placeholder="// notes, ideas, commands..." spellcheck="false">${current.replace(/</g,'&lt;')}</textarea>
+    <div class="ft"><span id="pwSaved">auto-saved</span><span id="pwCount">${current.length} chars</span></div>
+    </body></html>`);
+  w.document.close();
+
+  const pwArea = w.document.getElementById('pwArea');
+  const pwSaved = w.document.getElementById('pwSaved');
+  const pwCount = w.document.getElementById('pwCount');
+  let pwTimer;
+  pwArea.addEventListener('input', () => {
+    clearTimeout(pwTimer);
+    pwSaved.textContent = 'unsaved...';
+    pwCount.textContent = pwArea.value.length + ' chars';
+    pwTimer = setTimeout(() => {
+      localStorage.setItem('sp_notes', pwArea.value);
+      pwSaved.textContent = 'saved ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      // sync back to the in-page textarea
+      if (notepadArea) notepadArea.value = pwArea.value;
+      const cEl = document.getElementById('notepadCount');
+      if (cEl) cEl.textContent = pwArea.value.length + ' chars';
+      if (typeof fbPush === 'function') { clearTimeout(window._notesFbTimer); window._notesFbTimer = setTimeout(fbPush, 1500); }
+    }, 500);
+  });
+  pwArea.focus();
+
+  // "dock to page" button — closes window, opens the slide-out
+  w.document.getElementById('pwDock').addEventListener('click', () => { w.close(); });
+
+  // when the window closes, pull its latest value back in and reopen the panel
+  const checkClosed = setInterval(() => {
+    if (w.closed) {
+      clearInterval(checkClosed);
+      notepadWin = null;
+      // value already synced on input; make sure in-page reflects storage
+      if (notepadArea) notepadArea.value = localStorage.getItem('sp_notes') || '';
+    }
+  }, 500);
+
+  // opening the pop-out closes the slide-out panel to avoid two editors side by side
+  notepadToggle(false);
+}
 
 // ══════════════════════════════
 //  BOOKMARKS
@@ -5511,8 +5764,14 @@ function fbApplyData(data) {
   }
   if (data.notes !== undefined) {
     localStorage.setItem('sp_notes', data.notes);
-    const na = document.getElementById('notesArea');
-    if (na) na.value = data.notes;
+    const na = document.getElementById('notepadArea');
+    if (na && document.activeElement !== na) na.value = data.notes;
+    const cEl = document.getElementById('notepadCount');
+    if (cEl) cEl.textContent = (data.notes || '').length + ' chars';
+    // sync the pop-out window too if it's open
+    if (typeof notepadWin !== 'undefined' && notepadWin && !notepadWin.closed) {
+      try { const t = notepadWin.document.getElementById('pwArea'); if (t && document.activeElement !== t) t.value = data.notes; } catch(e){}
+    }
   }
   if (Array.isArray(data.feeds) && data.feeds.length > 0) {
     localStorage.setItem('sp_feeds', JSON.stringify(data.feeds));
@@ -5925,12 +6184,7 @@ saveTodos = window.saveTodos;
 
 
 
-// patch notes autosave
-const notesAreaEl = document.getElementById('notesArea');
-notesAreaEl.addEventListener('input', () => {
-  clearTimeout(window._notesFbTimer);
-  window._notesFbTimer = setTimeout(fbPush, 2000);
-});
+// notes autosave→fbPush is handled inside notepadSave() / the pop-out window
 
 // patch greeting save
 const _origGreetApply = greetApplyColor;
@@ -6775,16 +7029,72 @@ function wmoToType(code, isDay) {
   return 'storm';
 }
 
+// ── Resolve coordinates via a fallback chain ──
+// 1. Cached coords from a previous successful lookup (instant, no network)
+// 2. Browser geolocation (precise, but depends on googleapis.com — blocked on some PCs)
+// 3. IP-based geolocation (city-level, free, no API key, doesn't touch googleapis.com)
+// 4. Hardcoded Houston coordinates so it always shows something
+async function resolveLocation() {
+  // 1. Cached — use if under 24h old, and refresh in the background.
+  const cached = JSON.parse(localStorage.getItem('sp_geo') || 'null');
+  const cacheAge = cached ? (Date.now() - (cached.ts || 0)) : Infinity;
+  if (cached && cacheAge < 24 * 60 * 60 * 1000) {
+    refreshLocationInBackground();
+    return { lat: cached.lat, lon: cached.lon, source: 'cache' };
+  }
+
+  // 2. Browser geolocation — short timeout so we fail fast when blocked.
+  try {
+    const pos = await new Promise((res, rej) => {
+      if (!navigator.geolocation) { rej(new Error('no geolocation api')); return; }
+      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 4000, maximumAge: 300000 });
+    });
+    const lat = pos.coords.latitude, lon = pos.coords.longitude;
+    localStorage.setItem('sp_geo', JSON.stringify({ lat, lon, ts: Date.now(), source: 'browser' }));
+    return { lat, lon, source: 'browser' };
+  } catch(e) { /* fall through */ }
+
+  // 3. IP-based geolocation — try a couple of free providers in case one is down.
+  const ipProviders = [
+    { url: 'https://ipapi.co/json/', pick: d => ({ lat: d.latitude, lon: d.longitude }) },
+    { url: 'https://ipwho.is/',      pick: d => ({ lat: d.latitude, lon: d.longitude }) },
+  ];
+  for (const prov of ipProviders) {
+    try {
+      const r = await fetch(prov.url, { signal: AbortSignal.timeout(3500) });
+      if (!r.ok) continue;
+      const d = await r.json();
+      const { lat, lon } = prov.pick(d);
+      if (typeof lat === 'number' && typeof lon === 'number') {
+        localStorage.setItem('sp_geo', JSON.stringify({ lat, lon, ts: Date.now(), source: 'ip' }));
+        return { lat, lon, source: 'ip' };
+      }
+    } catch(e) { /* try next */ }
+  }
+
+  // 4. Hardcoded fallback — Houston, TX
+  return { lat: 29.7604, lon: -95.3698, source: 'default' };
+}
+
+// Background refresh — improves cached coords without blocking initial render.
+async function refreshLocationInBackground() {
+  try {
+    if (!navigator.geolocation) return;
+    const pos = await new Promise((res, rej) => {
+      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 4000, maximumAge: 600000 });
+    });
+    const lat = pos.coords.latitude, lon = pos.coords.longitude;
+    localStorage.setItem('sp_geo', JSON.stringify({ lat, lon, ts: Date.now(), source: 'browser' }));
+  } catch(e) { /* keep cached value */ }
+}
+
 async function fetchWeather() {
   const iconEl = document.getElementById('weatherSvgIcon');
   const tempEl = document.getElementById('weatherTemp');
   const descEl = document.getElementById('weatherDesc');
 
   try {
-    const pos = await new Promise((res, rej) =>
-      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 6000 })
-    );
-    const { latitude: lat, longitude: lon } = pos.coords;
+    const { lat, lon, source } = await resolveLocation();
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode,is_day&temperature_unit=fahrenheit&timezone=auto`;
     const r   = await fetch(url);
     const d   = await r.json();
@@ -6799,11 +7109,17 @@ async function fetchWeather() {
     iconEl.innerHTML = weatherSvg(type, accent);
     tempEl.textContent = temp + '°F';
     descEl.textContent = desc;
-    document.getElementById('weatherDisplay').title = desc + ' — click to refresh';
+    // tooltip shows where the coords came from — precise / city-level / cached / default
+    const srcLabel = source === 'browser' ? 'precise'
+                   : source === 'ip'      ? 'city-level'
+                   : source === 'cache'   ? 'cached'
+                   : 'default location';
+    document.getElementById('weatherDisplay').title = desc + ' · ' + srcLabel + ' — click to refresh';
   } catch(e) {
     if (iconEl) iconEl.innerHTML = weatherSvg('wind', 'var(--text3)');
     if (tempEl) tempEl.textContent = '—';
-    if (descEl) descEl.textContent = 'click to allow location';
+    if (descEl) descEl.textContent = 'weather unavailable';
+    console.error('weather error:', e);
   }
 }
 
@@ -8357,6 +8673,29 @@ document.addEventListener('DOMContentLoaded', function() {
   <div class="cheat-cat-tabs" id="cheatCatTabs"></div>
   <div class="cheat-search"><input type="text" id="cheatFilter" placeholder="filter hotkeys..." autocomplete="off" spellcheck="false"></div>
   <div class="cheat-content" id="cheatContent"></div>
+</div>
+
+<!-- ── NOTEPAD SLIDE-OUT (right edge) ── -->
+<div id="notepadTab" title="Notepad">
+  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+  </svg>
+  notepad
+</div>
+
+<div id="notepadPanel">
+  <div class="notepad-header">
+    <span class="notepad-header-title">✎ notepad</span>
+    <div class="notepad-header-actions">
+      <button class="notepad-popout-btn" id="notepadPopout" title="Open in its own window">
+        <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        pop out
+      </button>
+      <button class="notepad-close" id="notepadClose" title="Close">✕</button>
+    </div>
+  </div>
+  <textarea id="notepadArea" placeholder="// notes, ideas, commands..." spellcheck="false"></textarea>
+  <div class="notepad-footer"><span id="notepadSaved">auto-saved</span><span id="notepadCount">0 chars</span></div>
 </div>
 
 </body>
