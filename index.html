@@ -3291,6 +3291,7 @@ setInterval(fetchStats, 3000);
 //  TODO
 // ══════════════════════════════
 let todos = JSON.parse(localStorage.getItem('sp_todos') || '[]');
+let notepadWin = null;         // reference to the pop-out notepad/todos window
 
 function saveTodos() { localStorage.setItem('sp_todos', JSON.stringify(todos)); }
 
@@ -3345,6 +3346,11 @@ function renderTodos() {
   });
   const remaining = todos.filter(t => !t.done).length;
   document.getElementById('todoCount').textContent = remaining + ' remaining';
+
+  // keep the pop-out notepad window's todos tab in sync, if it's open
+  if (notepadWin && !notepadWin.closed && typeof notepadWin.renderPwTodos === 'function') {
+    try { notepadWin.renderPwTodos(); } catch(e){}
+  }
 }
 
 function addTodo(text) {
@@ -3398,7 +3404,6 @@ if (socialEl) {
 let notepadArea  = null;
 let notepadTab   = null;
 let notepadPanel = null;
-let notepadWin   = null;         // reference to the pop-out window
 let notesSaveTimer;
 
 function notepadSave(val) {
@@ -3485,17 +3490,75 @@ function notepadPopOut() {
     <style>
       *{box-sizing:border-box;margin:0;padding:0}
       html,body{height:100%;background:#0d0d0d;color:#e8e8e8;font-family:'JetBrains Mono',monospace}
-      .bar{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid #262626;font-size:10px;letter-spacing:0.1em;color:${accent};text-transform:uppercase}
+      body{display:flex;flex-direction:column}
+      .bar{display:flex;justify-content:space-between;align-items:center;padding:0 12px;border-bottom:1px solid #262626;flex-shrink:0}
+      .tabs{display:flex;gap:2px}
+      .tab{padding:9px 10px;font-size:10px;letter-spacing:0.1em;color:#888;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;user-select:none}
+      .tab:hover{color:#e8e8e8}
+      .tab.active{color:${accent};border-bottom-color:${accent}}
       .dock{background:none;border:1px solid #333;color:#888;cursor:pointer;font-family:inherit;font-size:9px;letter-spacing:0.08em;padding:3px 8px;border-radius:3px}
       .dock:hover{color:${accent};border-color:${accent}}
-      textarea{width:100%;height:calc(100% - 66px);background:#0d0d0d;border:none;color:#e8e8e8;font-family:inherit;font-size:13px;line-height:1.7;padding:14px;resize:none;outline:none;caret-color:${accent}}
-      .ft{padding:6px 12px;border-top:1px solid #262626;font-size:10px;color:#666;display:flex;justify-content:space-between}
+      .pane{display:none;flex-direction:column;flex:1;overflow:hidden}
+      .pane.active{display:flex}
+      textarea{width:100%;flex:1;background:#0d0d0d;border:none;color:#e8e8e8;font-family:inherit;font-size:13px;line-height:1.7;padding:14px;resize:none;outline:none;caret-color:${accent}}
+      .ft{padding:6px 12px;border-top:1px solid #262626;font-size:10px;color:#666;display:flex;justify-content:space-between;flex-shrink:0}
+
+      .todo-input-row{display:flex;gap:8px;padding:10px 12px;flex-shrink:0}
+      #pwTodoInput{flex:1;min-width:0;background:#181818;border:1px solid #2e2e2e;border-radius:4px;outline:none;color:#e8e8e8;font-family:inherit;font-size:12px;padding:6px 8px;caret-color:${accent}}
+      #pwTodoInput:focus{border-color:${accent}}
+      #pwTodoInput::placeholder{color:#555}
+      .todo-add-btn{background:rgba(126,207,179,0.12);border:1px solid ${accent};color:${accent};border-radius:4px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;flex-shrink:0}
+      .todo-add-btn:hover{background:rgba(126,207,179,0.2)}
+      .todo-list{flex:1;overflow-y:auto;padding:0 8px}
+      .todo-item{display:flex;align-items:flex-start;gap:8px;padding:6px;border-radius:4px;cursor:pointer}
+      .todo-item:hover{background:#181818}
+      .todo-check{width:13px;height:13px;border:1px solid #3a3a3a;border-radius:2px;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center}
+      .todo-item.done .todo-check{background:${accent};border-color:${accent}}
+      .todo-item.done .todo-check::after{content:'✓';font-size:9px;color:#0d0d0d}
+      .todo-text{font-size:12px;color:#e8e8e8;line-height:1.4;flex:1;word-break:break-word}
+      .todo-item.done .todo-text{color:#666;text-decoration:line-through}
+      .todo-del{font-size:15px;color:#555;cursor:pointer;line-height:1}
+      .todo-del:hover{color:#e5484d}
+      .todo-edit-input{flex:1;background:#222;border:1px solid ${accent};border-radius:3px;color:#e8e8e8;font-family:inherit;font-size:12px;padding:2px 6px;outline:none;caret-color:${accent};min-width:0}
+      .todo-clear{cursor:pointer}
+      .todo-clear:hover{color:#e5484d}
     </style></head><body>
-    <div class="bar"><span>✎ notepad</span><button class="dock" id="pwDock">◱ dock to page</button></div>
-    <textarea id="pwArea" placeholder="// notes, ideas, commands..." spellcheck="false">${current.replace(/</g,'&lt;')}</textarea>
-    <div class="ft"><span id="pwSaved">auto-saved</span><span id="pwCount">${current.length} chars</span></div>
+    <div class="bar">
+      <div class="tabs">
+        <div class="tab active" id="pwTabNotes">✎ notepad</div>
+        <div class="tab" id="pwTabTodos">☑ todos</div>
+      </div>
+      <button class="dock" id="pwDock">◱ dock to page</button>
+    </div>
+    <div class="pane active" id="pwPaneNotes">
+      <textarea id="pwArea" placeholder="// notes, ideas, commands..." spellcheck="false">${current.replace(/</g,'&lt;')}</textarea>
+      <div class="ft"><span id="pwSaved">auto-saved</span><span id="pwCount">${current.length} chars</span></div>
+    </div>
+    <div class="pane" id="pwPaneTodos">
+      <div class="todo-input-row">
+        <input type="text" id="pwTodoInput" placeholder="add task...">
+        <div class="todo-add-btn" id="pwTodoAdd">+</div>
+      </div>
+      <div class="todo-list" id="pwTodoList"></div>
+      <div class="ft"><span id="pwTodoCount">0 remaining</span><span class="todo-clear" id="pwTodoClear">clear done</span></div>
+    </div>
     </body></html>`);
   w.document.close();
+
+  // ── Tab switching ──
+  const pwTabNotes  = w.document.getElementById('pwTabNotes');
+  const pwTabTodos  = w.document.getElementById('pwTabTodos');
+  const pwPaneNotes = w.document.getElementById('pwPaneNotes');
+  const pwPaneTodos = w.document.getElementById('pwPaneTodos');
+  pwTabNotes.addEventListener('click', () => {
+    pwTabNotes.classList.add('active'); pwTabTodos.classList.remove('active');
+    pwPaneNotes.classList.add('active'); pwPaneTodos.classList.remove('active');
+  });
+  pwTabTodos.addEventListener('click', () => {
+    pwTabTodos.classList.add('active'); pwTabNotes.classList.remove('active');
+    pwPaneTodos.classList.add('active'); pwPaneNotes.classList.remove('active');
+    pwRenderTodos();
+  });
 
   const pwArea = w.document.getElementById('pwArea');
   const pwSaved = w.document.getElementById('pwSaved');
@@ -3516,6 +3579,78 @@ function notepadPopOut() {
     }, 500);
   });
   pwArea.focus();
+
+  // ── Todos pane — reuses this page's own `todos` array, saveTodos()/renderTodos()/
+  // addTodo() directly (this function runs in the main window's scope, not the
+  // pop-out's), so edits here are the same edits as the on-page todo widget.
+  const pwTodoInput = w.document.getElementById('pwTodoInput');
+  const pwTodoAdd   = w.document.getElementById('pwTodoAdd');
+  const pwTodoList  = w.document.getElementById('pwTodoList');
+  const pwTodoCount = w.document.getElementById('pwTodoCount');
+  const pwTodoClear = w.document.getElementById('pwTodoClear');
+
+  function pwRenderTodos() {
+    pwTodoList.innerHTML = '';
+    todos.forEach((t, i) => {
+      const item = w.document.createElement('div');
+      item.className = 'todo-item' + (t.done ? ' done' : '');
+      item.innerHTML = `<div class="todo-check"></div><div class="todo-text">${escHtml(t.text)}</div><div class="todo-del" data-i="${i}">×</div>`;
+
+      item.querySelector('.todo-check').addEventListener('click', e => {
+        e.stopPropagation();
+        todos[i].done = !todos[i].done;
+        saveTodos(); renderTodos();
+      });
+
+      item.querySelector('.todo-del').addEventListener('click', e => {
+        e.stopPropagation();
+        todos.splice(i, 1);
+        saveTodos(); renderTodos();
+      });
+
+      item.querySelector('.todo-text').addEventListener('click', e => {
+        e.stopPropagation();
+        const textEl = item.querySelector('.todo-text');
+        const input = w.document.createElement('input');
+        input.type = 'text';
+        input.className = 'todo-edit-input';
+        input.value = t.text;
+        textEl.replaceWith(input);
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+
+        function commitEdit() {
+          const newText = input.value.trim();
+          if (newText) todos[i].text = newText;
+          saveTodos(); renderTodos();
+        }
+
+        input.addEventListener('keydown', e => {
+          if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
+          if (e.key === 'Escape') { pwRenderTodos(); }
+        });
+        input.addEventListener('blur', commitEdit);
+      });
+
+      pwTodoList.appendChild(item);
+    });
+    const remaining = todos.filter(t => !t.done).length;
+    pwTodoCount.textContent = remaining + ' remaining';
+  }
+  // exposed so renderTodos() (main page) can push updates in here when it's open
+  w.renderPwTodos = pwRenderTodos;
+
+  function pwAddTodo() {
+    if (!pwTodoInput.value.trim()) return;
+    addTodo(pwTodoInput.value);
+    pwTodoInput.value = '';
+    pwRenderTodos();
+  }
+  pwTodoAdd.addEventListener('click', pwAddTodo);
+  pwTodoInput.addEventListener('keydown', e => { if (e.key === 'Enter') pwAddTodo(); });
+  pwTodoClear.addEventListener('click', () => { todos = todos.filter(t => !t.done); saveTodos(); renderTodos(); });
+
+  pwRenderTodos();
 
   // "dock to page" button — closes window, opens the slide-out
   w.document.getElementById('pwDock').addEventListener('click', () => { w.close(); });
