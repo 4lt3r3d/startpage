@@ -3346,11 +3346,9 @@ function renderTodos() {
   });
   const remaining = todos.filter(t => !t.done).length;
   document.getElementById('todoCount').textContent = remaining + ' remaining';
-
-  // keep the pop-out notepad window's todos tab in sync, if it's open
-  if (notepadWin && !notepadWin.closed && typeof notepadWin.renderPwTodos === 'function') {
-    try { notepadWin.renderPwTodos(); } catch(e){}
-  }
+  // The pop-out window keeps itself in sync via the localStorage 'storage' event
+  // (saveTodos writes sp_todos, which fires 'storage' in the pop-out). No direct
+  // cross-window call here, so it keeps working even after this page is closed.
 }
 
 function addTodo(text) {
@@ -3441,11 +3439,9 @@ function initNotepad() {
     const cEl = document.getElementById('notepadCount');
     if (cEl) cEl.textContent = notepadArea.value.length + ' chars';
     notesSaveTimer = setTimeout(() => {
+      // notepadSave writes sp_notes to localStorage, which fires a 'storage'
+      // event in the pop-out window (if open) so it updates itself.
       notepadSave(notepadArea.value);
-      // if the pop-out window is open, keep it in sync
-      if (notepadWin && !notepadWin.closed) {
-        try { const t = notepadWin.document.getElementById('pwArea'); if (t && t.value !== notepadArea.value) t.value = notepadArea.value; } catch(e){}
-      }
     }, 600);
   });
 
@@ -3467,6 +3463,32 @@ function initNotepad() {
   // Escape closes it
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && notepadPanel.classList.contains('open')) notepadToggle(false);
+  });
+
+  // ── Cross-window sync: reflect edits made in the pop-out window ──
+  // The 'storage' event fires in THIS window when another same-origin window
+  // (the pop-out) writes to localStorage. That's how notepad/todo edits made in
+  // the pop-out flow back into this page (and on to the cloud), without either
+  // window holding a live reference to the other's functions.
+  window.addEventListener('storage', e => {
+    if (e.key === 'sp_todos') {
+      try { todos = JSON.parse(e.newValue || '[]'); } catch(err) { todos = []; }
+      renderTodos();
+      // propagate to cloud — mark as an intentional todo change so the fbPush guard allows it
+      if (typeof fbPush === 'function') {
+        window._fbTodoIntent = true;
+        clearTimeout(window._todoFbTimer);
+        window._todoFbTimer = setTimeout(fbPush, 800);
+      }
+    } else if (e.key === 'sp_notes') {
+      const na = document.getElementById('notepadArea');
+      if (na && document.activeElement !== na) na.value = e.newValue || '';
+      const cEl = document.getElementById('notepadCount');
+      if (cEl) cEl.textContent = (e.newValue || '').length + ' chars';
+      const savedEl = document.getElementById('notepadSaved');
+      if (savedEl) savedEl.textContent = 'saved ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      if (typeof fbPush === 'function') { clearTimeout(window._notesFbTimer); window._notesFbTimer = setTimeout(fbPush, 1500); }
+    }
   });
 }
 
@@ -3545,115 +3567,139 @@ function notepadPopOut() {
     </body></html>`);
   w.document.close();
 
-  // ── Tab switching ──
-  const pwTabNotes  = w.document.getElementById('pwTabNotes');
-  const pwTabTodos  = w.document.getElementById('pwTabTodos');
-  const pwPaneNotes = w.document.getElementById('pwPaneNotes');
-  const pwPaneTodos = w.document.getElementById('pwPaneTodos');
-  pwTabNotes.addEventListener('click', () => {
-    pwTabNotes.classList.add('active'); pwTabTodos.classList.remove('active');
-    pwPaneNotes.classList.add('active'); pwPaneTodos.classList.remove('active');
-  });
-  pwTabTodos.addEventListener('click', () => {
-    pwTabTodos.classList.add('active'); pwTabNotes.classList.remove('active');
-    pwPaneTodos.classList.add('active'); pwPaneNotes.classList.remove('active');
-    pwRenderTodos();
-  });
-
-  const pwArea = w.document.getElementById('pwArea');
-  const pwSaved = w.document.getElementById('pwSaved');
-  const pwCount = w.document.getElementById('pwCount');
-  let pwTimer;
-  pwArea.addEventListener('input', () => {
-    clearTimeout(pwTimer);
-    pwSaved.textContent = 'unsaved...';
-    pwCount.textContent = pwArea.value.length + ' chars';
-    pwTimer = setTimeout(() => {
-      localStorage.setItem('sp_notes', pwArea.value);
-      pwSaved.textContent = 'saved ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-      // sync back to the in-page textarea
-      if (notepadArea) notepadArea.value = pwArea.value;
-      const cEl = document.getElementById('notepadCount');
-      if (cEl) cEl.textContent = pwArea.value.length + ' chars';
-      if (typeof fbPush === 'function') { clearTimeout(window._notesFbTimer); window._notesFbTimer = setTimeout(fbPush, 1500); }
-    }, 500);
-  });
-  pwArea.focus();
-
-  // ── Todos pane — reuses this page's own `todos` array, saveTodos()/renderTodos()/
-  // addTodo() directly (this function runs in the main window's scope, not the
-  // pop-out's), so edits here are the same edits as the on-page todo widget.
-  const pwTodoInput = w.document.getElementById('pwTodoInput');
-  const pwTodoAdd   = w.document.getElementById('pwTodoAdd');
-  const pwTodoList  = w.document.getElementById('pwTodoList');
-  const pwTodoCount = w.document.getElementById('pwTodoCount');
-  const pwTodoClear = w.document.getElementById('pwTodoClear');
-
-  function pwRenderTodos() {
-    pwTodoList.innerHTML = '';
-    todos.forEach((t, i) => {
-      const item = w.document.createElement('div');
-      item.className = 'todo-item' + (t.done ? ' done' : '');
-      item.innerHTML = `<div class="todo-check"></div><div class="todo-text">${escHtml(t.text)}</div><div class="todo-del" data-i="${i}">×</div>`;
-
-      item.querySelector('.todo-check').addEventListener('click', e => {
-        e.stopPropagation();
-        todos[i].done = !todos[i].done;
-        saveTodos(); renderTodos();
+  // ── Inject a FULLY SELF-CONTAINED script into the pop-out ──
+  // Everything below runs in the pop-out window's OWN context (not this page's),
+  // so it keeps working — tab switching, autosave, todos — even after this
+  // startpage tab is navigated away or closed. It talks only to its own
+  // localStorage (same origin as this page) and syncs with any open startpage
+  // tab through the 'storage' event. It holds NO references to this page's
+  // functions or variables, which is exactly why it survives us going away.
+  //
+  // We serialize a real function with .toString() rather than building a script
+  // string by hand: that keeps normal syntax highlighting/checking here and
+  // avoids both the nested-template-literal trap and the literal closing-script
+  // tag that would prematurely end this file's own script block.
+  function pwPopupMain() {
+    var d = document;
+    function escHtml(s) {
+      return String(s).replace(/[&<>"']/g, function(c){
+        return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
       });
+    }
+    function getTodos() { try { return JSON.parse(localStorage.getItem('sp_todos') || '[]'); } catch(e) { return []; } }
+    function setTodos(arr) { localStorage.setItem('sp_todos', JSON.stringify(arr)); }
+    function nowTime() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
 
-      item.querySelector('.todo-del').addEventListener('click', e => {
-        e.stopPropagation();
-        todos.splice(i, 1);
-        saveTodos(); renderTodos();
-      });
-
-      item.querySelector('.todo-text').addEventListener('click', e => {
-        e.stopPropagation();
-        const textEl = item.querySelector('.todo-text');
-        const input = w.document.createElement('input');
-        input.type = 'text';
-        input.className = 'todo-edit-input';
-        input.value = t.text;
-        textEl.replaceWith(input);
-        input.focus();
-        input.setSelectionRange(input.value.length, input.value.length);
-
-        function commitEdit() {
-          const newText = input.value.trim();
-          if (newText) todos[i].text = newText;
-          saveTodos(); renderTodos();
-        }
-
-        input.addEventListener('keydown', e => {
-          if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
-          if (e.key === 'Escape') { pwRenderTodos(); }
-        });
-        input.addEventListener('blur', commitEdit);
-      });
-
-      pwTodoList.appendChild(item);
+    // ── Tabs ──
+    var tabNotes = d.getElementById('pwTabNotes'), tabTodos = d.getElementById('pwTabTodos');
+    var paneNotes = d.getElementById('pwPaneNotes'), paneTodos = d.getElementById('pwPaneTodos');
+    tabNotes.addEventListener('click', function(){
+      tabNotes.classList.add('active'); tabTodos.classList.remove('active');
+      paneNotes.classList.add('active'); paneTodos.classList.remove('active');
     });
-    const remaining = todos.filter(t => !t.done).length;
-    pwTodoCount.textContent = remaining + ' remaining';
+    tabTodos.addEventListener('click', function(){
+      tabTodos.classList.add('active'); tabNotes.classList.remove('active');
+      paneTodos.classList.add('active'); paneNotes.classList.remove('active');
+      renderTodos();
+    });
+
+    // ── Notes ──
+    var area = d.getElementById('pwArea'), saved = d.getElementById('pwSaved'), count = d.getElementById('pwCount');
+    var notesTimer;
+    count.textContent = area.value.length + ' chars';
+    area.addEventListener('input', function(){
+      clearTimeout(notesTimer);
+      saved.textContent = 'unsaved...';
+      count.textContent = area.value.length + ' chars';
+      notesTimer = setTimeout(function(){
+        localStorage.setItem('sp_notes', area.value);   // fires 'storage' in any open startpage tab
+        saved.textContent = 'saved ' + nowTime();
+      }, 500);
+    });
+
+    // ── Todos ──
+    var todoInput = d.getElementById('pwTodoInput'), todoAdd = d.getElementById('pwTodoAdd');
+    var todoList = d.getElementById('pwTodoList'), todoCount = d.getElementById('pwTodoCount'), todoClear = d.getElementById('pwTodoClear');
+
+    function renderTodos() {
+      var todos = getTodos();
+      todoList.innerHTML = '';
+      todos.forEach(function(t, i){
+        var item = d.createElement('div');
+        item.className = 'todo-item' + (t.done ? ' done' : '');
+        item.innerHTML = '<div class="todo-check"></div><div class="todo-text">' + escHtml(t.text) + '</div><div class="todo-del">×</div>';
+
+        item.querySelector('.todo-check').addEventListener('click', function(e){
+          e.stopPropagation();
+          var arr = getTodos(); if (!arr[i]) return;
+          arr[i].done = !arr[i].done; setTodos(arr); renderTodos();
+        });
+        item.querySelector('.todo-del').addEventListener('click', function(e){
+          e.stopPropagation();
+          var arr = getTodos(); arr.splice(i, 1); setTodos(arr); renderTodos();
+        });
+        item.querySelector('.todo-text').addEventListener('click', function(e){
+          e.stopPropagation();
+          var textEl = item.querySelector('.todo-text');
+          var input = d.createElement('input');
+          input.type = 'text'; input.className = 'todo-edit-input'; input.value = t.text;
+          textEl.replaceWith(input); input.focus();
+          input.setSelectionRange(input.value.length, input.value.length);
+          function commit() {
+            var arr = getTodos(); if (!arr[i]) { renderTodos(); return; }
+            var v = input.value.trim(); if (v) arr[i].text = v;
+            setTodos(arr); renderTodos();
+          }
+          input.addEventListener('keydown', function(e){
+            if (e.key === 'Enter') { e.preventDefault(); commit(); }
+            if (e.key === 'Escape') { renderTodos(); }
+          });
+          input.addEventListener('blur', commit);
+        });
+        todoList.appendChild(item);
+      });
+      var remaining = todos.filter(function(t){ return !t.done; }).length;
+      todoCount.textContent = remaining + ' remaining';
+    }
+
+    function addTodo() {
+      var v = todoInput.value.trim(); if (!v) return;
+      var arr = getTodos(); arr.unshift({ text: v, done: false });
+      setTodos(arr); todoInput.value = ''; renderTodos();
+    }
+    todoAdd.addEventListener('click', addTodo);
+    todoInput.addEventListener('keydown', function(e){ if (e.key === 'Enter') addTodo(); });
+    todoClear.addEventListener('click', function(){
+      var arr = getTodos().filter(function(t){ return !t.done; });
+      setTodos(arr); renderTodos();
+    });
+
+    // ── React to edits made in another window (the startpage, or another pop-out) ──
+    window.addEventListener('storage', function(e){
+      if (e.key === 'sp_todos') {
+        // don't yank the list out from under an in-progress inline edit
+        var ae = d.activeElement;
+        if (ae && ae.classList && ae.classList.contains('todo-edit-input')) return;
+        renderTodos();
+      } else if (e.key === 'sp_notes') {
+        if (d.activeElement !== area) {
+          area.value = e.newValue || '';
+          count.textContent = (e.newValue || '').length + ' chars';
+          saved.textContent = 'saved ' + nowTime();
+        }
+      }
+    });
+
+    // ── Dock: just close this window (the startpage keeps the data) ──
+    d.getElementById('pwDock').addEventListener('click', function(){ window.close(); });
+
+    renderTodos();
+    area.focus();
   }
-  // exposed so renderTodos() (main page) can push updates in here when it's open
-  w.renderPwTodos = pwRenderTodos;
 
-  function pwAddTodo() {
-    if (!pwTodoInput.value.trim()) return;
-    addTodo(pwTodoInput.value);
-    pwTodoInput.value = '';
-    pwRenderTodos();
-  }
-  pwTodoAdd.addEventListener('click', pwAddTodo);
-  pwTodoInput.addEventListener('keydown', e => { if (e.key === 'Enter') pwAddTodo(); });
-  pwTodoClear.addEventListener('click', () => { todos = todos.filter(t => !t.done); saveTodos(); renderTodos(); });
-
-  pwRenderTodos();
-
-  // "dock to page" button — closes window, opens the slide-out
-  w.document.getElementById('pwDock').addEventListener('click', () => { w.close(); });
+  const injected = w.document.createElement('script');
+  injected.textContent = '(' + pwPopupMain.toString() + ')();';
+  w.document.body.appendChild(injected);
 
   // when the window closes, pull its latest value back in and reopen the panel
   const checkClosed = setInterval(() => {
@@ -5903,10 +5949,8 @@ function fbApplyData(data) {
     if (na && document.activeElement !== na) na.value = data.notes;
     const cEl = document.getElementById('notepadCount');
     if (cEl) cEl.textContent = (data.notes || '').length + ' chars';
-    // sync the pop-out window too if it's open
-    if (typeof notepadWin !== 'undefined' && notepadWin && !notepadWin.closed) {
-      try { const t = notepadWin.document.getElementById('pwArea'); if (t && document.activeElement !== t) t.value = data.notes; } catch(e){}
-    }
+    // The pop-out window (if open) picks this up via its own 'storage' listener,
+    // since setItem above fires a 'storage' event in that window.
   }
   if (Array.isArray(data.feeds) && data.feeds.length > 0) {
     localStorage.setItem('sp_feeds', JSON.stringify(data.feeds));
