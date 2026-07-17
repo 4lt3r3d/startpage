@@ -801,7 +801,86 @@
   }
   .sp-connect-btn:hover { background: #1ed760; transform: scale(1.02); }
 
+  /* ── SPOTIFY HISTORY BTN (opens last.fm overlay) ── */
+  .sp-history-btn {
+    position: absolute;
+    top: 12px; right: 14px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text3);
+    padding: 3px;
+    display: flex; align-items: center;
+    transition: color 0.15s;
+    outline: none;
+    z-index: 2;
+  }
+  .sp-history-btn:hover { color: var(--accent); }
+  .sp-history-btn:focus { outline: none; }
 
+  /* ── LAST.FM HISTORY OVERLAY ── */
+  .lfm-wrap { max-width: 640px; margin: 0 auto; }
+  .lfm-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .lfm-header h3 {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 500;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .lfm-user { color: var(--text3); text-transform: none; letter-spacing: 0; }
+  .lfm-day-label {
+    font-size: 10px; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase;
+    margin: 18px 0 8px; padding-bottom: 5px; border-bottom: 1px solid var(--border);
+  }
+  #lastfmList .lfm-day-label:first-child { margin-top: 0; }
+  .lfm-track {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 8px;
+    border-radius: var(--radius);
+    transition: background 0.12s;
+  }
+  .lfm-track:hover { background: var(--bg2); }
+  .lfm-track.now-playing { background: var(--accent3); }
+  .lfm-art {
+    width: 34px; height: 34px; border-radius: 3px;
+    background: var(--bg3);
+    flex-shrink: 0;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .lfm-art img { width: 100%; height: 100%; object-fit: cover; opacity: 0.9; }
+  .lfm-art-fallback { font-size: 12px; color: var(--text3); }
+  .lfm-meta { flex: 1; min-width: 0; }
+  .lfm-name { font-size: 11px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lfm-artist { font-size: 10px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+  .lfm-time { font-size: 9px; color: var(--text3); flex-shrink: 0; white-space: nowrap; width: 40px; text-align: right; }
+  .lfm-links { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  .lfm-link-btn {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.03em;
+    color: var(--text3);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 3px 5px;
+    line-height: 1;
+    transition: all 0.12s;
+  }
+  .lfm-link-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--accent3); }
+  .lfm-live-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+    flex-shrink: 0; animation: lfmPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes lfmPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .lfm-sentinel { text-align: center; padding: 20px 0; font-size: 10px; color: var(--text3); letter-spacing: 0.05em; }
+  .lfm-empty { text-align: center; color: var(--text3); font-size: 11px; padding: 40px 0; }
 
   /* ── QUICK LINKS (right) ── */
   .quick-links { display: flex; flex-direction: column; gap: 4px; }
@@ -1922,6 +2001,13 @@
     <div class="panel spotify-panel widget" id="widget-spotify" draggable="false">
       <div class="panel-title widget-title" style="padding:14px 14px 0;"><span class="drag-handle" title="drag to move">⠿</span><span class="dot" style="background:#1db954;"></span>spotify</div>
 
+      <button class="sp-history-btn" id="spHistoryBtn" title="last.fm history">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"></circle>
+          <polyline points="12 7 12 12 15.5 14"></polyline>
+        </svg>
+      </button>
+
       <!-- NOT LOGGED IN -->
       <div id="spLogin" style="padding:14px; text-align:center;">
         <div class="spotify-art" style="margin-bottom:12px;">
@@ -2077,6 +2163,18 @@
     </div>
     <input type="text" id="engineOverlaySearch" placeholder="filter by name or nick..." style="width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:8px 12px;outline:none;caret-color:var(--accent);margin-bottom:14px;box-sizing:border-box;">
     <div id="engineOverlayList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;"></div>
+  </div>
+</div>
+
+<!-- ── LAST.FM HISTORY ── -->
+<div id="lastfmOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9000;overflow-y:auto;padding:40px 20px;">
+  <div class="lfm-wrap">
+    <div class="lfm-header">
+      <h3><span class="dot" style="width:5px;height:5px;border-radius:50%;background:#1db954;display:inline-block;"></span>&nbsp;last.fm history&nbsp;<span class="lfm-user" id="lfmUserLabel"></span></h3>
+      <button id="lastfmOverlayClose" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:4px;">✕</button>
+    </div>
+    <div id="lastfmList"></div>
+    <div class="lfm-sentinel" id="lfmSentinel"></div>
   </div>
 </div>
 
@@ -2383,6 +2481,8 @@ const CONFIG = {
   spotify_client_id: '',   // add your Spotify client ID here
   stats_api: 'http://localhost:61209', // custom stats script (or 61208 for Glances)
   kernel_version: '6.8.1-arch1-1',
+  lastfm_user: 'alt3r3d_',         // your last.fm username
+  lastfm_api_key: 'f21695ae782d5c3a79093fb45bf4727f',      // create one at last.fm/api/account/create
 };
 
 // ── Lock state — declared early so buildEngines can reference it ──
@@ -4667,6 +4767,184 @@ async function spBoot() {
 }
 
 spBoot();
+
+// ══════════════════════════════
+//  LAST.FM — scrollable listening history overlay
+// ══════════════════════════════
+const LFM_API = 'https://ws.audioscrobbler.com/2.0/';
+let lfmPage = 1;
+let lfmLoading = false;
+let lfmHasMore = true;
+
+function lfmDayLabel(uts) {
+  const d = new Date(uts * 1000);
+  const today = new Date();
+  const yest = new Date(today); yest.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return 'today';
+  if (d.toDateString() === yest.toDateString()) return 'yesterday';
+  return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function lfmFmtTime(uts) {
+  return new Date(uts * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+async function lfmFetchPage(page) {
+  const params = new URLSearchParams({
+    method: 'user.getrecenttracks',
+    user: CONFIG.lastfm_user,
+    api_key: CONFIG.lastfm_api_key,
+    format: 'json',
+    limit: '30',
+    page: String(page),
+  });
+  const res = await fetch(LFM_API + '?' + params);
+  const data = await res.json();
+  if (data.error) throw new Error(data.message || ('lastfm error ' + data.error));
+  return data.recenttracks;
+}
+
+function lfmRenderTracks(tracks) {
+  const list = document.getElementById('lastfmList');
+  let lastDay = list.dataset.lastDay || '';
+
+  tracks.forEach(t => {
+    const nowPlaying = !!(t['@attr'] && t['@attr'].nowplaying);
+    const uts = t.date ? parseInt(t.date.uts, 10) : Math.floor(Date.now() / 1000);
+    const day = nowPlaying ? 'now playing' : lfmDayLabel(uts);
+
+    if (day !== lastDay) {
+      const label = document.createElement('div');
+      label.className = 'lfm-day-label';
+      label.textContent = day;
+      list.appendChild(label);
+      lastDay = day;
+    }
+
+    const art = t.image && t.image[1] && t.image[1]['#text'];
+    const artist = (t.artist && t.artist['#text']) || '';
+    const query = encodeURIComponent(`${artist} ${t.name}`);
+    const ytUrl = `https://www.youtube.com/results?search_query=${query}`;
+    const scUrl = `https://soundcloud.com/search?q=${query}`;
+    const spUrl = `https://open.spotify.com/search/${query}`;
+    const lfmUrl = t.url || '#';
+
+    const row = document.createElement('div');
+    row.className = 'lfm-track' + (nowPlaying ? ' now-playing' : '');
+    row.innerHTML = `
+      <div class="lfm-art">${art ? `<img src="${art}" alt="" loading="lazy">` : '<span class="lfm-art-fallback">♪</span>'}</div>
+      <div class="lfm-meta">
+        <div class="lfm-name">${escHtml(t.name)}</div>
+        <div class="lfm-artist">${escHtml(artist)}</div>
+      </div>
+      <div class="lfm-links">
+        <a class="lfm-link-btn" href="${ytUrl}" target="_blank" rel="noopener" title="search on YouTube">yt</a>
+        <a class="lfm-link-btn" href="${scUrl}" target="_blank" rel="noopener" title="search on SoundCloud">sc</a>
+        <a class="lfm-link-btn lfm-sp-link" href="${spUrl}" data-artist="${escHtml(artist)}" data-track="${escHtml(t.name)}" target="_blank" rel="noopener" title="open on Spotify">sp</a>
+        <a class="lfm-link-btn" href="${lfmUrl}" target="_blank" rel="noopener" title="view on Last.fm">lfm</a>
+      </div>
+      ${nowPlaying ? '<span class="lfm-live-dot" title="now playing"></span>' : `<span class="lfm-time">${lfmFmtTime(uts)}</span>`}
+    `;
+    list.appendChild(row);
+  });
+
+  list.dataset.lastDay = lastDay;
+}
+
+async function lfmLoadMore() {
+  if (lfmLoading || !lfmHasMore) return;
+  const sentinel = document.getElementById('lfmSentinel');
+
+  if (!CONFIG.lastfm_user || !CONFIG.lastfm_api_key) {
+    sentinel.textContent = 'add lastfm_user + lastfm_api_key to CONFIG to enable this';
+    lfmHasMore = false;
+    return;
+  }
+
+  lfmLoading = true;
+  sentinel.textContent = 'loading…';
+
+  try {
+    const data = await lfmFetchPage(lfmPage);
+    const tracks = data.track ? (Array.isArray(data.track) ? data.track : [data.track]) : [];
+
+    if (lfmPage === 1 && tracks.length === 0) {
+      document.getElementById('lastfmList').innerHTML = '<div class="lfm-empty">no scrobbles yet</div>';
+      lfmHasMore = false;
+      sentinel.textContent = '';
+      lfmLoading = false;
+      return;
+    }
+
+    lfmRenderTracks(tracks);
+    const totalPages = parseInt((data['@attr'] && data['@attr'].totalPages) || '1', 10);
+    lfmPage++;
+
+    if (lfmPage > totalPages) {
+      lfmHasMore = false;
+      sentinel.textContent = '— end of history —';
+    } else {
+      sentinel.textContent = '';
+    }
+  } catch (e) {
+    console.error('lastfm fetch failed', e);
+    sentinel.textContent = "couldn't load history — check CONFIG.lastfm_user / lastfm_api_key";
+    lfmHasMore = false;
+  }
+
+  lfmLoading = false;
+}
+
+function lfmOpenOverlay() {
+  const list = document.getElementById('lastfmList');
+  list.innerHTML = '';
+  delete list.dataset.lastDay;
+  lfmPage = 1;
+  lfmHasMore = true;
+  document.getElementById('lfmUserLabel').textContent = CONFIG.lastfm_user ? '· ' + CONFIG.lastfm_user : '';
+  document.getElementById('lastfmOverlay').style.display = 'block';
+  lfmLoadMore();
+}
+
+function lfmCloseOverlay() {
+  document.getElementById('lastfmOverlay').style.display = 'none';
+}
+
+// infinite scroll — load the next page once the sentinel row scrolls into view
+const lfmObserver = new IntersectionObserver(entries => {
+  if (entries[0].isIntersecting) lfmLoadMore();
+}, { root: null, rootMargin: '200px' });
+lfmObserver.observe(document.getElementById('lfmSentinel'));
+
+document.getElementById('spHistoryBtn').addEventListener('click', lfmOpenOverlay);
+document.getElementById('lastfmOverlayClose').addEventListener('click', lfmCloseOverlay);
+document.getElementById('lastfmOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('lastfmOverlay')) lfmCloseOverlay();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('lastfmOverlay').style.display === 'block') lfmCloseOverlay();
+});
+
+// ── Smart Spotify match — if already connected, resolve the exact track
+// via Spotify search instead of falling back to a generic search page ──
+async function spFindTrackUrl(artist, track) {
+  if (!spToken) return null;
+  try {
+    const q = encodeURIComponent(`track:${track} artist:${artist}`);
+    const data = await spApi(`/search?q=${q}&type=track&limit=1`);
+    const item = data && data.tracks && data.tracks.items && data.tracks.items[0];
+    return (item && item.external_urls && item.external_urls.spotify) || null;
+  } catch (e) { return null; }
+}
+
+document.getElementById('lastfmList').addEventListener('click', async e => {
+  const link = e.target.closest('.lfm-sp-link');
+  if (!link || !spToken) return; // no active session — let the plain search link open
+  e.preventDefault();
+  const exactUrl = await spFindTrackUrl(link.dataset.artist, link.dataset.track);
+  window.open(exactUrl || link.href, '_blank', 'noopener');
+});
+
 // ══════════════════════════════
 //  QUICK LINKS
 // ══════════════════════════════
