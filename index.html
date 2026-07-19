@@ -2794,13 +2794,29 @@ function openEngineEditModal(engine, isVisible, onSave, onDelete) {
       if (url.endsWith('=') || url.endsWith('/') || url.endsWith('?') || url.endsWith('&')) url += '%s';
     }
 
-    // ── Duplicate nick check ──
-    const existing = NICK_MAP[nick];
+    // ── Duplicate nick check (checks both engines and bookmarks) ──
+    const loc = findNickLocation(nick);
     const isEditingSelf = engine && engine.nick.toLowerCase() === nick;
-    if (existing && !isEditingSelf) {
-      // nick is taken — ask if they want to add it to the quick bar instead
-      const existingName = existing.name;
-      const confirmAdd = confirm(`The nick "${nick}" is already used by "${existingName}".\n\nWould you like to add this URL to the quick bar with a different nick?\n\nOK = open form with URL pre-filled, Cancel = go back.`);
+    if (loc && !isEditingSelf) {
+      // it's already saved as an engine but just isn't pinned to the visible
+      // startpage bar — offer to show it instead of creating a duplicate entry
+      if (loc.type === 'engine' && !loc.engine.show) {
+        const pinIt = confirm(`The nick "${nick}" is already saved as a search engine ("${loc.name}"), but it isn't shown on your startpage yet.\n\nAdd it to your visible quick bar?\n\nOK = show it, Cancel = go back.`);
+        if (pinIt) {
+          loc.engine.show = true;
+          loc.engine._edited = true;
+          rebuildVisibleEngines();
+          buildEngines();
+          if (typeof buildEngineOverlay === 'function') buildEngineOverlay();
+          saveEngines();
+        }
+        overlay.remove();
+        return;
+      }
+      // otherwise it's a true duplicate (already pinned, or it's a bookmark's
+      // nick) — disclose where, then ask if they want to also save this one
+      // under a different nick (never overwrites the original)
+      const confirmAdd = confirm(`The nick "${nick}" is already used by ${nickLocationLabel(loc)}.\n\nWould you like to also save this as a search engine, with a different nick?\n\nOK = open form with URL pre-filled, Cancel = go back.`);
       if (confirmAdd) {
         overlay.remove();
         // open a fresh modal with url pre-filled, nick cleared
@@ -3962,6 +3978,27 @@ let activeCategory = Object.keys(bookmarks)[0];
 
 function saveBookmarks() { localStorage.setItem('sp_bookmarks', JSON.stringify(bookmarks)); }
 
+// ── shared nick lookup: where (if anywhere) a nick is already saved ──
+// Checks bookmarks first (gives category context), then the plain engines
+// list, so a collision can be disclosed accurately no matter which side
+// (search engines vs bookmarks) it originated from.
+function findNickLocation(nick) {
+  if (!nick) return null;
+  nick = nick.toLowerCase();
+  for (const cat in bookmarks) {
+    const hit = (bookmarks[cat] || []).find(b => b.nick && b.nick.toLowerCase() === nick);
+    if (hit) return { type: 'bookmark', name: hit.name, category: cat };
+  }
+  const eng = NICK_MAP[nick];
+  if (eng) return { type: 'engine', name: eng.name, engine: eng };
+  return null;
+}
+function nickLocationLabel(loc) {
+  return loc.type === 'bookmark'
+    ? `your bookmark "${loc.name}" (in "${loc.category.replace(/-/g, ' ')}")`
+    : `your search engine "${loc.name}"`;
+}
+
 // ── Category context menu ──
 let catCtxTarget = null;
 const catCtxMenu = document.createElement('div');
@@ -4461,11 +4498,24 @@ document.getElementById('modalOverlay').addEventListener('click', e => { if (e.t
 document.getElementById('modalSave').addEventListener('click', () => {
   const name = document.getElementById('bmName').value.trim();
   const url  = document.getElementById('bmUrl').value.trim();
-  const nick = document.getElementById('bmNick').value.trim().toLowerCase().replace(/\s+/g,'');
+  let nick = document.getElementById('bmNick').value.trim().toLowerCase().replace(/\s+/g,'');
   // Icon: use whatever's in the field; if empty, fall back to an auto-guess.
   const icon = document.getElementById('bmIcon').value.trim() || guessEmoji(name, url, nick);
   const cat  = document.getElementById('bmCat').value;
   if (!name || !url) return;
+
+  // ── Duplicate nick check (checks both engines and bookmarks) ──
+  const oldNick = (editIdx != null && bookmarks[activeCategory][editIdx].nick)
+    ? bookmarks[activeCategory][editIdx].nick.toLowerCase() : null;
+  if (nick && nick !== oldNick) {
+    const loc = findNickLocation(nick);
+    if (loc) {
+      const confirmAdd = confirm(`The nick "${nick}" is already used by ${nickLocationLabel(loc)}.\n\nThis bookmark will still be saved to your startpage, just without that search shortcut, so nothing already saved gets overwritten.\n\nOK = save anyway (no shortcut), Cancel = go back and change the nick.`);
+      if (!confirmAdd) return;
+      nick = ''; // don't steal someone else's nick
+    }
+  }
+
   const bm = { name, url, icon };
   if (nick) bm.nick = nick;
 
