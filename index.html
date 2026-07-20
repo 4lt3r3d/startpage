@@ -2748,32 +2748,69 @@ const VISIBLE_ENGINES = ENGINES.filter(e => e.show);
 const NICK_MAP = {};
 ENGINES.forEach(e => { if (e.nick) NICK_MAP[e.nick.toLowerCase()] = e; });
 
-// ── restore custom/edited engines saved from a previous session ──
-// saveEngines() persists any entry flagged _custom or _edited (new engines,
-// and existing ones toggled to show:true via "pin to bar") to
-// localStorage['sp_engines_custom']. Nothing previously re-applied that on
-// load, so those additions/pins silently vanished on every refresh — this
-// re-hydrates ENGINES/NICK_MAP/VISIBLE_ENGINES from what was actually saved.
-(function loadCustomEngines() {
-  let saved;
-  try { saved = JSON.parse(localStorage.getItem('sp_engines_custom') || '[]'); } catch (e) { saved = []; }
-  if (!Array.isArray(saved) || !saved.length) return;
-  saved.forEach(se => {
+// ── restore engine customizations saved from a previous session/device ──
+// saveEngines() persists three things to localStorage:
+//   sp_engines_custom  — entries flagged _custom (user-added) or _edited
+//                        (an existing engine the user changed, e.g. pinned)
+//   sp_engines_deleted — ids of baked-in engines the user deleted (a
+//                        tombstone, since they'd otherwise regenerate from
+//                        the hardcoded ENGINES literal on every load)
+//   sp_engines_order   — id order of the visible quick-bar buttons
+// Nothing previously re-applied any of this on load, so additions, pins,
+// deletions, and manual reordering all silently reverted on refresh — and
+// the same data is what gets pushed/pulled for cross-device (Firebase) sync,
+// so this function is also called after a cloud pull, not just on load.
+function applyEngineCustomizations() {
+  let custom, deletedIds, order;
+  try { custom     = JSON.parse(localStorage.getItem('sp_engines_custom')  || '[]'); } catch (e) { custom = []; }
+  try { deletedIds = JSON.parse(localStorage.getItem('sp_engines_deleted') || '[]'); } catch (e) { deletedIds = []; }
+  try { order      = JSON.parse(localStorage.getItem('sp_engines_order')   || '[]'); } catch (e) { order = []; }
+
+  // 1. re-apply saved additions/edits (e.g. a "pin to bar")
+  (Array.isArray(custom) ? custom : []).forEach(se => {
     if (!se || !se.id) return;
     const i = ENGINES.findIndex(en => en.id === se.id);
-    if (i > -1) {
-      // existing hardcoded engine — re-apply the saved edit (e.g. a pin)
-      Object.assign(ENGINES[i], se);
-    } else {
-      // fully custom engine the user added themselves
-      ENGINES.unshift(se);
-    }
+    if (i > -1) Object.assign(ENGINES[i], se); // existing hardcoded engine — re-apply the edit
+    else ENGINES.unshift(se);                   // fully custom engine the user added
   });
-  // rebuild the nick map now that saved edits/additions are folded in
+
+  // 2. drop anything the user deleted (tombstones for baked-in engines only —
+  //    custom/bookmark-derived engines just stop reappearing once removed,
+  //    since sp_engines_custom is re-saved from whatever still exists)
+  if (Array.isArray(deletedIds) && deletedIds.length) {
+    for (let i = ENGINES.length - 1; i >= 0; i--) {
+      if (deletedIds.includes(ENGINES[i].id)) ENGINES.splice(i, 1);
+    }
+  }
+
+  // 3. rebuild the nick map now that additions/edits/deletions are folded in
   Object.keys(NICK_MAP).forEach(k => delete NICK_MAP[k]);
   ENGINES.forEach(e => { if (e.nick) NICK_MAP[e.nick.toLowerCase()] = e; });
+
+  // 4. apply saved visible-bar order (ids not present anymore are skipped;
+  //    ids present but not in the saved order — e.g. brand new — go after)
+  if (Array.isArray(order) && order.length) {
+    const byId = new Map(ENGINES.map(e => [e.id, e]));
+    const ordered = order.map(id => byId.get(id)).filter(Boolean);
+    const orderedIds = new Set(ordered.map(e => e.id));
+    const rest = ENGINES.filter(e => !orderedIds.has(e.id));
+    ENGINES.length = 0;
+    ordered.forEach(e => ENGINES.push(e));
+    rest.forEach(e => ENGINES.push(e));
+  }
+
   rebuildVisibleEngines();
-})();
+}
+applyEngineCustomizations();
+
+// tombstone a deleted baked-in engine so it doesn't reappear on next load
+function markEngineDeleted(engine) {
+  if (!engine || engine._custom || (engine.id || '').startsWith('bm_')) return;
+  let deletedIds;
+  try { deletedIds = JSON.parse(localStorage.getItem('sp_engines_deleted') || '[]'); } catch (e) { deletedIds = []; }
+  if (!deletedIds.includes(engine.id)) deletedIds.push(engine.id);
+  localStorage.setItem('sp_engines_deleted', JSON.stringify(deletedIds));
+}
 
 // ── engine edit modal helpers ──
 function openEngineEditModal(engine, isVisible, onSave, onDelete) {
@@ -2912,6 +2949,7 @@ function showEngineCtx(e, engine, isVisible, idx) {
   engineCtxMenu.querySelector('#eeCtxDel').addEventListener('click', () => {
     engineCtxMenu.remove();
     if (!confirm('delete engine "' + engine.name + '"?')) return;
+    markEngineDeleted(engine);
     delete NICK_MAP[engine.nick.toLowerCase()];
     const i = ENGINES.findIndex(en => en.id === engine.id);
     if (i > -1) ENGINES.splice(i, 1);
@@ -2933,6 +2971,8 @@ function saveEngines() {
   // save custom engine additions/edits to localStorage
   const custom = ENGINES.filter(e => e._custom || e._edited);
   localStorage.setItem('sp_engines_custom', JSON.stringify(custom));
+  // save the current visible quick-bar order so drag-reordering persists/syncs too
+  localStorage.setItem('sp_engines_order', JSON.stringify(VISIBLE_ENGINES.map(e => e.id)));
 }
 
 // ── engine drag state ──
@@ -2986,6 +3026,7 @@ function buildEngines() {
         buildEngines();
         if (activeEngine >= VISIBLE_ENGINES.length) activeEngine = 0;
         setEngine(activeEngine);
+        saveEngines(); // persist the new order (previously this drop handler never saved at all)
       });
     }
     el.appendChild(btn);
@@ -5861,7 +5902,9 @@ document.getElementById('exportBtn').addEventListener('click', () => {
     todos:      JSON.parse(localStorage.getItem('sp_todos')     || '[]'),
     notes:      localStorage.getItem('sp_notes')  || '',
     feeds:      JSON.parse(localStorage.getItem('sp_feeds')     || '[]'),
-    engines:    JSON.parse(localStorage.getItem('sp_engines_custom') || '[]'),
+    engines:    JSON.parse(localStorage.getItem('sp_engines_custom')  || '[]'),
+    engineOrder:   JSON.parse(localStorage.getItem('sp_engines_order')   || '[]'),
+    engineDeleted: JSON.parse(localStorage.getItem('sp_engines_deleted') || '[]'),
     bg:         JSON.parse(localStorage.getItem('sp_bg')        || '{}'),
     greet:      JSON.parse(localStorage.getItem('sp_greet')     || '{}'),
   };
@@ -5886,7 +5929,9 @@ document.getElementById('importFile').addEventListener('change', e => {
       if (data.todos)     localStorage.setItem('sp_todos',     JSON.stringify(data.todos));
       if (data.notes !== undefined) localStorage.setItem('sp_notes', data.notes);
       if (data.feeds)     localStorage.setItem('sp_feeds',     JSON.stringify(data.feeds));
-      if (data.engines)   localStorage.setItem('sp_engines_custom', JSON.stringify(data.engines));
+      if (data.engines)      localStorage.setItem('sp_engines_custom',  JSON.stringify(data.engines));
+      if (data.engineOrder)  localStorage.setItem('sp_engines_order',   JSON.stringify(data.engineOrder));
+      if (data.engineDeleted) localStorage.setItem('sp_engines_deleted', JSON.stringify(data.engineDeleted));
       if (data.bg)        localStorage.setItem('sp_bg',        JSON.stringify(data.bg));
       if (data.greet)     localStorage.setItem('sp_greet',     JSON.stringify(data.greet));
       // reload to apply everything
@@ -6102,6 +6147,7 @@ function buildEngineOverlay() {
       engineCtxMenu.querySelector('#eeCtxDel2').addEventListener('click', () => {
         engineCtxMenu.remove();
         if (!confirm('delete "' + e.name + '"?')) return;
+        markEngineDeleted(e);
         delete NICK_MAP[e.nick.toLowerCase()];
         const i = ENGINES.findIndex(en => en.id === e.id);
         if (i > -1) ENGINES.splice(i, 1);
@@ -6217,7 +6263,9 @@ function fbDataEqual(local, remote) {
   if (stable(local.todos     || []) !== stable(remote.todos     || [])) return false;
   if ((local.notes || '')           !==  (remote.notes || ''))           return false;
   if (stable(local.feeds     || []) !== stable(remote.feeds     || [])) return false;
-  if (stable(local.engines   || []) !== stable(remote.engines   || [])) return false;
+  if (stable(local.engines      || []) !== stable(remote.engines      || [])) return false;
+  if (stable(local.engineOrder  || []) !== stable(remote.engineOrder  || [])) return false;
+  if (stable(local.engineDeleted|| []) !== stable(remote.engineDeleted|| [])) return false;
   if (stable(local.greet     || {}) !== stable(remote.greet     || {})) return false;
   if (stable(local.bg        || {}) !== stable(remote.bg        || {})) return false;
   if ((local.accent || '')          !==  (remote.accent || ''))          return false;
@@ -6263,7 +6311,9 @@ function fbGetData() {
     todos:       JSON.parse(localStorage.getItem('sp_todos')     || '[]'),
     notes:       localStorage.getItem('sp_notes') || '',
     feeds:       JSON.parse(localStorage.getItem('sp_feeds')     || '[]'),
-    engines:     JSON.parse(localStorage.getItem('sp_engines_custom') || '[]'),
+    engines:     JSON.parse(localStorage.getItem('sp_engines_custom')  || '[]'),
+    engineOrder: JSON.parse(localStorage.getItem('sp_engines_order')   || '[]'),
+    engineDeleted: JSON.parse(localStorage.getItem('sp_engines_deleted') || '[]'),
     greet:       JSON.parse(localStorage.getItem('sp_greet')     || '{}'),
     bg:          JSON.parse(localStorage.getItem('sp_bg')        || '{}'),
     accent:      document.documentElement.style.getPropertyValue('--accent') || '',
@@ -6289,9 +6339,25 @@ function fbApplyData(data) {
   }
   // OSINT intentionally not synced — it is baked into the site and persists locally only.
 
-  if (Array.isArray(data.engines) && data.engines.length > 0) {
-    localStorage.setItem('sp_engines_custom', JSON.stringify(data.engines));
-    if (typeof rebuildVisibleEngines === 'function') try { rebuildVisibleEngines(); buildEngines(); } catch(e){ console.error(e); }
+  {
+    let touchedEngines = false;
+    if (Array.isArray(data.engines) && data.engines.length > 0) {
+      localStorage.setItem('sp_engines_custom', JSON.stringify(data.engines));
+      touchedEngines = true;
+    }
+    if (Array.isArray(data.engineOrder) && data.engineOrder.length > 0) {
+      localStorage.setItem('sp_engines_order', JSON.stringify(data.engineOrder));
+      touchedEngines = true;
+    }
+    if (Array.isArray(data.engineDeleted)) {
+      localStorage.setItem('sp_engines_deleted', JSON.stringify(data.engineDeleted));
+      touchedEngines = true;
+    }
+    // re-derive ENGINES/NICK_MAP/VISIBLE_ENGINES from whatever was just synced
+    // (additions, pins, deletions, and reordering all apply immediately, no reload needed)
+    if (touchedEngines && typeof applyEngineCustomizations === 'function') {
+      try { applyEngineCustomizations(); buildEngines(); } catch(e){ console.error(e); }
+    }
   }
   if (Array.isArray(data.todos)) {
     localStorage.setItem('sp_todos', JSON.stringify(data.todos));
@@ -6382,6 +6448,19 @@ function fbMergeData(local, remote) {
   const engRemote = Array.isArray(remote.engines) ? remote.engines : [];
   const engNicks  = new Set(engRemote.map(e => (e.nick || '').toLowerCase()));
   merged.engines  = [...engRemote, ...engLocal.filter(e => !engNicks.has((e.nick || '').toLowerCase()))];
+
+  // engine deletions — union, so a delete on either device always sticks
+  const delLocal  = Array.isArray(local.engineDeleted)  ? local.engineDeleted  : [];
+  const delRemote = Array.isArray(remote.engineDeleted) ? remote.engineDeleted : [];
+  merged.engineDeleted = [...new Set([...delRemote, ...delLocal])];
+
+  // engine bar order — newer side wins (same convention as widgetOrder below)
+  {
+    const remoteNewerOrder = (remote.updated || 0) > (local.updated || 0);
+    const ordLocal  = Array.isArray(local.engineOrder)  ? local.engineOrder  : [];
+    const ordRemote = Array.isArray(remote.engineOrder) ? remote.engineOrder : [];
+    merged.engineOrder = remoteNewerOrder ? (ordRemote.length ? ordRemote : ordLocal) : (ordLocal.length ? ordLocal : ordRemote);
+  }
 
   // todos — merge by text content, deduplicate
   const todosLocal  = local.todos  || [];
