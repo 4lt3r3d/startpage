@@ -2748,6 +2748,33 @@ const VISIBLE_ENGINES = ENGINES.filter(e => e.show);
 const NICK_MAP = {};
 ENGINES.forEach(e => { if (e.nick) NICK_MAP[e.nick.toLowerCase()] = e; });
 
+// ── restore custom/edited engines saved from a previous session ──
+// saveEngines() persists any entry flagged _custom or _edited (new engines,
+// and existing ones toggled to show:true via "pin to bar") to
+// localStorage['sp_engines_custom']. Nothing previously re-applied that on
+// load, so those additions/pins silently vanished on every refresh — this
+// re-hydrates ENGINES/NICK_MAP/VISIBLE_ENGINES from what was actually saved.
+(function loadCustomEngines() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem('sp_engines_custom') || '[]'); } catch (e) { saved = []; }
+  if (!Array.isArray(saved) || !saved.length) return;
+  saved.forEach(se => {
+    if (!se || !se.id) return;
+    const i = ENGINES.findIndex(en => en.id === se.id);
+    if (i > -1) {
+      // existing hardcoded engine — re-apply the saved edit (e.g. a pin)
+      Object.assign(ENGINES[i], se);
+    } else {
+      // fully custom engine the user added themselves
+      ENGINES.unshift(se);
+    }
+  });
+  // rebuild the nick map now that saved edits/additions are folded in
+  Object.keys(NICK_MAP).forEach(k => delete NICK_MAP[k]);
+  ENGINES.forEach(e => { if (e.nick) NICK_MAP[e.nick.toLowerCase()] = e; });
+  rebuildVisibleEngines();
+})();
+
 // ── engine edit modal helpers ──
 function openEngineEditModal(engine, isVisible, onSave, onDelete) {
   // reuse the bookmark modal structure with different fields
