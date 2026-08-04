@@ -346,6 +346,95 @@
     caret-color: var(--accent);
   }
   #searchInput::placeholder { color: var(--text3); }
+  .mic-btn {
+    background: transparent;
+    border: none;
+    color: var(--accent);
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.08s ease-out, background 0.2s ease;
+    transform: scale(1);
+  }
+  .mic-btn:hover {
+    background: var(--accent3);
+  }
+  .mic-btn.unsupported { display: none; }
+  .mic-btn.listening {
+    color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent3);
+  }
+  .mic-btn.transcribing {
+    color: var(--accent);
+    animation: mic-think 0.9s ease-in-out infinite;
+  }
+  @keyframes mic-think {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.35; }
+  }
+  .voice-mode-toggle {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+  }
+  .mode-btn {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text3);
+    font-family: var(--mono);
+    font-size: 9px;
+    padding: 3px 7px;
+    border-radius: 3px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    transition: all 0.15s;
+  }
+  .mode-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .mode-btn.active {
+    background: var(--accent3);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .voice-key-config {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .key-btn {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text3);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 6px 9px;
+    border-radius: 4px;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: all 0.15s;
+  }
+  .key-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .key-btn.waiting {
+    color: var(--accent);
+    border-color: var(--accent);
+    animation: key-waiting-pulse 0.8s ease-in-out infinite;
+  }
+  @keyframes key-waiting-pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.4; }
+  }
   .search-hint {
     font-size: 10px;
     color: var(--text3);
@@ -1857,10 +1946,24 @@
         <path d="M21 14l2-4"/>
       </svg>
     </button>
+    <button class="engine-overlay-btn" id="micMuteBtn" title="Toggle mic on/off" style="right:58px;">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z" fill="currentColor" stroke="none"/>
+        <path d="M19 11a7 7 0 0 1-14 0"/>
+        <line x1="12" y1="18" x2="12" y2="22"/>
+        <line x1="4" y1="4" x2="20" y2="20" id="micMuteSlash" style="display:none;"/>
+      </svg>
+    </button>
     <div class="search-engines" id="engineList"></div>
     <div class="search-wrap">
       <span class="search-prefix" id="searchPrefix">&gt;_</span>
       <input type="text" id="searchInput" placeholder="search the web..." autocomplete="off" spellcheck="false">
+      <button id="micSearchBtn" class="mic-btn" aria-label="Voice search" title="Voice search (Groq Whisper)">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/>
+          <path d="M19 11a7 7 0 0 1-14 0H3a9 9 0 0 0 8 8.94V22h2v-2.06A9 9 0 0 0 21 11h-2z"/>
+        </svg>
+      </button>
     </div>
     <div class="search-hint">
       <kbd>Enter</kbd> search &nbsp;·&nbsp; <kbd>Tab</kbd> cycle engines &nbsp;·&nbsp; <kbd>/</kbd> focus search &nbsp;·&nbsp; <kbd>Esc</kbd> clear &nbsp;·&nbsp; <kbd>spell</kbd> spellcheck &nbsp;·&nbsp; <kbd>define</kbd> dictionary
@@ -2073,6 +2176,7 @@
       <button class="sb-btn" id="fontBtn" title="Change font">font</button>
       <button class="sb-btn" id="exportBtn" title="Export all data">export</button>
       <label class="sb-btn" id="importLabel" title="Import data">import<input type="file" id="importFile" accept=".json" style="display:none;"></label>
+      <button class="sb-btn" id="micStatusBtn" title="Voice search settings">mic: on</button>
       <span id="statsIndicator" style="display:flex;align-items:center;gap:5px;font-size:10px;font-family:var(--mono);color:var(--text3);cursor:pointer;" title="click to download stats server">
         <span id="statsIndicatorDot" style="width:6px;height:6px;border-radius:50%;background:var(--text3);flex-shrink:0;transition:background 0.3s;"></span>
         <span id="statsIndicatorLabel">stats offline</span>
@@ -2469,6 +2573,31 @@
     <div id="fontPickerList" style="display:flex;flex-direction:column;gap:6px;"></div>
     <div class="modal-btns" style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
       <button class="modal-btn" id="fontCancel">close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── VOICE SEARCH SETTINGS ── -->
+<div class="modal-overlay" id="micSettingsOverlay">
+  <div class="modal" style="width:340px;max-width:92vw;">
+    <h3 style="margin-bottom:6px;">voice search</h3>
+    <p style="font-size:10px;color:var(--text3);margin-bottom:14px;line-height:1.5;">
+      powered by Groq Whisper — records a clip and sends it off for transcription
+    </p>
+    <label>mic</label>
+    <div class="voice-mode-toggle" id="micOnOffToggle" style="margin-bottom:14px;">
+      <button data-on="true" class="mode-btn active">on</button>
+      <button data-on="false" class="mode-btn">off</button>
+    </div>
+    <label>hotkeys</label>
+    <div class="voice-key-config" id="voiceKeyConfig" style="margin-bottom:14px;">
+      <button class="key-btn" id="assignClickKey" title="Set the key that triggers one-click listening">one-click: <span id="clickKeyLabel">none</span></button>
+      <button class="key-btn" id="assignPTTKey" title="Set the key you hold for push-to-talk">push-to-talk: <span id="pttKeyLabel">none</span></button>
+    </div>
+    <label>groq api key</label>
+    <button class="key-btn" id="groqKeyBtn" title="Set your Groq API key — stored only in this browser, never written into this file">groq key: <span id="groqKeyLabel">not set</span></button>
+    <div class="modal-btns" style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+      <button class="modal-btn" id="micSettingsClose">close</button>
     </div>
   </div>
 </div>
@@ -3126,6 +3255,379 @@ document.addEventListener('keydown', e => {
 });
 
 buildEngines();
+
+// ===== Voice Search System — powered by Groq Whisper =====
+// Native browser SpeechRecognition doesn't work here: Google gates that
+// backend to official Chrome/Edge builds only, so it fails with a
+// "network" error on Thorium and most other Chromium forks. Instead this
+// records a short clip locally (getUserMedia + MediaRecorder) and sends
+// it to Groq's Whisper API for transcription, which works in any browser
+// since it's just a fetch() call, not a browser-builtin engine.
+//
+// Requires a free Groq API key from https://console.groq.com/keys —
+// click the "groq key" button below the search bar to set it. The key
+// is stored ONLY in this browser's localStorage, never written into
+// index.html, so it's safe to push this file to a public GitHub repo
+// without leaking it.
+//
+// Because transcription is a record-then-send round trip (not a live
+// stream), there are no word-by-word live captions — the search bar
+// stays empty while recording, then fills in once Groq responds
+// (typically under a second). "Always listen" background wake-word mode
+// was intentionally dropped: Groq bills a 10-second minimum per request,
+// so a background polling loop would rack up real cost continuously
+// just from being left on.
+(function() {
+  const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/audio/transcriptions';
+  const GROQ_MODEL = 'whisper-large-v3-turbo';
+  const ONE_CLICK_WINDOW_MS = 7000; // one-click mode records for this long before auto-stopping
+  const MIC_GAIN = 3.2;     // higher = breathing animation reacts more to normal speaking volume
+  const MIC_MAX_GROWTH = 1.3; // max extra scale on top of 1.0 (e.g. 1.3 = mic can grow to 2.3x size)
+  const MIC_CURVE = 0.55;   // <1 boosts sensitivity to quieter sounds so it's not shout-only
+
+  const micBtn = document.getElementById('micSearchBtn');
+  const micMuteBtn = document.getElementById('micMuteBtn');
+  const micMuteSlash = document.getElementById('micMuteSlash');
+  const micStatusBtn = document.getElementById('micStatusBtn');
+  const micSettingsOverlay = document.getElementById('micSettingsOverlay');
+  const micSettingsClose = document.getElementById('micSettingsClose');
+  const micOnOffToggle = document.getElementById('micOnOffToggle');
+  const assignClickBtn = document.getElementById('assignClickKey');
+  const assignPTTBtn = document.getElementById('assignPTTKey');
+  const clickKeyLabel = document.getElementById('clickKeyLabel');
+  const pttKeyLabel = document.getElementById('pttKeyLabel');
+  const groqKeyBtn = document.getElementById('groqKeyBtn');
+  const groqKeyLabel = document.getElementById('groqKeyLabel');
+  const searchInput = document.getElementById('searchInput');
+
+  if (!navigator.mediaDevices || !window.MediaRecorder) {
+    micBtn?.classList.add('unsupported');
+    if (micMuteBtn) micMuteBtn.style.display = 'none';
+    if (micStatusBtn) micStatusBtn.style.display = 'none';
+    return;
+  }
+
+  let micEnabled = localStorage.getItem('micEnabled') !== 'false'; // default on
+  let clickKey = localStorage.getItem('voiceClickKey') || null; // KeyboardEvent.code
+  let pttKey = localStorage.getItem('voicePTTKey') || null;
+  let awaitingKeyFor = null; // 'click' | 'ptt' | null
+
+  let mediaStream = null, recorder = null, chunks = [];
+  let pttActive = false;
+  let audioCtx = null, analyser = null, levelRAF = null;
+  let micHoldTimer = null, micHoldFired = false;
+  const MIC_HOLD_THRESHOLD_MS = 350; // hold the mic button this long to trigger push-to-talk instead of a tap
+
+  function refreshMicUI() {
+    if (micStatusBtn) micStatusBtn.textContent = 'mic: ' + (micEnabled ? 'on' : 'off');
+    if (micMuteSlash) micMuteSlash.style.display = micEnabled ? 'none' : 'block';
+    micOnOffToggle?.querySelectorAll('.mode-btn').forEach(b => {
+      b.classList.toggle('active', (b.dataset.on === 'true') === micEnabled);
+    });
+  }
+  refreshMicUI();
+
+  function labelForKey(code) {
+    if (!code) return 'none';
+    return code.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Arrow/, '');
+  }
+  function refreshKeyLabels() {
+    if (clickKeyLabel) clickKeyLabel.textContent = labelForKey(clickKey);
+    if (pttKeyLabel) pttKeyLabel.textContent = labelForKey(pttKey);
+  }
+  refreshKeyLabels();
+
+  function refreshGroqLabel() {
+    if (groqKeyLabel) groqKeyLabel.textContent = localStorage.getItem('groqApiKey') ? 'set ✓' : 'not set';
+  }
+  refreshGroqLabel();
+
+  function getGroqKey() {
+    let key = localStorage.getItem('groqApiKey');
+    if (!key) {
+      key = window.prompt('Paste your Groq API key (from console.groq.com/keys). Stored only in this browser, never saved into index.html:');
+      if (key && key.trim()) { localStorage.setItem('groqApiKey', key.trim()); refreshGroqLabel(); }
+    }
+    return (key || '').trim();
+  }
+
+  // --- breathing animation, driven by the actual recording stream's volume ---
+  function startLevelMeter(stream) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaStreamSource(stream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 512;
+    source.connect(analyser);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+
+    const tick = () => {
+      if (!analyser) return;
+      analyser.getByteTimeDomainData(data);
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) {
+        const v = (data[i] - 128) / 128;
+        sum += v * v;
+      }
+      const rms = Math.sqrt(sum / data.length);
+      const boosted = Math.pow(rms, MIC_CURVE); // curve makes normal talking volume (not just shouting) visible
+      const scale = 1 + Math.min(boosted * MIC_GAIN, MIC_MAX_GROWTH);
+      if (micBtn) micBtn.style.transform = `scale(${scale.toFixed(3)})`;
+      levelRAF = requestAnimationFrame(tick);
+    };
+    tick();
+  }
+  function stopLevelMeter() {
+    if (levelRAF) cancelAnimationFrame(levelRAF);
+    levelRAF = null;
+    if (audioCtx) { audioCtx.close(); audioCtx = null; }
+    analyser = null;
+    if (micBtn) micBtn.style.transform = '';
+  }
+
+  function setState(state) {
+    // 'idle' | 'listening' (recording) | 'transcribing' (waiting on Groq)
+    micBtn?.classList.toggle('listening', state === 'listening');
+    micBtn?.classList.toggle('transcribing', state === 'transcribing');
+  }
+
+  // strip "www."/".com" etc and match a spoken site name against the
+  // real ENGINES list, so this stays in sync automatically as engines
+  // are added/edited — no separate mapping dictionary to maintain.
+  function findEngineBySpokenName(spokenName) {
+    const clean = spokenName.toLowerCase()
+      .replace(/^www\./, '')
+      .replace(/\.(com|net|org|io|co)$/, '')
+      .trim();
+    if (!clean) return null;
+
+    const normName = e => e.name.toLowerCase().replace(' ✦', '').trim();
+
+    let match = ENGINES.find(e => normName(e) === clean);
+    if (match) return match;
+
+    match = ENGINES.find(e => e.nick.toLowerCase() === clean);
+    if (match) return match;
+
+    return ENGINES.find(e => normName(e).includes(clean) || clean.includes(normName(e))) || null;
+  }
+
+  function processVoiceCommand(command) {
+    command = command.trim().replace(/^hey startpage\s*/i, '').toLowerCase();
+    if (!command) return;
+
+    const searchMatch = command.match(/^search\s+(\S+)\s+(.*)$/i);
+
+    if (searchMatch) {
+      const engine = findEngineBySpokenName(searchMatch[1]);
+      const q = engine ? `${engine.nick} ${searchMatch[2]}` : command.replace(/^search\s+/i, '');
+      searchInput.value = q;
+      doSearch(q.trim());
+    } else {
+      searchInput.value = command;
+      doSearch(command);
+    }
+  }
+
+  async function transcribe(blob) {
+    const key = getGroqKey();
+    if (!key) { setState('idle'); return null; }
+
+    const form = new FormData();
+    form.append('file', blob, 'command.webm');
+    form.append('model', GROQ_MODEL);
+
+    setState('transcribing');
+    try {
+      const res = await fetch(GROQ_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${key}` },
+        body: form
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        console.warn('Groq transcription failed:', res.status, errText);
+        if (res.status === 401) {
+          localStorage.removeItem('groqApiKey');
+          refreshGroqLabel();
+          alert('Groq rejected that API key — it was cleared. Click the mic again to re-enter it.');
+        }
+        return null;
+      }
+      const data = await res.json();
+      return (data.text || '').trim();
+    } catch (err) {
+      console.warn('Groq transcription error:', err);
+      return null;
+    } finally {
+      setState('idle');
+    }
+  }
+
+  async function startRecording() {
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+      console.warn('Mic access denied:', err);
+      return false;
+    }
+    chunks = [];
+    recorder = new MediaRecorder(mediaStream);
+    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+    recorder.start();
+    startLevelMeter(mediaStream);
+    setState('listening');
+    return true;
+  }
+
+  function stopRecordingAndTranscribe() {
+    return new Promise(resolve => {
+      if (!recorder || recorder.state === 'inactive') { resolve(null); return; }
+      recorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+        chunks = [];
+        if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+        stopLevelMeter();
+        const text = await transcribe(blob);
+        resolve(text);
+      };
+      recorder.stop();
+    });
+  }
+
+  // --- one-click: record for a fixed window, then transcribe once ---
+  async function listenForCommand() {
+    const started = await startRecording();
+    if (!started) return;
+    setTimeout(async () => {
+      const text = await stopRecordingAndTranscribe();
+      if (text) processVoiceCommand(text);
+    }, ONE_CLICK_WINDOW_MS);
+  }
+
+  // --- push-to-talk: record while held, transcribe on release ---
+  async function startPTT() {
+    if (pttActive) return;
+    pttActive = true;
+    const started = await startRecording();
+    if (!started) pttActive = false;
+  }
+  async function stopPTT() {
+    if (!pttActive) return;
+    pttActive = false;
+    const text = await stopRecordingAndTranscribe();
+    if (text) processVoiceCommand(text);
+  }
+
+  // discard whatever's mid-recording without transcribing it — used when muting mid-talk
+  function cancelActiveRecording() {
+    pttActive = false;
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.onstop = null;
+      try { recorder.stop(); } catch(e){}
+    }
+    if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+    stopLevelMeter();
+    setState('idle');
+  }
+
+  function setMicEnabled(enabled) {
+    micEnabled = enabled;
+    localStorage.setItem('micEnabled', enabled ? 'true' : 'false');
+    if (!enabled) cancelActiveRecording();
+    refreshMicUI();
+  }
+
+  // Mic button: quick tap = one-click, press-and-hold = push-to-talk —
+  // both live at once, no separate "mode" to pick. Handlers always
+  // attached, state checked at runtime — matches the existing
+  // drag-and-drop convention in this project.
+  micBtn?.addEventListener('mousedown', () => {
+    if (!micEnabled) return;
+    micHoldFired = false;
+    micHoldTimer = setTimeout(() => { micHoldFired = true; startPTT(); }, MIC_HOLD_THRESHOLD_MS);
+  });
+  micBtn?.addEventListener('mouseup', () => {
+    if (!micEnabled) return;
+    clearTimeout(micHoldTimer);
+    if (micHoldFired) { stopPTT(); micHoldFired = false; }
+    else { listenForCommand(); }
+  });
+  micBtn?.addEventListener('mouseleave', () => {
+    clearTimeout(micHoldTimer);
+    if (micHoldFired) { stopPTT(); micHoldFired = false; }
+  });
+
+  // top-bar mute icon — pure on/off toggle, no recording of its own
+  micMuteBtn?.addEventListener('click', () => setMicEnabled(!micEnabled));
+
+  // bottom status-bar button opens the settings popup
+  micStatusBtn?.addEventListener('click', () => {
+    refreshKeyLabels();
+    refreshGroqLabel();
+    refreshMicUI();
+    micSettingsOverlay?.classList.add('visible');
+  });
+  micSettingsClose?.addEventListener('click', () => micSettingsOverlay?.classList.remove('visible'));
+  micSettingsOverlay?.addEventListener('click', e => {
+    if (e.target === micSettingsOverlay) micSettingsOverlay.classList.remove('visible');
+  });
+  micOnOffToggle?.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => setMicEnabled(btn.dataset.on === 'true'));
+  });
+
+  // keybind assignment — click a "key: none" button, then press the key you want
+  assignClickBtn?.addEventListener('click', () => {
+    awaitingKeyFor = 'click';
+    assignClickBtn.classList.add('waiting');
+    clickKeyLabel.textContent = 'press a key…';
+  });
+  assignPTTBtn?.addEventListener('click', () => {
+    awaitingKeyFor = 'ptt';
+    assignPTTBtn.classList.add('waiting');
+    pttKeyLabel.textContent = 'press a key…';
+  });
+  groqKeyBtn?.addEventListener('click', () => {
+    const existing = localStorage.getItem('groqApiKey') || '';
+    const key = window.prompt('Paste your Groq API key (from console.groq.com/keys). Stored only in this browser:', existing);
+    if (key !== null) {
+      if (key.trim()) localStorage.setItem('groqApiKey', key.trim());
+      else localStorage.removeItem('groqApiKey');
+      refreshGroqLabel();
+    }
+  });
+
+  document.addEventListener('keydown', e => {
+    if (awaitingKeyFor) {
+      e.preventDefault();
+      if (awaitingKeyFor === 'click') {
+        clickKey = e.code;
+        localStorage.setItem('voiceClickKey', clickKey);
+        assignClickBtn.classList.remove('waiting');
+      } else if (awaitingKeyFor === 'ptt') {
+        pttKey = e.code;
+        localStorage.setItem('voicePTTKey', pttKey);
+        assignPTTBtn.classList.remove('waiting');
+      }
+      awaitingKeyFor = null;
+      refreshKeyLabels();
+      return;
+    }
+
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return; // don't fire hotkeys while typing
+    if (!micEnabled) return;
+
+    if (clickKey && e.code === clickKey && !e.repeat) {
+      listenForCommand();
+    }
+    if (pttKey && e.code === pttKey && !e.repeat && !pttActive) {
+      startPTT();
+    }
+  });
+  document.addEventListener('keyup', e => {
+    if (micEnabled && pttKey && e.code === pttKey) stopPTT();
+  });
+})();
 
 // magnifying glass button opens engine overlay
 document.getElementById('engineOverlayBtn').addEventListener('click', () => {
