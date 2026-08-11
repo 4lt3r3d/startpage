@@ -1408,6 +1408,32 @@
     opacity: 0.85;
   }
   .feed-item:hover .feed-thumb { opacity: 1; }
+  .feed-thumb-placeholder {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.85;
+  }
+  .feed-platform-badge {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(0,0,0,0.55);
+    border: 1px solid;
+    font-family: var(--mono);
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 2px;
+    width: fit-content;
+  }
   .feed-overlay {
     position: absolute;
     inset: 0;
@@ -3411,8 +3437,20 @@ buildEngines();
     return ENGINES.find(e => normName(e).includes(clean) || clean.includes(normName(e))) || null;
   }
 
+  // Whisper auto-punctuates transcripts, tacking a "." onto the end of
+  // almost everything. Strip that unless the trailing word was literally
+  // "period" (spoken on purpose), in which case turn it into a real ".".
+  // "?" and "!" are left alone either way.
+  function cleanTranscript(text) {
+    text = text.trim();
+    if (/\bperiod$/i.test(text)) {
+      return text.replace(/\s*\bperiod$/i, '.').trim();
+    }
+    return text.replace(/\.+$/, '').trim();
+  }
+
   function processVoiceCommand(command) {
-    command = command.trim().replace(/^hey startpage\s*/i, '').toLowerCase();
+    command = cleanTranscript(command.trim().replace(/^hey startpage\s*/i, '').toLowerCase());
     if (!command) return;
 
     const searchMatch = command.match(/^search\s+(\S+)\s+(.*)$/i);
@@ -9244,8 +9282,8 @@ document.getElementById('statsIndicator').addEventListener('click', downloadStat
 //  LIVE FEEDS
 // ══════════════════════════════
 const LIVE_FEEDS_DEFAULT = [
-  { id: 'gmtlJ_m2r5A', title: 'Middle East — Iran & Israel' },
-  { id: '7QOsmyPEZIM', title: 'Kensington Ave — Philadelphia' },
+  { platform: 'youtube', id: 'gmtlJ_m2r5A', title: 'Middle East — Iran & Israel' },
+  { platform: 'youtube', id: '7QOsmyPEZIM', title: 'Kensington Ave — Philadelphia' },
 ];
 
 let LIVE_FEEDS = JSON.parse(localStorage.getItem('sp_feeds') || 'null') || JSON.parse(JSON.stringify(LIVE_FEEDS_DEFAULT));
@@ -9257,27 +9295,223 @@ function saveFeeds() {
   if (typeof fbPush === 'function') fbPush();
 }
 
-// Extract YouTube video ID from any URL format (watch, youtu.be, embed, live)
-function extractYtId(url) {
-  if (!url) return null;
-  url = url.trim();
-  // already just an ID?
-  if (/^[a-zA-Z0-9_-]{11}$/.test(url)) return url;
-  // parse out common patterns
-  const patterns = [
-    /(?:v=|\/v\/|\/embed\/|\/live\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
-    /^([a-zA-Z0-9_-]{11})$/
-  ];
-  for (const p of patterns) {
-    const m = url.match(p);
-    if (m) return m[1];
+// ── Platform registry ──
+// Each entry: test(hostname, rawUrl) -> bool, parse(rawUrl) -> id/null,
+// embed(id) -> iframe src, thumb(id) -> static thumbnail url (optional).
+const PLATFORMS = [
+  {
+    key: 'youtube', label: 'YouTube', color: '#ff0033',
+    test: h => h === 'youtube.com' || h === 'youtu.be' || h === 'm.youtube.com',
+    parse(url) {
+      if (/^[a-zA-Z0-9_-]{11}$/.test(url.trim())) return url.trim();
+      const m = url.match(/(?:v=|\/v\/|\/embed\/|\/live\/|\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+      return m ? m[1] : null;
+    },
+    embed: id => `https://www.youtube.com/embed/${id}?autoplay=1&mute=0&rel=0&modestbranding=1`,
+    thumb: id => `https://img.youtube.com/vi/${id}/maxresdefault.jpg`,
+    thumbFallback: id => `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
+  },
+  {
+    key: 'twitch', label: 'Twitch', color: '#9146ff',
+    test: h => h === 'twitch.tv',
+    parse(url) {
+      const seg = firstPathSegment(url);
+      return seg || (/^[a-zA-Z0-9_]{3,25}$/.test(url.trim()) ? url.trim() : null);
+    },
+    embed: ch => {
+      const parents = new Set(['4lt3r3d.github.io']);
+      if (location.hostname) parents.add(location.hostname);
+      const pp = [...parents].map(p => `parent=${p}`).join('&');
+      return `https://player.twitch.tv/?channel=${ch}&${pp}&autoplay=true&muted=false`;
+    },
+    thumb: ch => `https://static-cdn.jtvnw.net/previews-ttv/live_user_${ch.toLowerCase()}-440x248.jpg`,
+  },
+  {
+    key: 'kick', label: 'Kick', color: '#53fc18',
+    test: h => h === 'kick.com',
+    parse(url) {
+      const seg = firstPathSegment(url);
+      return seg || (/^[a-zA-Z0-9_]{3,25}$/.test(url.trim()) ? url.trim() : null);
+    },
+    embed: ch => `https://player.kick.com/${ch}?autoplay=true`,
+  },
+  {
+    key: 'rumble', label: 'Rumble', color: '#85c742',
+    test: h => h === 'rumble.com',
+    parse(url) {
+      const m = url.match(/rumble\.com\/(?:embed\/)?(v[a-z0-9]+)/i);
+      return m ? m[1] : null;
+    },
+    embed: id => `https://rumble.com/embed/${id}/`,
+  },
+  {
+    key: 'dailymotion', label: 'Dailymotion', color: '#0d5be0',
+    test: h => h === 'dailymotion.com' || h === 'dai.ly',
+    parse(url) {
+      let m = url.match(/dailymotion\.com\/(?:embed\/)?video\/([a-zA-Z0-9]+)/i);
+      if (m) return m[1];
+      m = url.match(/dai\.ly\/([a-zA-Z0-9]+)/i);
+      return m ? m[1] : null;
+    },
+    embed: id => `https://www.dailymotion.com/embed/video/${id}`,
+    thumb: id => `https://www.dailymotion.com/thumbnail/video/${id}`,
+  },
+  {
+    key: 'vimeo', label: 'Vimeo', color: '#1ab7ea',
+    test: h => h === 'vimeo.com',
+    parse(url) {
+      const m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+      return m ? m[1] : null;
+    },
+    embed: id => `https://player.vimeo.com/video/${id}`,
+  },
+  {
+    key: 'odysee', label: 'Odysee', color: '#f13a2f',
+    test: h => h === 'odysee.com',
+    parse(url) {
+      const m = url.match(/odysee\.com\/(?:\$\/embed\/)?(.+)$/i);
+      return m ? m[1].replace(/^\/+/, '') : null;
+    },
+    embed: path => `https://odysee.com/$/embed/${path}`,
+  },
+  {
+    key: 'bitchute', label: 'BitChute', color: '#f0743c',
+    test: h => h === 'bitchute.com',
+    parse(url) {
+      const m = url.match(/bitchute\.com\/(?:embed|video)\/([a-zA-Z0-9_-]+)/i);
+      return m ? m[1] : null;
+    },
+    embed: id => `https://www.bitchute.com/embed/${id}/`,
+  },
+  {
+    key: 'facebook', label: 'Facebook', color: '#1877f2',
+    test: h => h === 'facebook.com' || h === 'fb.watch',
+    parse(url) { return /^https?:\/\//i.test(url.trim()) ? url.trim() : null; },
+    embed: rawUrl => `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(rawUrl)}&show_text=false&autoplay=true`,
+  },
+  {
+    key: 'mixcloud', label: 'Mixcloud', color: '#5000ff',
+    test: h => h === 'mixcloud.com',
+    parse(url) {
+      try {
+        const u = new URL(url.includes('://') ? url : 'https://' + url);
+        const path = u.pathname.replace(/\/+$/, '') + '/';
+        return path.length > 1 ? path : null;
+      } catch { return null; }
+    },
+    embed: feedPath => `https://player-widget.mixcloud.com/widget/iframe/?feed=${encodeURIComponent(feedPath)}&autoplay=1&hide_cover=1`,
+  },
+  {
+    key: 'trovo', label: 'Trovo', color: '#19d66b',
+    test: h => h === 'trovo.live',
+    parse(url) {
+      const seg = firstPathSegment(url);
+      return seg || (/^[a-zA-Z0-9_]{3,25}$/.test(url.trim()) ? url.trim() : null);
+    },
+    embed: ch => `https://player.trovo.live/embed/player?streamername=${ch}&autoplay=1`,
+    note: 'Trovo only plays if this site’s domain has been approved by Trovo (they require emailing developer@trovo.live to whitelist it) — otherwise the tile will show a blank player.',
+  },
+  {
+    key: 'peertube', label: 'PeerTube', color: '#f1680d',
+    test: (h, rawUrl) => /\/(?:videos\/watch|w)\/[a-zA-Z0-9-]{8,36}/i.test(rawUrl),
+    parse(url) {
+      try {
+        const u = new URL(url.includes('://') ? url : 'https://' + url);
+        const m = u.pathname.match(/\/(?:videos\/watch|w)\/([a-zA-Z0-9-]{8,36})/i);
+        return m ? `${u.host}|${m[1]}` : null;
+      } catch { return null; }
+    },
+    embed: combined => {
+      const [host, id] = combined.split('|');
+      return `https://${host}/videos/embed/${id}`;
+    },
+  },
+];
+
+// Platforms that were requested but genuinely can't be embedded via a plain iframe —
+// either they have no public embed at all, or embedding requires their own JS widget
+// (blockquote + script tag) instead of a simple src URL our grid can drop into an iframe.
+const UNSUPPORTED_PLATFORMS = [
+  { test: h => h === 'tiktok.com', label: 'TikTok', reason: "TikTok doesn't offer a public embed for Live — only its own widget, and only for regular (non-live) videos." },
+  { test: h => h === 'instagram.com', label: 'Instagram', reason: "Instagram has no public iframe embed for Live." },
+  { test: h => h === 'x.com' || h === 'twitter.com', label: 'X', reason: "X only supports embedding via its own JS widget (widgets.js), not a plain video iframe." },
+  { test: h => h === 'snapchat.com', label: 'Snapchat', reason: "Snapchat has no public embed for Spotlight or Live content." },
+  { test: h => h === 'reddit.com', label: 'Reddit', reason: "Reddit embeds require its widget script (widgets.js), not a plain iframe." },
+  { test: h => h === 'linkedin.com', label: 'LinkedIn', reason: "LinkedIn only embeds individual posts via its own widget, not a live video iframe." },
+  { test: h => h === 'dlive.tv', label: 'DLive', reason: "couldn't verify a working public embed for DLive, so it's left unsupported rather than guessed at." },
+  { test: h => h === 'nimo.tv', label: 'Nimo TV', reason: "couldn't verify a working public embed for Nimo TV, so it's left unsupported rather than guessed at." },
+];
+
+function firstPathSegment(url) {
+  try {
+    const u = new URL(url.includes('://') ? url : 'https://' + url);
+    return u.pathname.split('/').filter(Boolean)[0] || null;
+  } catch { return null; }
+}
+
+function hostOf(url) {
+  try {
+    const u = new URL(url.includes('://') ? url : 'https://' + url);
+    return u.hostname.replace(/^www\./, '').toLowerCase();
+  } catch { return ''; }
+}
+
+function finalizeFeed(platformKey, id, raw, title) {
+  const p = PLATFORMS.find(x => x.key === platformKey);
+  return {
+    platform: platformKey,
+    platformLabel: p.label,
+    color: p.color,
+    id, raw, title,
+    embedSrc: p.embed(id),
+    thumbSrc: p.thumb ? p.thumb(id) : null,
+    thumbFallback: p.thumbFallback ? p.thumbFallback(id) : null,
+    note: p.note || null,
+  };
+}
+
+// Parses any supported platform URL (or a bare YouTube ID, for backward compat).
+// Returns a feed object, { unsupported: true, label, reason } for a known-but-unembeddable
+// platform, or null if nothing matched at all.
+function parseFeedUrl(raw, title) {
+  if (!raw) return null;
+  raw = raw.trim();
+
+  if (/^[a-zA-Z0-9_-]{11}$/.test(raw)) return finalizeFeed('youtube', raw, raw, title);
+
+  const host = hostOf(raw);
+  for (const p of PLATFORMS) {
+    if (p.test(host, raw)) {
+      const id = p.parse(raw);
+      if (id) return finalizeFeed(p.key, id, raw, title);
+    }
   }
+  const unsupported = UNSUPPORTED_PLATFORMS.find(u => u.test(host));
+  if (unsupported) return { unsupported: true, label: unsupported.label, reason: unsupported.reason };
   return null;
+}
+
+// Upgrades feeds saved before multi-platform support (which only had {id,title}).
+function normalizeFeed(feed) {
+  if (feed && feed.platform && feed.embedSrc) return feed;
+  if (feed && feed.id) return finalizeFeed('youtube', feed.id, feed.id, feed.title);
+  return feed;
+}
+
+function handleThumbError(img, fallback) {
+  if (fallback && img.dataset.triedFallback !== '1') {
+    img.dataset.triedFallback = '1';
+    img.src = fallback;
+  } else {
+    img.style.display = 'none';
+    if (img.nextElementSibling) img.nextElementSibling.style.display = 'flex';
+  }
 }
 
 function buildFeeds() {
   const container = document.getElementById('feedsContainer');
   container.innerHTML = '';
+  LIVE_FEEDS = LIVE_FEEDS.map(normalizeFeed);
   const count = LIVE_FEEDS.length;
 
   // Adjust grid layout based on feed count
@@ -9297,12 +9531,19 @@ function buildFeeds() {
     wrap.dataset.id = feed.id;
     // when there are 3 feeds, make the 3rd one span both columns
     if (count === 3 && i === 2) wrap.style.gridColumn = '1 / -1';
+
+    const thumbHtml = feed.thumbSrc
+      ? `<img class="feed-thumb" src="${feed.thumbSrc}" onerror="handleThumbError(this, ${feed.thumbFallback ? `'${feed.thumbFallback}'` : 'null'})" alt="${escHtml(feed.title || '')}">
+         <div class="feed-thumb-placeholder" style="background:${feed.color}22;color:${feed.color};">${escHtml(feed.platformLabel || '')}</div>`
+      : `<div class="feed-thumb feed-thumb-placeholder" style="display:flex;background:${feed.color}22;color:${feed.color};">${escHtml(feed.platformLabel || '')}</div>`;
+
     wrap.innerHTML = `
-      <img class="feed-thumb" src="https://img.youtube.com/vi/${feed.id}/maxresdefault.jpg"
-           onerror="this.src='https://img.youtube.com/vi/${feed.id}/hqdefault.jpg'"
-           alt="${escHtml(feed.title || '')}">
+      ${thumbHtml}
       <div class="feed-overlay">
-        <div class="feed-live-badge">LIVE</div>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <div class="feed-live-badge">LIVE</div>
+          <div class="feed-platform-badge" style="border-color:${feed.color}66;color:${feed.color};">${escHtml(feed.platformLabel || '')}</div>
+        </div>
         <div class="feed-title">${escHtml(feed.title || '')}</div>
       </div>
       <div class="feed-play-btn">▶</div>`;
@@ -9317,8 +9558,8 @@ function playFeedInline(feed, thumbEl) {
   wrap.className = 'feed-iframe-wrap';
   wrap.innerHTML = `
     <iframe
-      src="https://www.youtube.com/embed/${feed.id}?autoplay=1&mute=0&rel=0&modestbranding=1"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      src="${feed.embedSrc}"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
       allowfullscreen>
     </iframe>
     <div class="feed-iframe-label">${escHtml(feed.title || '')}</div>
@@ -9341,7 +9582,10 @@ function openFeedsEdit() {
     <div class="modal" style="width:460px;max-width:95vw;max-height:85vh;overflow-y:auto;">
       <h3 style="margin-bottom:6px;">edit live feeds</h3>
       <p style="font-size:10px;color:var(--text3);margin-bottom:14px;line-height:1.6;">
-        paste any youtube URL (watch, live, youtu.be) or just the video ID
+        paste a video/live URL from YouTube, Twitch, Kick, Rumble, Dailymotion, Vimeo, Odysee,
+        BitChute, Facebook, Mixcloud, Trovo, or a PeerTube instance — or just a bare YouTube video ID.
+        TikTok, Instagram, X, Snapchat, Reddit, LinkedIn, DLive and Nimo TV don't offer a public
+        embed, so those will show an explanation instead of a broken player.
       </p>
 
       <div id="feedsEditList"></div>
@@ -9407,12 +9651,12 @@ function openFeedsEdit() {
       row.innerHTML = `
         <label>FEED ${i+1} · TITLE</label>
         <input type="text" class="feed-edit-title" data-i="${i}" value="${escHtml(draft[i]?.title || '')}" placeholder="Feed name" maxlength="60">
-        <label>FEED ${i+1} · YOUTUBE URL</label>
-        <input type="text" class="feed-edit-url" data-i="${i}" placeholder="https://www.youtube.com/watch?v=..." style="font-family:var(--mono);font-size:11px;">`;
+        <label>FEED ${i+1} · VIDEO / LIVE URL</label>
+        <input type="text" class="feed-edit-url" data-i="${i}" placeholder="https://www.youtube.com/watch?v=... or twitch.tv/... , kick.com/... , rumble.com/... etc." style="font-family:var(--mono);font-size:11px;">`;
       list.appendChild(row);
-      // pre-fill URL with current id
+      // pre-fill URL with current raw value (falls back to reconstructing a youtube URL for old entries)
       const urlInput = row.querySelector('.feed-edit-url');
-      urlInput.value = draft[i]?.id ? 'https://www.youtube.com/watch?v=' + draft[i].id : '';
+      urlInput.value = draft[i]?.urlInput ?? draft[i]?.raw ?? (draft[i]?.id && (!draft[i]?.platform || draft[i].platform === 'youtube') ? 'https://www.youtube.com/watch?v=' + draft[i].id : '');
 
       // bind input to draft
       row.querySelector('.feed-edit-title').addEventListener('input', e => {
@@ -9457,21 +9701,33 @@ function openFeedsEdit() {
     const titles = overlay.querySelectorAll('.feed-edit-title');
     const urls   = overlay.querySelectorAll('.feed-edit-url');
 
+    errEl.textContent = '';
+
     for (let i = 0; i < feedCount; i++) {
-      const title = titles[i].value.trim() || ('Feed ' + (i+1));
-      const raw   = urls[i].value.trim();
-      const id    = extractYtId(raw);
-      if (!id) {
-        errEl.textContent = 'invalid youtube URL in feed ' + (i+1);
+      const title  = titles[i].value.trim() || ('Feed ' + (i+1));
+      const raw    = urls[i].value.trim();
+      const parsed = parseFeedUrl(raw, title);
+
+      if (!parsed) {
+        errEl.textContent = `feed ${i+1}: couldn't recognize that URL — check the supported list above`;
         return;
       }
-      newFeeds.push({ id, title });
+      if (parsed.unsupported) {
+        errEl.textContent = `feed ${i+1}: ${parsed.label} can't be embedded — ${parsed.reason}`;
+        return;
+      }
+      newFeeds.push(parsed);
     }
+
+    // Surface any platform-specific caveats (e.g. Trovo domain whitelisting) without blocking save.
+    const notes = newFeeds.filter(f => f.note).map((f, idx) => `${f.title}: ${f.note}`);
+    if (notes.length) errEl.textContent = 'saved — note: ' + notes.join(' · ');
 
     LIVE_FEEDS = newFeeds;
     saveFeeds();
     buildFeeds();
-    overlay.remove();
+    if (!notes.length) overlay.remove();
+    else setTimeout(() => overlay.remove(), 4000);
   });
 
   overlay.querySelector('#feedsEditCancel').addEventListener('click', () => overlay.remove());
