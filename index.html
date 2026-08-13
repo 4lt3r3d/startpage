@@ -346,6 +346,24 @@
     caret-color: var(--accent);
   }
   #searchInput::placeholder { color: var(--text3); }
+  .search-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .result-mode-btn {
+    background: transparent;
+    border: none;
+    color: var(--text3);
+    font-size: 13px;
+    line-height: 1;
+    padding: 5px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.15s;
+  }
+  .result-mode-btn:hover { color: var(--accent); }
   .mic-btn {
     background: transparent;
     border: none;
@@ -664,6 +682,28 @@
   }
   .todo-clear { cursor: pointer; }
   .todo-clear:hover { color: var(--red); }
+  .todo-title-list {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .todo-title-item {
+    cursor: pointer;
+    color: var(--text3);
+    transition: color 0.15s;
+    user-select: none;
+  }
+  .todo-title-item:hover { color: var(--text); }
+  .todo-title-item.active { color: var(--text); cursor: default; }
+  .todo-title-sep { color: var(--text3); margin: 0 5px; user-select: none; }
+  .todo-title-add {
+    cursor: pointer;
+    color: var(--text3);
+    margin-left: 6px;
+    transition: color 0.15s;
+    user-select: none;
+  }
+  .todo-title-add:hover { color: var(--text); }
 
   /* ── NOTES ── */
   #notesArea {
@@ -1443,30 +1483,6 @@
     padding: 8px;
     background: linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 40%, transparent 60%, rgba(0,0,0,0.7) 100%);
   }
-  .feed-live-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: rgba(220,30,30,0.9);
-    color: #fff;
-    font-family: var(--mono);
-    font-size: 8px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    padding: 2px 6px;
-    border-radius: 2px;
-    width: fit-content;
-  }
-  .feed-live-badge::before {
-    content: '';
-    width: 5px; height: 5px;
-    border-radius: 50%;
-    background: #fff;
-    animation: pulse-dot 1.2s ease-in-out infinite;
-  }
-  @keyframes pulse-dot {
-    0%,100% { opacity:1; } 50% { opacity:0.3; }
-  }
   .feed-title {
     font-family: var(--mono);
     font-size: 10px;
@@ -1534,6 +1550,21 @@
     transition: background 0.15s;
   }
   .feed-close-btn:hover { background: rgba(220,30,30,0.8); }
+  .feed-open-link {
+    position: absolute;
+    top: 6px; right: 6px;
+    background: rgba(0,0,0,0.6);
+    border: none;
+    color: #fff;
+    font-size: 12px;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+  .feed-open-link:hover { background: var(--accent); }
 
   @keyframes syncSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   #syncIndicator:hover #syncIcon { color: var(--accent); }
@@ -1672,7 +1703,29 @@
     padding: 8px 16px; border-top: 1px solid var(--border);
     font-size: 10px; color: var(--text3); flex-shrink: 0;
     display: flex; justify-content: space-between; align-items: center;
+    gap: 10px;
   }
+  .notepad-slot-tabs { display: flex; align-items: center; gap: 4px; }
+  .notepad-slot-btn {
+    width: 16px; height: 16px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    font-size: 9px;
+    font-family: var(--mono);
+    color: var(--text2);
+    cursor: pointer;
+    transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .notepad-slot-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .notepad-slot-btn.active { opacity: 0.4; color: var(--accent); border-color: var(--accent); cursor: default; }
+  .notepad-save-btn {
+    background: none; border: 1px solid var(--border); color: var(--text3);
+    cursor: pointer; font-family: var(--mono); font-size: 9px;
+    letter-spacing: 0.08em; padding: 3px 8px; border-radius: 3px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .notepad-save-btn:hover { color: var(--accent); border-color: var(--accent); }
 
   .cheat-header {
     padding: 16px 16px 10px;
@@ -1984,12 +2037,15 @@
     <div class="search-wrap">
       <span class="search-prefix" id="searchPrefix">&gt;_</span>
       <input type="text" id="searchInput" placeholder="search the web..." autocomplete="off" spellcheck="false">
-      <button id="micSearchBtn" class="mic-btn" aria-label="Voice search" title="Voice search (Groq Whisper)">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-          <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/>
-          <path d="M19 11a7 7 0 0 1-14 0H3a9 9 0 0 0 8 8.94V22h2v-2.06A9 9 0 0 0 21 11h-2z"/>
-        </svg>
-      </button>
+      <div class="search-actions">
+        <button id="resultModeBtn" class="result-mode-btn" aria-label="Where search results open" title="Search results open in: same tab (click to change)">□</button>
+        <button id="micSearchBtn" class="mic-btn" aria-label="Voice search" title="Voice search (Groq Whisper)">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/>
+            <path d="M19 11a7 7 0 0 1-14 0H3a9 9 0 0 0 8 8.94V22h2v-2.06A9 9 0 0 0 21 11h-2z"/>
+          </svg>
+        </button>
+      </div>
     </div>
     <div class="search-hint">
       <kbd>Enter</kbd> search &nbsp;·&nbsp; <kbd>Tab</kbd> cycle engines &nbsp;·&nbsp; <kbd>/</kbd> focus search &nbsp;·&nbsp; <kbd>Esc</kbd> clear &nbsp;·&nbsp; <kbd>spell</kbd> spellcheck &nbsp;·&nbsp; <kbd>define</kbd> dictionary
@@ -2096,7 +2152,7 @@
       <div class="panel-title widget-title" style="justify-content:space-between;">
         <span style="display:flex;align-items:center;gap:6px;">
           <span class="drag-handle" title="drag to move">⠿</span>
-          <span class="dot" style="background:var(--red);"></span>live feeds
+          <span class="dot" style="background:var(--red);"></span>video feed
         </span>
         <button id="feedsEditBtn" title="Edit feeds" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px 4px;display:flex;align-items:center;transition:color 0.15s;outline:none;">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -2110,7 +2166,7 @@
 
     <!-- TODO -->
     <div class="panel osint-panel widget" id="widget-todo" draggable="false">
-      <div class="panel-title widget-title"><span class="drag-handle" title="drag to move">⠿</span><span class="dot" style="background:var(--yellow);"></span>todo</div>
+      <div class="panel-title widget-title"><span class="drag-handle" title="drag to move">⠿</span><span class="dot" style="background:var(--yellow);"></span><span class="todo-title-list" id="todoTitleList"></span></div>
       <div class="todo-input-row">
         <input type="text" id="todoInput" placeholder="add task...">
         <div class="todo-add-btn" id="todoAddBtn" title="Add (Enter)">+</div>
@@ -3219,6 +3275,42 @@ function setEngine(i) {
     : 'search ' + e.name.toLowerCase().replace(' ✦','') + '...';
 }
 
+// ── where search results open: same tab / new tab / new window ──
+const RESULT_MODES = ['same', 'tab', 'window'];
+const RESULT_MODE_ICON = { same: '□', tab: '⧉', window: '↗' };
+const RESULT_MODE_LABEL = { same: 'same tab', tab: 'new tab', window: 'new window' };
+let resultMode = localStorage.getItem('resultMode') || 'same';
+if (!RESULT_MODES.includes(resultMode)) resultMode = 'same';
+
+function refreshResultModeUI() {
+  const btn = document.getElementById('resultModeBtn');
+  if (!btn) return;
+  btn.textContent = RESULT_MODE_ICON[resultMode];
+  btn.title = `Search results open in: ${RESULT_MODE_LABEL[resultMode]} (click to change)`;
+}
+
+document.getElementById('resultModeBtn')?.addEventListener('click', () => {
+  resultMode = RESULT_MODES[(RESULT_MODES.indexOf(resultMode) + 1) % RESULT_MODES.length];
+  localStorage.setItem('resultMode', resultMode);
+  refreshResultModeUI();
+});
+refreshResultModeUI();
+
+// single spot that actually navigates to a result, respecting resultMode —
+// doSearch() below always routes through here instead of touching
+// window.location/window.open directly.
+function openResult(url) {
+  if (resultMode === 'tab') {
+    window.open(url, '_blank');
+  } else if (resultMode === 'window') {
+    // passing size features is what makes browsers actually spawn a
+    // separate window instead of just another tab
+    window.open(url, '_blank', 'noopener,width=1200,height=800');
+  } else {
+    window.location.href = url;
+  }
+}
+
 function doSearch(query) {
   // ── prefix detection: "nick rest of query" ──
   const parts = query.split(' ');
@@ -3231,14 +3323,14 @@ function doSearch(query) {
       const url = engine.direct ? engine.url
         : engine.url.includes('%s') ? engine.url.replace('%s', encodeURIComponent(rest))
         : engine.url + encodeURIComponent(rest);
-      window.location.href = url;
+      openResult(url);
       return;
     }
   }
   // ── single word that's an exact nick with no query (direct engines) ──
   if (parts.length === 1 && NICK_MAP[parts[0].toLowerCase()]) {
     const engine = NICK_MAP[parts[0].toLowerCase()];
-    if (engine.direct) { window.location.href = engine.url; return; }
+    if (engine.direct) { openResult(engine.url); return; }
   }
   // ── fallback: use active engine ──
   const e = VISIBLE_ENGINES[activeEngine];
@@ -3246,7 +3338,7 @@ function doSearch(query) {
   const url = e.direct ? e.url
     : e.url.includes('%s') ? e.url.replace('%s', encodeURIComponent(query))
     : e.url + encodeURIComponent(query);
-  window.location.href = url;
+  openResult(url);
 }
 
 document.getElementById('searchInput').addEventListener('keydown', e => {
@@ -3353,13 +3445,48 @@ buildEngines();
   }
   refreshMicUI();
 
-  function labelForKey(code) {
-    if (!code) return 'none';
+  // keybinds are stored as "mod+mod+Code" strings (e.g. "ctrl+alt+meta+Backslash")
+  // so they can be full combos, not just a single key — old single-code values
+  // from before this existed still work fine (no modifiers required for those).
+  const MODIFIER_CODES = new Set(['ControlLeft','ControlRight','AltLeft','AltRight','ShiftLeft','ShiftRight','MetaLeft','MetaRight']);
+  const CODE_LABELS = {
+    Backslash: '\\', Slash: '/', Comma: ',', Period: '.', Semicolon: ';',
+    Quote: "'", BracketLeft: '[', BracketRight: ']', Minus: '-', Equal: '=',
+    Space: 'Space', Backquote: '`'
+  };
+  function labelForCode(code) {
+    if (CODE_LABELS[code]) return CODE_LABELS[code];
     return code.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Arrow/, '');
   }
+  function labelForCombo(combo) {
+    if (!combo) return 'none';
+    const parts = combo.split('+');
+    const code = parts.pop();
+    const modLabels = { ctrl: 'Ctrl', alt: 'Alt', shift: 'Shift', meta: 'Win' };
+    const modStr = parts.map(m => modLabels[m] || m).join('+');
+    return modStr ? `${modStr}+${labelForCode(code)}` : labelForCode(code);
+  }
+  function buildCombo(e) {
+    const parts = [];
+    if (e.ctrlKey) parts.push('ctrl');
+    if (e.altKey) parts.push('alt');
+    if (e.shiftKey) parts.push('shift');
+    if (e.metaKey) parts.push('meta');
+    parts.push(e.code);
+    return parts.join('+');
+  }
+  function matchesCombo(e, combo) {
+    if (!combo) return false;
+    const parts = combo.split('+');
+    const code = parts.pop();
+    const want = { ctrl: false, alt: false, shift: false, meta: false };
+    parts.forEach(p => { want[p] = true; });
+    return e.code === code && e.ctrlKey === want.ctrl && e.altKey === want.alt
+      && e.shiftKey === want.shift && e.metaKey === want.meta;
+  }
   function refreshKeyLabels() {
-    if (clickKeyLabel) clickKeyLabel.textContent = labelForKey(clickKey);
-    if (pttKeyLabel) pttKeyLabel.textContent = labelForKey(pttKey);
+    if (clickKeyLabel) clickKeyLabel.textContent = labelForCombo(clickKey);
+    if (pttKeyLabel) pttKeyLabel.textContent = labelForCombo(pttKey);
   }
   refreshKeyLabels();
 
@@ -3415,6 +3542,35 @@ buildEngines();
     micBtn?.classList.toggle('listening', state === 'listening');
     micBtn?.classList.toggle('transcribing', state === 'transcribing');
   }
+
+  // --- mirror the breathing animation when recording is triggered by the
+  // AHK global hotkey instead of a click here in the page. voice_hotkey.py
+  // hits these via CDP Runtime.evaluate at the moment it starts/stops
+  // ffmpeg. This capture is purely visual — a second, independent
+  // getUserMedia stream feeding the same level meter — it never touches
+  // the actual audio that gets sent to Groq, ffmpeg still owns that. ---
+  let hotkeyStream = null;
+  window.__voiceHotkeyStart = async function () {
+    if (hotkeyStream || mediaStream) return; // already animating (or an in-page recording owns it)
+    try {
+      hotkeyStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      startLevelMeter(hotkeyStream);
+      setState('listening');
+    } catch (e) {
+      // no mic permission granted to this tab yet, or none available —
+      // fine, the real capture is happening in AHK regardless
+    }
+  };
+  window.__voiceHotkeyStop = function () {
+    if (!hotkeyStream) return;
+    hotkeyStream.getTracks().forEach(t => t.stop());
+    hotkeyStream = null;
+    stopLevelMeter();
+    setState('transcribing');
+    // AHK's own transcription step follows separately and has no further
+    // page hook, so just settle the button back to idle after a moment
+    setTimeout(() => { if (!mediaStream && !pttActive) setState('idle'); }, 4000);
+  };
 
   // strip "www."/".com" etc and match a spoken site name against the
   // real ENGINES list, so this stays in sync automatically as engines
@@ -3636,13 +3792,17 @@ buildEngines();
 
   document.addEventListener('keydown', e => {
     if (awaitingKeyFor) {
+      // a bare modifier press isn't a finished combo yet — keep waiting for
+      // the real key so combos like Ctrl+Alt+\ can be captured
+      if (MODIFIER_CODES.has(e.code)) return;
       e.preventDefault();
+      const combo = buildCombo(e);
       if (awaitingKeyFor === 'click') {
-        clickKey = e.code;
+        clickKey = combo;
         localStorage.setItem('voiceClickKey', clickKey);
         assignClickBtn.classList.remove('waiting');
       } else if (awaitingKeyFor === 'ptt') {
-        pttKey = e.code;
+        pttKey = combo;
         localStorage.setItem('voicePTTKey', pttKey);
         assignPTTBtn.classList.remove('waiting');
       }
@@ -3655,15 +3815,20 @@ buildEngines();
     if (tag === 'INPUT' || tag === 'TEXTAREA') return; // don't fire hotkeys while typing
     if (!micEnabled) return;
 
-    if (clickKey && e.code === clickKey && !e.repeat) {
+    if (clickKey && matchesCombo(e, clickKey) && !e.repeat) {
       listenForCommand();
     }
-    if (pttKey && e.code === pttKey && !e.repeat && !pttActive) {
+    if (pttKey && matchesCombo(e, pttKey) && !e.repeat && !pttActive) {
       startPTT();
     }
   });
   document.addEventListener('keyup', e => {
-    if (micEnabled && pttKey && e.code === pttKey) stopPTT();
+    if (!micEnabled || !pttKey) return;
+    // match on the combo's base key only — modifiers are often released
+    // before or after the base key, so requiring them still be held on
+    // keyup would make PTT combos "stick"
+    const baseCode = pttKey.split('+').pop();
+    if (e.code === baseCode) stopPTT();
   });
 })();
 
@@ -4014,10 +4179,123 @@ setInterval(fetchStats, 3000);
 // ══════════════════════════════
 //  TODO
 // ══════════════════════════════
+
+// ── multiple named lists ──
+// The todo *items* for whichever list is currently active always live at
+// the original 'sp_todos' key, unchanged — that's what Firebase sync, the
+// pop-out window, and the cross-tab 'storage' listener already understand,
+// so none of that code needs to change. Only the *other* (inactive) lists
+// get stashed under their own key, swapped in on switchTodoList().
+function loadTodoLists() {
+  let lists;
+  try { lists = JSON.parse(localStorage.getItem('sp_todoLists') || 'null'); } catch (e) { lists = null; }
+  if (!Array.isArray(lists) || !lists.length) lists = [{ id: 'default', name: 'todo' }];
+  if (!lists.some(l => l.id === 'default')) lists.unshift({ id: 'default', name: 'todo' });
+  return lists;
+}
+function saveTodoLists() { localStorage.setItem('sp_todoLists', JSON.stringify(todoLists)); }
+function stashKeyFor(id) { return 'sp_todos_' + id; }
+
+let todoLists = loadTodoLists();
+let activeTodoListId = localStorage.getItem('sp_activeTodoList') || 'default';
+if (!todoLists.some(l => l.id === activeTodoListId)) activeTodoListId = 'default';
+
 let todos = JSON.parse(localStorage.getItem('sp_todos') || '[]');
 let notepadWin = null;         // reference to the pop-out notepad/todos window
 
 function saveTodos() { localStorage.setItem('sp_todos', JSON.stringify(todos)); }
+
+function switchTodoList(id) {
+  if (id === activeTodoListId) return;
+  localStorage.setItem(stashKeyFor(activeTodoListId), JSON.stringify(todos));
+  activeTodoListId = id;
+  localStorage.setItem('sp_activeTodoList', activeTodoListId);
+  try { todos = JSON.parse(localStorage.getItem(stashKeyFor(id)) || '[]'); } catch (e) { todos = []; }
+  saveTodos();
+  renderTodos();
+  renderTodoListTabs();
+}
+
+function createTodoList() {
+  const name = window.prompt('Name for the new list:', '');
+  if (!name || !name.trim()) return;
+  const id = 'list_' + Date.now().toString(36);
+  todoLists.push({ id, name: name.trim() });
+  saveTodoLists();
+  switchTodoList(id);
+}
+
+function renameTodoList(id) {
+  const list = todoLists.find(l => l.id === id);
+  if (!list) return;
+  const name = window.prompt('Rename list:', list.name);
+  if (!name || !name.trim()) return;
+  list.name = name.trim();
+  saveTodoLists();
+  renderTodoListTabs();
+}
+
+function deleteTodoList(id) {
+  if (id === 'default') return; // the first list is permanent
+  if (!window.confirm('Delete this list and all its tasks?')) return;
+  const wasActive = activeTodoListId === id;
+  todoLists = todoLists.filter(l => l.id !== id);
+  saveTodoLists();
+  if (wasActive) switchTodoList('default');
+  localStorage.removeItem(stashKeyFor(id));
+  renderTodoListTabs();
+}
+
+function renderTodoListTabs() {
+  const wrap = document.getElementById('todoTitleList');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  todoLists.forEach((l, i) => {
+    if (i > 0) {
+      const sep = document.createElement('span');
+      sep.className = 'todo-title-sep';
+      sep.textContent = '|';
+      wrap.appendChild(sep);
+    }
+    const item = document.createElement('span');
+    item.className = 'todo-title-item' + (l.id === activeTodoListId ? ' active' : '');
+    item.draggable = true;
+    item.dataset.id = l.id;
+    item.textContent = l.name;
+    item.title = l.id === activeTodoListId
+      ? 'Double-click to rename'
+      : 'Click to switch · double-click to rename' + (l.id === 'default' ? '' : ' · right-click to delete · drag to reorder');
+
+    item.addEventListener('click', () => switchTodoList(l.id));
+    item.addEventListener('dblclick', e => { e.stopPropagation(); renameTodoList(l.id); });
+    if (l.id !== 'default') {
+      item.addEventListener('contextmenu', e => { e.preventDefault(); deleteTodoList(l.id); });
+    }
+    item.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', l.id); });
+    item.addEventListener('dragover', e => e.preventDefault());
+    item.addEventListener('drop', e => {
+      e.preventDefault();
+      const draggedId = e.dataTransfer.getData('text/plain');
+      if (!draggedId || draggedId === l.id) return;
+      const fromIdx = todoLists.findIndex(x => x.id === draggedId);
+      const toIdx = todoLists.findIndex(x => x.id === l.id);
+      if (fromIdx === -1 || toIdx === -1) return;
+      const [moved] = todoLists.splice(fromIdx, 1);
+      todoLists.splice(toIdx, 0, moved);
+      saveTodoLists();
+      renderTodoListTabs();
+    });
+
+    wrap.appendChild(item);
+  });
+
+  const addBtn = document.createElement('span');
+  addBtn.className = 'todo-title-add';
+  addBtn.textContent = '+';
+  addBtn.title = 'New list';
+  addBtn.addEventListener('click', createTodoList);
+  wrap.appendChild(addBtn);
+}
 
 function renderTodos() {
   const list = document.getElementById('todoList');
@@ -4086,6 +4364,7 @@ document.getElementById('todoInput').addEventListener('keydown', e => { if (e.ke
 document.getElementById('todoAddBtn').addEventListener('click', () => addTodo(document.getElementById('todoInput').value));
 document.getElementById('todoClear').addEventListener('click', () => { todos = todos.filter(t => !t.done); saveTodos(); renderTodos(); });
 renderTodos();
+renderTodoListTabs();
 
 // ══════════════════════════════
 //  NOTES
@@ -4128,6 +4407,75 @@ let notepadTab   = null;
 let notepadPanel = null;
 let notesSaveTimer;
 
+// ── 4 fixed note slots ──
+// Same pattern as the todo lists: whichever slot is active keeps living at
+// the original 'sp_notes' key (so Firebase sync, the pop-out window, and
+// the cross-tab 'storage' listener all keep working unmodified). Slot 1 is
+// simply whichever slot happens to be active on first load with no
+// 'sp_activeNoteSlot' key yet — which is 1, so the pre-existing note that
+// already lived at 'sp_notes' shows up there automatically, no migration
+// needed. Slots are fixed (not addable/removable), unlike the todo lists.
+let activeNoteSlot = parseInt(localStorage.getItem('sp_activeNoteSlot') || '1', 10);
+if (!(activeNoteSlot >= 1 && activeNoteSlot <= 4)) activeNoteSlot = 1;
+
+function switchNoteSlot(slot) {
+  if (slot === activeNoteSlot || !notepadArea) return;
+  localStorage.setItem('sp_notes_slot_' + activeNoteSlot, notepadArea.value);
+  activeNoteSlot = slot;
+  localStorage.setItem('sp_activeNoteSlot', String(activeNoteSlot));
+  const stashed = localStorage.getItem('sp_notes_slot_' + slot);
+  notepadArea.value = stashed != null ? stashed : '';
+  const countEl = document.getElementById('notepadCount');
+  if (countEl) countEl.textContent = notepadArea.value.length + ' chars';
+  notepadSave(notepadArea.value);
+  renderNoteSlotTabs();
+}
+
+function renderNoteSlotTabs() {
+  const wrap = document.getElementById('notepadSlotTabs');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  for (let slot = 1; slot <= 4; slot++) {
+    const btn = document.createElement('div');
+    btn.className = 'notepad-slot-btn' + (slot === activeNoteSlot ? ' active' : '');
+    btn.textContent = String(slot);
+    btn.title = slot === activeNoteSlot ? 'Currently open' : 'Switch to note ' + slot;
+    if (slot !== activeNoteSlot) btn.addEventListener('click', e => { e.stopPropagation(); switchNoteSlot(slot); });
+    wrap.appendChild(btn);
+  }
+}
+
+// "save as..." — writes the current slot's text to a real file. Uses the
+// File System Access API where available (lets you rename before saving);
+// falls back to a plain download (browser's own save dialog) elsewhere.
+async function notepadSaveToFile() {
+  if (!notepadArea) return;
+  const content = notepadArea.value;
+  if ('showSaveFilePicker' in window) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: 'note.txt',
+        types: [{ description: 'Text file', accept: { 'text/plain': ['.txt'] } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(content);
+      await writable.close();
+    } catch (e) {
+      if (e.name !== 'AbortError') alert('Could not save file: ' + e.message);
+    }
+    return;
+  }
+  const blob = new Blob([content], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'note.txt';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function notepadSave(val) {
   localStorage.setItem('sp_notes', val);
   const savedEl = document.getElementById('notepadSaved');
@@ -4155,6 +4503,10 @@ function initNotepad() {
   notepadArea.value = localStorage.getItem('sp_notes') || '';
   const countEl = document.getElementById('notepadCount');
   if (countEl) countEl.textContent = notepadArea.value.length + ' chars';
+  renderNoteSlotTabs();
+
+  const npSaveFile = document.getElementById('notepadSaveFileBtn');
+  if (npSaveFile) npSaveFile.addEventListener('click', e => { e.stopPropagation(); notepadSaveToFile(); });
 
   notepadArea.addEventListener('input', () => {
     clearTimeout(notesSaveTimer);
@@ -4212,6 +4564,23 @@ function initNotepad() {
       const savedEl = document.getElementById('notepadSaved');
       if (savedEl) savedEl.textContent = 'saved ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
       if (typeof fbPush === 'function') { clearTimeout(window._notesFbTimer); window._notesFbTimer = setTimeout(fbPush, 1500); }
+    } else if (e.key === 'sp_todoLists') {
+      // a list was added/renamed/reordered/deleted in the pop-out window
+      if (typeof loadTodoLists === 'function') { todoLists = loadTodoLists(); }
+      if (typeof renderTodoListTabs === 'function') renderTodoListTabs();
+    } else if (e.key === 'sp_activeTodoList') {
+      // which list is showing was switched in the pop-out window (the
+      // 'sp_todos' event above already carries the new content over)
+      activeTodoListId = e.newValue || 'default';
+      if (typeof renderTodoListTabs === 'function') renderTodoListTabs();
+    } else if (e.key === 'sp_activeNoteSlot') {
+      // which note slot is showing was switched in the pop-out window (the
+      // 'sp_notes' branch above already carries the new content over)
+      const slot = parseInt(e.newValue || '1', 10);
+      if (slot >= 1 && slot <= 4) {
+        activeNoteSlot = slot;
+        if (typeof renderNoteSlotTabs === 'function') renderNoteSlotTabs();
+      }
     }
   });
 }
@@ -4268,6 +4637,19 @@ function notepadPopOut() {
       .todo-edit-input{flex:1;background:#222;border:1px solid ${accent};border-radius:3px;color:#e8e8e8;font-family:inherit;font-size:12px;padding:2px 6px;outline:none;caret-color:${accent};min-width:0}
       .todo-clear{cursor:pointer}
       .todo-clear:hover{color:#e5484d}
+
+      .pw-todo-titlebar{display:flex;align-items:center;flex-wrap:wrap;padding:10px 12px 0;font-size:10px;letter-spacing:0.05em;flex-shrink:0}
+      .pw-title-item{cursor:pointer;color:#555;transition:color 0.15s;user-select:none}
+      .pw-title-item:hover{color:#e8e8e8}
+      .pw-title-item.active{color:#e8e8e8;cursor:default}
+      .pw-title-sep{color:#3a3a3a;margin:0 5px;user-select:none}
+      .pw-title-add{cursor:pointer;color:#555;margin-left:6px;transition:color 0.15s;user-select:none}
+      .pw-title-add:hover{color:#e8e8e8}
+
+      .pw-note-slots{display:flex;align-items:center;gap:4px;padding:10px 12px 0;flex-shrink:0}
+      .pw-slot-btn{width:16px;height:16px;display:flex;align-items:center;justify-content:center;border:1px solid #333;border-radius:3px;font-size:9px;font-family:inherit;color:#999;cursor:pointer;transition:opacity 0.15s,color 0.15s,border-color 0.15s}
+      .pw-slot-btn:hover{color:${accent};border-color:${accent}}
+      .pw-slot-btn.active{opacity:0.4;color:${accent};border-color:${accent};cursor:default}
     </style></head><body>
     <div class="bar">
       <div class="tabs">
@@ -4277,10 +4659,12 @@ function notepadPopOut() {
       <button class="dock" id="pwDock">◱ dock to page</button>
     </div>
     <div class="pane active" id="pwPaneNotes">
+      <div class="pw-note-slots" id="pwNoteSlots"></div>
       <textarea id="pwArea" placeholder="// notes, ideas, commands..." spellcheck="false">${current.replace(/</g,'&lt;')}</textarea>
       <div class="ft"><span id="pwSaved">auto-saved</span><span id="pwCount">${current.length} chars</span></div>
     </div>
     <div class="pane" id="pwPaneTodos">
+      <div class="pw-todo-titlebar" id="pwTodoTitlebar"></div>
       <div class="todo-input-row">
         <input type="text" id="pwTodoInput" placeholder="add task...">
         <div class="todo-add-btn" id="pwTodoAdd">+</div>
@@ -4314,6 +4698,118 @@ function notepadPopOut() {
     function setTodos(arr) { localStorage.setItem('sp_todos', JSON.stringify(arr)); }
     function nowTime() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
 
+    // ── Todo lists (same localStorage keys the main page uses, so both
+    // windows stay in sync via the 'storage' event below — this pop-out
+    // holds no live reference back to the main page's own code) ──
+    function loadTodoLists() {
+      var lists;
+      try { lists = JSON.parse(localStorage.getItem('sp_todoLists') || 'null'); } catch(e) { lists = null; }
+      if (!lists || !lists.length) lists = [{ id: 'default', name: 'todo' }];
+      var hasDefault = false;
+      for (var i = 0; i < lists.length; i++) { if (lists[i].id === 'default') hasDefault = true; }
+      if (!hasDefault) lists.unshift({ id: 'default', name: 'todo' });
+      return lists;
+    }
+    function saveTodoLists() { localStorage.setItem('sp_todoLists', JSON.stringify(todoLists)); }
+    function stashKeyFor(id) { return 'sp_todos_' + id; }
+
+    var todoLists = loadTodoLists();
+    var activeTodoListId = localStorage.getItem('sp_activeTodoList') || 'default';
+    (function() {
+      var found = false;
+      for (var i = 0; i < todoLists.length; i++) { if (todoLists[i].id === activeTodoListId) found = true; }
+      if (!found) activeTodoListId = 'default';
+    })();
+
+    function switchTodoList(id) {
+      if (id === activeTodoListId) return;
+      localStorage.setItem(stashKeyFor(activeTodoListId), JSON.stringify(getTodos()));
+      activeTodoListId = id;
+      localStorage.setItem('sp_activeTodoList', activeTodoListId);
+      var stashed;
+      try { stashed = JSON.parse(localStorage.getItem(stashKeyFor(id)) || '[]'); } catch(e) { stashed = []; }
+      setTodos(stashed);
+      renderTodos();
+      renderTodoTitlebar();
+    }
+    function createTodoList() {
+      var name = window.prompt('Name for the new list:', '');
+      if (!name || !name.trim()) return;
+      var id = 'list_' + Date.now().toString(36);
+      todoLists.push({ id: id, name: name.trim() });
+      saveTodoLists();
+      switchTodoList(id);
+    }
+    function renameTodoList(id) {
+      var list = null;
+      for (var i = 0; i < todoLists.length; i++) { if (todoLists[i].id === id) list = todoLists[i]; }
+      if (!list) return;
+      var name = window.prompt('Rename list:', list.name);
+      if (!name || !name.trim()) return;
+      list.name = name.trim();
+      saveTodoLists();
+      renderTodoTitlebar();
+    }
+    function deleteTodoList(id) {
+      if (id === 'default') return;
+      if (!window.confirm('Delete this list and all its tasks?')) return;
+      var wasActive = activeTodoListId === id;
+      todoLists = todoLists.filter(function(l) { return l.id !== id; });
+      saveTodoLists();
+      if (wasActive) switchTodoList('default');
+      localStorage.removeItem(stashKeyFor(id));
+      renderTodoTitlebar();
+    }
+    function renderTodoTitlebar() {
+      var wrap = d.getElementById('pwTodoTitlebar');
+      if (!wrap) return;
+      wrap.innerHTML = '';
+      todoLists.forEach(function(l, i) {
+        if (i > 0) {
+          var sep = d.createElement('span');
+          sep.className = 'pw-title-sep';
+          sep.textContent = '|';
+          wrap.appendChild(sep);
+        }
+        var item = d.createElement('span');
+        item.className = 'pw-title-item' + (l.id === activeTodoListId ? ' active' : '');
+        item.draggable = true;
+        item.title = l.id === activeTodoListId
+          ? 'Double-click to rename'
+          : 'Click to switch · double-click to rename' + (l.id === 'default' ? '' : ' · right-click to delete · drag to reorder');
+        item.textContent = l.name;
+        item.addEventListener('click', function() { switchTodoList(l.id); });
+        item.addEventListener('dblclick', function(e) { e.stopPropagation(); renameTodoList(l.id); });
+        if (l.id !== 'default') {
+          item.addEventListener('contextmenu', function(e) { e.preventDefault(); deleteTodoList(l.id); });
+        }
+        item.addEventListener('dragstart', function(e) { e.dataTransfer.setData('text/plain', l.id); });
+        item.addEventListener('dragover', function(e) { e.preventDefault(); });
+        item.addEventListener('drop', function(e) {
+          e.preventDefault();
+          var draggedId = e.dataTransfer.getData('text/plain');
+          if (!draggedId || draggedId === l.id) return;
+          var fromIdx = -1, toIdx = -1;
+          for (var i = 0; i < todoLists.length; i++) {
+            if (todoLists[i].id === draggedId) fromIdx = i;
+            if (todoLists[i].id === l.id) toIdx = i;
+          }
+          if (fromIdx === -1 || toIdx === -1) return;
+          var moved = todoLists.splice(fromIdx, 1)[0];
+          todoLists.splice(toIdx, 0, moved);
+          saveTodoLists();
+          renderTodoTitlebar();
+        });
+        wrap.appendChild(item);
+      });
+      var addBtn = d.createElement('span');
+      addBtn.className = 'pw-title-add';
+      addBtn.textContent = '+';
+      addBtn.title = 'New list';
+      addBtn.addEventListener('click', createTodoList);
+      wrap.appendChild(addBtn);
+    }
+
     // ── Tabs ──
     var tabNotes = d.getElementById('pwTabNotes'), tabTodos = d.getElementById('pwTabTodos');
     var paneNotes = d.getElementById('pwPaneNotes'), paneTodos = d.getElementById('pwPaneTodos');
@@ -4340,6 +4836,38 @@ function notepadPopOut() {
         saved.textContent = 'saved ' + nowTime();
       }, 500);
     });
+
+    // ── Note slots (1-4, same localStorage keys as the main page) ──
+    var activeNoteSlot = parseInt(localStorage.getItem('sp_activeNoteSlot') || '1', 10);
+    if (!(activeNoteSlot >= 1 && activeNoteSlot <= 4)) activeNoteSlot = 1;
+
+    function switchNoteSlot(slot) {
+      if (slot === activeNoteSlot) return;
+      localStorage.setItem('sp_notes_slot_' + activeNoteSlot, area.value);
+      activeNoteSlot = slot;
+      localStorage.setItem('sp_activeNoteSlot', String(activeNoteSlot));
+      var stashed = localStorage.getItem('sp_notes_slot_' + slot);
+      area.value = stashed != null ? stashed : '';
+      count.textContent = area.value.length + ' chars';
+      localStorage.setItem('sp_notes', area.value);
+      saved.textContent = 'saved ' + nowTime();
+      renderNoteSlots();
+    }
+    function renderNoteSlots() {
+      var wrap = d.getElementById('pwNoteSlots');
+      if (!wrap) return;
+      wrap.innerHTML = '';
+      for (var slot = 1; slot <= 4; slot++) {
+        (function(slot) {
+          var btn = d.createElement('div');
+          btn.className = 'pw-slot-btn' + (slot === activeNoteSlot ? ' active' : '');
+          btn.textContent = String(slot);
+          btn.title = slot === activeNoteSlot ? 'Currently open' : 'Switch to note ' + slot;
+          if (slot !== activeNoteSlot) btn.addEventListener('click', function(e) { e.stopPropagation(); switchNoteSlot(slot); });
+          wrap.appendChild(btn);
+        })(slot);
+      }
+    }
 
     // ── Todos ──
     var todoInput = d.getElementById('pwTodoInput'), todoAdd = d.getElementById('pwTodoAdd');
@@ -4411,6 +4939,15 @@ function notepadPopOut() {
           count.textContent = (e.newValue || '').length + ' chars';
           saved.textContent = 'saved ' + nowTime();
         }
+      } else if (e.key === 'sp_todoLists') {
+        todoLists = loadTodoLists();
+        renderTodoTitlebar();
+      } else if (e.key === 'sp_activeTodoList') {
+        activeTodoListId = e.newValue || 'default';
+        renderTodoTitlebar();
+      } else if (e.key === 'sp_activeNoteSlot') {
+        var slot = parseInt(e.newValue || '1', 10);
+        if (slot >= 1 && slot <= 4) { activeNoteSlot = slot; renderNoteSlots(); }
       }
     });
 
@@ -4418,6 +4955,8 @@ function notepadPopOut() {
     d.getElementById('pwDock').addEventListener('click', function(){ window.close(); });
 
     renderTodos();
+    renderTodoTitlebar();
+    renderNoteSlots();
     area.focus();
   }
 
@@ -9472,7 +10011,8 @@ function finalizeFeed(platformKey, id, raw, title) {
 
 // Parses any supported platform URL (or a bare YouTube ID, for backward compat).
 // Returns a feed object, { unsupported: true, label, reason } for a known-but-unembeddable
-// platform, or null if nothing matched at all.
+// platform, a best-effort "unverified" feed object for anything else that at least looks
+// like a real URL, or null if the input isn't a usable URL at all.
 function parseFeedUrl(raw, title) {
   if (!raw) return null;
   raw = raw.trim();
@@ -9488,6 +10028,26 @@ function parseFeedUrl(raw, title) {
   }
   const unsupported = UNSUPPORTED_PLATFORMS.find(u => u.test(host));
   if (unsupported) return { unsupported: true, label: unsupported.label, reason: unsupported.reason };
+
+  // Not on either list — try it anyway. Most sites block being framed (X-Frame-Options / CSP),
+  // and a blocked iframe fails silently (no JS error to catch), so this is marked "unverified"
+  // rather than presented as a known-working embed.
+  if (host && host.includes('.')) {
+    const fullUrl = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
+    const niceLabel = host.split('.').slice(-2)[0];
+    return {
+      platform: 'other',
+      platformLabel: niceLabel.charAt(0).toUpperCase() + niceLabel.slice(1),
+      color: '#888888',
+      id: fullUrl, raw: fullUrl, title,
+      embedSrc: fullUrl,
+      thumbSrc: null,
+      thumbFallback: null,
+      note: null,
+      unverified: true,
+      watchUrl: fullUrl,
+    };
+  }
   return null;
 }
 
@@ -9537,14 +10097,20 @@ function buildFeeds() {
          <div class="feed-thumb-placeholder" style="background:${feed.color}22;color:${feed.color};">${escHtml(feed.platformLabel || '')}</div>`
       : `<div class="feed-thumb feed-thumb-placeholder" style="display:flex;background:${feed.color}22;color:${feed.color};">${escHtml(feed.platformLabel || '')}</div>`;
 
+    const badges = `
+      <div class="feed-platform-badge" style="border-color:${feed.color}66;color:${feed.color};">${escHtml(feed.platformLabel || '')}</div>
+      ${feed.unverified ? `<div class="feed-platform-badge" style="border-color:#ffb02066;color:#ffb020;border-style:dashed;" title="not on the verified platform list — may not load, tap ↗ to open on the site instead">UNTESTED</div>` : ''}`;
+
     wrap.innerHTML = `
       ${thumbHtml}
       <div class="feed-overlay">
-        <div style="display:flex;gap:4px;align-items:center;">
-          <div class="feed-live-badge">LIVE</div>
-          <div class="feed-platform-badge" style="border-color:${feed.color}66;color:${feed.color};">${escHtml(feed.platformLabel || '')}</div>
+        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
+          ${badges}
         </div>
-        <div class="feed-title">${escHtml(feed.title || '')}</div>
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:6px;">
+          <div class="feed-title">${escHtml(feed.title || '')}</div>
+          ${feed.unverified ? `<a class="feed-open-link" href="${feed.watchUrl}" target="_blank" rel="noopener noreferrer" title="open on ${escHtml(feed.platformLabel || 'site')}" onclick="event.stopPropagation();">↗</a>` : ''}
+        </div>
       </div>
       <div class="feed-play-btn">▶</div>`;
 
@@ -9563,6 +10129,7 @@ function playFeedInline(feed, thumbEl) {
       allowfullscreen>
     </iframe>
     <div class="feed-iframe-label">${escHtml(feed.title || '')}</div>
+    ${feed.unverified ? `<a class="feed-open-link" style="right:32px;" href="${feed.watchUrl}" target="_blank" rel="noopener noreferrer" title="open on ${escHtml(feed.platformLabel || 'site')} if the embed stays blank">↗</a>` : ''}
     <button class="feed-close-btn" title="close">✕</button>`;
 
   wrap.querySelector('.feed-close-btn').addEventListener('click', e => {
@@ -9582,10 +10149,13 @@ function openFeedsEdit() {
     <div class="modal" style="width:460px;max-width:95vw;max-height:85vh;overflow-y:auto;">
       <h3 style="margin-bottom:6px;">edit live feeds</h3>
       <p style="font-size:10px;color:var(--text3);margin-bottom:14px;line-height:1.6;">
-        paste a video/live URL from YouTube, Twitch, Kick, Rumble, Dailymotion, Vimeo, Odysee,
-        BitChute, Facebook, Mixcloud, Trovo, or a PeerTube instance — or just a bare YouTube video ID.
-        TikTok, Instagram, X, Snapchat, Reddit, LinkedIn, DLive and Nimo TV don't offer a public
-        embed, so those will show an explanation instead of a broken player.
+        paste any video/live URL. YouTube, Twitch, Kick, Rumble, Dailymotion, Vimeo, Odysee,
+        BitChute, Facebook, Mixcloud, Trovo, and PeerTube instances embed properly — or use a
+        bare YouTube video ID. TikTok, Instagram, X, Snapchat, Reddit, LinkedIn, DLive and Nimo TV
+        don't offer a public embed at all, so those show an explanation instead of a broken player.
+        Anything else gets tried as a best-effort embed, marked <span style="color:#ffb020;">UNTESTED</span>
+        on the tile — most sites block being framed, so it may just stay blank; an ↗ link lets you
+        open it on the real site instead.
       </p>
 
       <div id="feedsEditList"></div>
@@ -10057,6 +10627,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <div id="notepadPanel">
   <div class="notepad-header">
     <span class="notepad-header-title">✎ notepad</span>
+    <div class="notepad-slot-tabs" id="notepadSlotTabs"></div>
     <div class="notepad-header-actions">
       <button class="notepad-popout-btn" id="notepadPopout" title="Open in its own window">
         <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -10066,7 +10637,11 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
   </div>
   <textarea id="notepadArea" placeholder="// notes, ideas, commands..." spellcheck="false"></textarea>
-  <div class="notepad-footer"><span id="notepadSaved">auto-saved</span><span id="notepadCount">0 chars</span></div>
+  <div class="notepad-footer">
+    <span id="notepadSaved">auto-saved</span>
+    <span id="notepadCount">0 chars</span>
+    <button class="notepad-save-btn" id="notepadSaveFileBtn" title="Save this note as a file">save as</button>
+  </div>
 </div>
 
 </body>
