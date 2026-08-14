@@ -5878,23 +5878,28 @@ document.getElementById('bulkSave').addEventListener('click', () => {
 
   const rawLines = document.getElementById('bulkText').value.split('\n').map(l => l.trim()).filter(Boolean);
 
-  // ── no sites pasted → just fill in missing icons in the selected scope ──
+  // ── no sites pasted → re-guess icons only for entries still on the generic
+  // placeholder icon (🔗 for bookmarks · also 🔍 for osint, its own default) ──
+  // Anything you've deliberately picked yourself is left alone.
   if (rawLines.length === 0) {
     if (iconMode !== 'auto') { alert('paste some sites, or switch ICONS to "auto populate" to fill in missing icons.'); return; }
     const cats = catSel === '__all__' ? Object.keys(data) : [catSel];
-    let filled = 0;
+    const isGenericIcon = icon => !icon || icon === '🔗' || (isOsint && icon === '🔍');
+    let changed = 0;
     cats.forEach(c => {
       (data[c] || []).forEach(item => {
-        if (!item.icon) {
-          item.icon = guessEmoji(item.name, item.url, item.nick || '');
-          filled++;
+        if (!isGenericIcon(item.icon)) return; // already has a real icon — don't touch it
+        const guess = guessEmoji(item.name, item.url, item.nick || '');
+        if (item.icon !== guess) {
+          item.icon = guess;
+          changed++;
         }
       });
     });
     if (isOsint) { saveOsint(); buildOsintTabs(); renderOsint(); }
     else { saveBookmarks(); buildCategoryTabs(); renderBookmarks(); }
     document.getElementById('bulkAddOverlay').classList.remove('visible');
-    alert(filled ? `filled in ${filled} missing icon${filled === 1 ? '' : 's'}.` : 'nothing to fill in — every entry already has an icon.');
+    alert(changed ? `updated ${changed} icon${changed === 1 ? '' : 's'} to the closest match.` : 'nothing to change — no entries left on the generic placeholder icon.');
     return;
   }
 
