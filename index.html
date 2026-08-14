@@ -2335,7 +2335,20 @@
     </div>
     <!-- youtube tab -->
     <div id="dorksTab-youtube" style="display:none;">
-      <div id="dorkYoutubeList"></div>
+      <div style="display:flex;gap:6px;margin-bottom:14px;" id="ytDorkModeTabs">
+        <button class="bg-tab active" data-ytmode="query">search by query</button>
+        <button class="bg-tab" data-ytmode="standalone">search by standalone phrase</button>
+      </div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin:-8px 0 14px;line-height:1.5;">
+        <span id="ytDorkModeHint-query">click a template, it drops into the search bar with your topic term selected — type it and hit enter.</span>
+        <span id="ytDorkModeHint-standalone" style="display:none;">exact KVN AUST filename/format phrases — sorted by upload date to surface 0-view videos. click one, fill in the highlighted XXXX/date if present, hit enter.</span>
+      </div>
+      <div id="ytDorkMode-query">
+        <div id="dorkYoutubeQueryList"></div>
+      </div>
+      <div id="ytDorkMode-standalone" style="display:none;">
+        <div id="dorkYoutubeStandaloneList"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -2500,6 +2513,7 @@
 <!-- ── CONTEXT MENU ── -->
 <div class="ctx-menu" id="ctxMenu">
   <div class="ctx-item" id="ctxAdd">＋ &nbsp;add bookmark</div>
+  <div class="ctx-item" id="ctxBulkAdd">☰ &nbsp;add bookmarks</div>
   <div class="ctx-sep"></div>
   <div class="ctx-item" id="ctxEdit" style="display:none">✎ &nbsp;edit</div>
   <div class="ctx-item" id="ctxRemove" style="display:none">✕ &nbsp;remove</div>
@@ -2542,6 +2556,33 @@
     <div class="modal-btns">
       <button class="modal-btn" id="modalCancel">cancel</button>
       <button class="modal-btn primary" id="modalSave">save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── BULK ADD MODAL (shared by bookmarks + osint) ── -->
+<div class="modal-overlay" id="bulkAddOverlay">
+  <div class="modal" style="width:480px;">
+    <h3 id="bulkModalTitle">add bookmarks</h3>
+    <label>PASTE SITES <span style="color:var(--text3);font-size:9px;letter-spacing:0;">— one per line · leave empty to just fill in missing icons below</span></label>
+    <textarea id="bulkText" rows="5" spellcheck="false" placeholder="github.com&#10;Hacker News | https://news.ycombinator.com | hn&#10;Shodan https://shodan.io"
+      style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px;padding:8px;outline:none;caret-color:var(--accent);resize:vertical;margin-bottom:6px;box-sizing:border-box;line-height:1.6;"></textarea>
+    <div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin:-2px 0 12px;line-height:1.5;">
+      formats: bare url/domain &nbsp;·&nbsp; <span style="color:var(--text2)">name | url | nick</span> &nbsp;·&nbsp; name url nick (space-separated)
+    </div>
+    <label>ICONS</label>
+    <select id="bulkIconMode">
+      <option value="auto">auto populate</option>
+      <option value="none">do nothing</option>
+    </select>
+    <label>CATEGORY</label>
+    <select id="bulkCat"></select>
+    <div id="bulkNewCatWrap" style="display:none;">
+      <input type="text" id="bulkNewCat" placeholder="new category name" style="margin-top:-4px;">
+    </div>
+    <div class="modal-btns">
+      <button class="modal-btn" id="bulkCancel">cancel</button>
+      <button class="modal-btn primary" id="bulkSave">save</button>
     </div>
   </div>
 </div>
@@ -3310,6 +3351,24 @@ function openResult(url) {
     window.location.href = url;
   }
 }
+
+// ── make resultMode apply to every outbound link on the page, not just
+// search results — bookmarks, the social/quick-links sidebars, engine
+// overlay entries, anything rendered as a plain <a href="..."> with no
+// target of its own. Links that already deliberately force target="_blank"
+// (small utility links like "view on Spotify") are left alone since they're
+// already safe — they never navigate this pinned tab away regardless of
+// resultMode, so changing them could only make things worse. ──
+document.addEventListener('click', e => {
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  if (resultMode === 'same') return; // already the default browser behavior
+  const a = e.target.closest('a[href]');
+  if (!a || a.hasAttribute('target')) return;
+  const href = a.getAttribute('href') || '';
+  if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
+  e.preventDefault();
+  openResult(a.href);
+});
 
 function doSearch(query) {
   // ── prefix detection: "nick rest of query" ──
@@ -5510,6 +5569,7 @@ function posCtx(x, y) {
 document.addEventListener('click', () => ctxMenu.classList.remove('visible'));
 
 document.getElementById('ctxAdd').addEventListener('click', () => { openModal(); });
+document.getElementById('ctxBulkAdd').addEventListener('click', () => { openBulkModal('bookmarks'); });
 document.getElementById('ctxEdit').addEventListener('click', () => {
   if (!ctxTarget) return;
   if (ctxTarget.type === 'bm') {
@@ -5697,6 +5757,189 @@ document.getElementById('modalSave').addEventListener('click', () => {
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') document.getElementById('modalOverlay').classList.remove('visible');
+});
+
+// ══════════════════════════════
+//  BULK ADD — paste multiple bookmarks/osint tools at once,
+//  or leave the paste box empty to auto-fill missing icons.
+//  Shared between the bookmarks widget and the OSINT widget.
+// ══════════════════════════════
+let bulkTarget = 'bookmarks';
+
+function bulkCategoryData() {
+  return bulkTarget === 'osint' ? osintData : bookmarks;
+}
+
+function buildBulkCatOptions() {
+  const sel = document.getElementById('bulkCat');
+  sel.innerHTML = '';
+  const data = bulkCategoryData();
+  const optAll = document.createElement('option');
+  optAll.value = '__all__';
+  optAll.textContent = '— all categories (icon fill-in only) —';
+  sel.appendChild(optAll);
+  Object.keys(data).forEach(c => {
+    const o = document.createElement('option');
+    o.value = c; o.textContent = c;
+    sel.appendChild(o);
+  });
+  const optNew = document.createElement('option');
+  optNew.value = '__new__';
+  optNew.textContent = '+ add new category';
+  sel.appendChild(optNew);
+  const active = bulkTarget === 'osint' ? osintActive : activeCategory;
+  sel.value = (active && data[active] !== undefined) ? active : (Object.keys(data)[0] || '__all__');
+}
+
+function openBulkModal(target) {
+  bulkTarget = target;
+  document.getElementById('bulkModalTitle').textContent = target === 'osint' ? 'add osint tools' : 'add bookmarks';
+  document.getElementById('bulkText').value = '';
+  document.getElementById('bulkIconMode').value = 'auto';
+  buildBulkCatOptions();
+  document.getElementById('bulkNewCatWrap').style.display = 'none';
+  document.getElementById('bulkNewCat').value = '';
+  document.getElementById('bulkAddOverlay').classList.add('visible');
+  setTimeout(() => document.getElementById('bulkText').focus(), 50);
+}
+
+document.getElementById('bulkCat').addEventListener('change', () => {
+  document.getElementById('bulkNewCatWrap').style.display =
+    document.getElementById('bulkCat').value === '__new__' ? '' : 'none';
+});
+
+document.getElementById('bulkCancel').addEventListener('click', () => {
+  document.getElementById('bulkAddOverlay').classList.remove('visible');
+});
+document.getElementById('bulkAddOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('bulkAddOverlay')) document.getElementById('bulkAddOverlay').classList.remove('visible');
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('bulkAddOverlay').classList.remove('visible');
+});
+
+function bulkNormalizeUrl(u) {
+  u = u.trim();
+  if (!u) return '';
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(u)) u = 'https://' + u;
+  return u;
+}
+
+function bulkNameFromUrl(url) {
+  const h = hostOf(url);
+  if (!h) return url;
+  const base = h.split('.')[0];
+  return base ? base.charAt(0).toUpperCase() + base.slice(1) : h;
+}
+
+function looksLikeUrlToken(t) {
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(t) || /^www\./i.test(t) || /\.[a-z]{2,}(\/|$|\?)/i.test(t);
+}
+
+// Accepts: bare url/domain · "name | url | nick" · "name url nick" (space-separated)
+function parseBulkLine(line) {
+  line = line.trim();
+  if (!line) return null;
+  if (line.includes('|')) {
+    const parts = line.split('|').map(s => s.trim()).filter(s => s.length);
+    if (parts.length === 1) return { name: null, url: bulkNormalizeUrl(parts[0]), nick: '' };
+    if (parts.length >= 2) return { name: parts[0], url: bulkNormalizeUrl(parts[1]), nick: parts[2] || '' };
+    return { error: line };
+  }
+  const tokens = line.split(/\s+/).filter(Boolean);
+  if (tokens.length === 1) {
+    if (looksLikeUrlToken(tokens[0])) return { name: null, url: bulkNormalizeUrl(tokens[0]), nick: '' };
+    return { error: line };
+  }
+  const urlIdx = tokens.findIndex(looksLikeUrlToken);
+  if (urlIdx === -1) return { error: line };
+  const url = bulkNormalizeUrl(tokens[urlIdx]);
+  const nameTokens = tokens.slice(0, urlIdx);
+  const rest = tokens.slice(urlIdx + 1);
+  const name = nameTokens.length ? nameTokens.join(' ') : null;
+  const nick = rest.length ? rest[0] : '';
+  return { name, url, nick };
+}
+
+document.getElementById('bulkSave').addEventListener('click', () => {
+  const iconMode = document.getElementById('bulkIconMode').value; // 'auto' | 'none'
+  let catSel = document.getElementById('bulkCat').value;
+  const isOsint = bulkTarget === 'osint';
+  const data = bulkCategoryData();
+
+  // resolve/create target category
+  if (catSel === '__new__') {
+    const newName = document.getElementById('bulkNewCat').value.trim();
+    if (!newName) { alert('enter a name for the new category'); return; }
+    const key = isOsint ? newName : newName.toLowerCase().replace(/\s+/g, '-');
+    if (!data[key]) data[key] = [];
+    catSel = key;
+  }
+
+  const rawLines = document.getElementById('bulkText').value.split('\n').map(l => l.trim()).filter(Boolean);
+
+  // ── no sites pasted → just fill in missing icons in the selected scope ──
+  if (rawLines.length === 0) {
+    if (iconMode !== 'auto') { alert('paste some sites, or switch ICONS to "auto populate" to fill in missing icons.'); return; }
+    const cats = catSel === '__all__' ? Object.keys(data) : [catSel];
+    let filled = 0;
+    cats.forEach(c => {
+      (data[c] || []).forEach(item => {
+        if (!item.icon) {
+          item.icon = guessEmoji(item.name, item.url, item.nick || '');
+          filled++;
+        }
+      });
+    });
+    if (isOsint) { saveOsint(); buildOsintTabs(); renderOsint(); }
+    else { saveBookmarks(); buildCategoryTabs(); renderBookmarks(); }
+    document.getElementById('bulkAddOverlay').classList.remove('visible');
+    alert(filled ? `filled in ${filled} missing icon${filled === 1 ? '' : 's'}.` : 'nothing to fill in — every entry already has an icon.');
+    return;
+  }
+
+  // ── sites pasted → add them ──
+  if (catSel === '__all__') { alert('pick a specific category to add new sites to (not "all categories").'); return; }
+  if (!data[catSel]) data[catSel] = [];
+
+  let added = 0, skippedNicks = 0;
+  const errors = [];
+  rawLines.forEach(line => {
+    const parsed = parseBulkLine(line);
+    if (!parsed || parsed.error) { errors.push(line); return; }
+    const name = parsed.name || bulkNameFromUrl(parsed.url);
+    const url = parsed.url;
+    let nick = !isOsint ? (parsed.nick || '').toLowerCase().replace(/[^a-z0-9_-]/g, '') : '';
+    const icon = iconMode === 'auto' ? guessEmoji(name, url, nick) : '';
+
+    const entry = { name, url, icon };
+
+    if (nick) {
+      const loc = findNickLocation(nick);
+      if (loc) { nick = ''; skippedNicks++; }
+    }
+    if (nick) {
+      entry.nick = nick;
+      const searchUrl = url.includes('%s') ? url.replace('%s', '') : url + (url.includes('?') ? '&q=' : '?q=');
+      const engine = { id: 'bm_' + nick, nick, name, url: searchUrl };
+      const existing = ENGINES.findIndex(e => e.id === 'bm_' + nick);
+      if (existing > -1) ENGINES[existing] = engine; else ENGINES.push(engine);
+      NICK_MAP[nick] = engine;
+    }
+
+    data[catSel].push(entry);
+    added++;
+  });
+
+  if (isOsint) { osintActive = catSel; saveOsint(); buildOsintTabs(); renderOsint(); }
+  else { activeCategory = catSel; saveBookmarks(); buildCategoryTabs(); renderBookmarks(); }
+
+  document.getElementById('bulkAddOverlay').classList.remove('visible');
+
+  let msg = `added ${added} site${added === 1 ? '' : 's'} to "${catSel}".`;
+  if (skippedNicks) msg += `\n${skippedNicks} nickname${skippedNicks === 1 ? '' : 's'} skipped (already in use) — sites were still added, just without a search shortcut.`;
+  if (errors.length) msg += `\n\ncouldn't parse ${errors.length} line${errors.length === 1 ? '' : 's'}:\n` + errors.slice(0, 10).join('\n');
+  alert(msg);
 });
 
 // ══════════════════════════════
@@ -8907,6 +9150,7 @@ const osintCtxMenu = document.createElement('div');
 osintCtxMenu.className = 'ctx-menu';
 osintCtxMenu.innerHTML = `
   <div class="ctx-item" id="osintCtxAdd">＋ &nbsp;add tool</div>
+  <div class="ctx-item" id="osintCtxBulkAdd">☰ &nbsp;add tools</div>
   <div class="ctx-sep"></div>
   <div class="ctx-item" id="osintCtxEdit" style="display:none">✎ &nbsp;edit</div>
   <div class="ctx-item" id="osintCtxRemove" style="display:none;color:var(--red)">✕ &nbsp;remove</div>`;
@@ -8962,6 +9206,9 @@ function osintOpenEdit(item, idx, isNew) {
 
 osintCtxMenu.querySelector('#osintCtxAdd').addEventListener('click', () => {
   osintOpenEdit(null, null, true);
+});
+osintCtxMenu.querySelector('#osintCtxBulkAdd').addEventListener('click', () => {
+  openBulkModal('osint');
 });
 osintCtxMenu.querySelector('#osintCtxEdit').addEventListener('click', () => {
   if (osintCtxTarget !== null) osintOpenEdit(osintData[osintActive][osintCtxTarget], osintCtxTarget, false);
@@ -9182,7 +9429,7 @@ const GOOGLE_DORKS = [
   },
 ];
 
-const YOUTUBE_DORKS = [
+const YOUTUBE_DORKS_QUERY = [
   {
     section: 'find unedited / raw uploads',
     dorks: [
@@ -9253,7 +9500,766 @@ const YOUTUBE_DORKS = [
   },
 ];
 
-function buildDorkList(dorks, containerId, engineNick) {
+const YOUTUBE_DORKS_STANDALONE = [
+  // ── raw / new-upload keyphrases (sort by Upload Date) ──
+  {
+    section: "App",
+    dorks: [
+      { tpl:"Snapchat-", desc:"saved Snapchat memories", tag:"app" },
+      { tpl:"\"zoom_0\"", desc:"Zoom local recording default", tag:"app" },
+    ]
+  },
+  {
+    section: "Screen Recorder",
+    dorks: [
+      { tpl:"\"Screencast from\"", desc:"GNOME/ChromeOS", tag:"screen-recorder" },
+      { tpl:"\"mobizen\"", desc:"Screen Recorder", tag:"screen-recorder" },
+      { tpl:"\"ScreenRecording\"", desc:"Screen Recorder", tag:"screen-recorder" },
+      { tpl:"\"New Loom Recording\"", desc:"Loom", tag:"screen-recorder" },
+      { tpl:"\"Personal Microsoft Edge\"", desc:"Screen Recorder", tag:"screen-recorder" },
+      { tpl:"\"Profile 1 Microsoft Edge\"", desc:"Screen Recorder", tag:"screen-recorder" },
+      { tpl:"\"my screencast\"", desc:"Screen Recorder", tag:"screen-recorder" },
+    ]
+  },
+  {
+    section: "Game Capture",
+    dorks: [
+      { tpl:"\"Replay\"", desc:"Fortnite/game replay exports", tag:"game-capture" },
+      { tpl:"Robloxapp", desc:"Roblox", tag:"game-capture" },
+      { tpl:"\"Javaw\"", desc:"Minecraft", tag:"game-capture" },
+      { tpl:"\"Shot with Geforce\"", desc:"Nvidia", tag:"game-capture" },
+      { tpl:"\"My great game My great capture\"", desc:"Game Capture", tag:"game-capture" },
+    ]
+  },
+  {
+    section: "Video Editor",
+    dorks: [
+      { tpl:"My Montage MM/DD/YY", desc:"One True Media", tag:"video-editor" },
+      { tpl:"Portrait Video Nanny Canon", desc:"NSFW", tag:"video-editor" },
+      { tpl:"\"Sequence 01 1\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"My Slideshow\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"Made with Clipchamp\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"Made with Flexclip\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"Your Paragraph Text\"", desc:"Canva placeholder", tag:"video-editor" },
+      { tpl:"\"Created with @magisto\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"By Magisto\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"Created by Magisto - Magical Video Editor\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"Created using the one true media\"", desc:"dead service, use Before:2015", tag:"video-editor" },
+      { tpl:"\"Movie uploaded from Samsung Intelli-studio\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"Recovered Autosave\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"Created with iTimelapse\"", desc:"time-lapse", tag:"video-editor" },
+      { tpl:"\"searchstory\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"Made with Explain Everything\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"Video created using fotoslides\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"Created with Wondershare Video Editor\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"Created with Wondershare Filmora\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"Uploaded using 173434605274\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"Slideagram\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"Dogbook Movie\"", desc:"dead Facebook pet app", tag:"video-editor" },
+      { tpl:"\"Catbook Movie\"", desc:"dead Facebook pet app", tag:"video-editor" },
+      { tpl:"\"Horsebook Movie\"", desc:"dead Facebook pet app", tag:"video-editor" },
+      { tpl:"\"created at animoto.com\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"My Vidrhythm\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"My tagged photos in Pummelvision\"", desc:"dead service", tag:"video-editor" },
+      { tpl:"\"Created with WeVideo\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"My Video HQ\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"Produced with Cyberlink PhotoDirector\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"What do you think of this picture?\"", desc:"Video Editor", tag:"video-editor" },
+    ]
+  },
+  {
+    section: "DVD",
+    dorks: [
+      { tpl:"VTS 01", desc:"DVD", tag:"dvd" },
+      { tpl:"\"Video_ts.vob\"", desc:"DVD", tag:"dvd" },
+      { tpl:"\"VIDEO TS\"", desc:"DVD", tag:"dvd" },
+    ]
+  },
+  {
+    section: "Misc",
+    dorks: [
+      { tpl:"bmdjAAAF", desc:"Misc", tag:"misc" },
+      { tpl:"\"Video Assignment\"", desc:"school projects", tag:"misc" },
+      { tpl:"\"MicrosoftTeams Video\"", desc:"Misc", tag:"misc" },
+      { tpl:"\"Test upload\"", desc:"Misc", tag:"misc" },
+      { tpl:"\"Moviemakeronline com\"", desc:"Misc", tag:"misc" },
+      { tpl:"\"myvideo convert2video com\"", desc:"Misc", tag:"misc" },
+      { tpl:"\"Myvideo imagetovideo com\"", desc:"Misc", tag:"misc" },
+      { tpl:"\"Untitled Project\"", desc:"Misc", tag:"misc" },
+      { tpl:"\"10000000\" * * \"n\"", desc:"wildcard search", tag:"misc" },
+      { tpl:"NVEExport", desc:"Misc", tag:"misc" },
+      { tpl:"\"DVD_VIDEO_RECORDER\"", desc:"Misc", tag:"misc" },
+      { tpl:"\"For ipod video and iphone\"", desc:"Misc", tag:"misc" },
+      { tpl:"Uploaded with Free Leawo Video Converter", desc:"Misc", tag:"misc" },
+      { tpl:"\"Video Cache\"", desc:"Misc", tag:"misc" },
+      { tpl:"\"H 264 LAN\"", desc:"Misc", tag:"misc" },
+      { tpl:"\"vlcsnap\"", desc:"VLC snapshot exports", tag:"misc" },
+      { tpl:"\"swf2avi\"", desc:"Flash conversions", tag:"misc" },
+    ]
+  },
+  {
+    section: "VR Headset",
+    dorks: [
+      { tpl:"\"Com Oculus Metacam\"", desc:"VR Headset", tag:"vr-headset" },
+    ]
+  },
+  {
+    section: "360 Video",
+    dorks: [
+      { tpl:"\"Injected\"", desc:"360 Video (filter: 360 Video)", tag:"360-video" },
+      { tpl:"\"Kava Injected\"", desc:"360 Video", tag:"360-video" },
+    ]
+  },
+  {
+    section: "Localized / non-English phrases",
+    dorks: [
+      { tpl:"\"копия видео\"", desc:"Russia, Photo Story duplicates", tag:"localized" },
+      { tpl:"\"копия видео Копия видео\"", desc:"Russia, double-duplicate", tag:"localized" },
+      { tpl:"\"Sans titre\"", desc:"France, \"Untitled\"", tag:"localized" },
+      { tpl:"\"Film nagrany kamerą internetową w dniu\"", desc:"Poland", tag:"localized" },
+      { tpl:"\"Fiz este vídeo com o Criador de slides do YouTube\"", desc:"Brazil/Portugal", tag:"localized" },
+      { tpl:"\"Este vídeo foi enviado de um telefone Android\"", desc:"Brazil/Portugal", tag:"localized" },
+      { tpl:"\"Видео без названия сделано в Clipchamp\"", desc:"Russia", tag:"localized" },
+      { tpl:"\"Дизайн без названия\"", desc:"Russia, Canva default", tag:"localized" },
+      { tpl:"Мое измененное видео", desc:"Russia", tag:"localized" },
+      { tpl:"\"film wideo z telefonu\"", desc:"Poland", tag:"localized" },
+      { tpl:"\"video senza titolo\"", desc:"Italy", tag:"localized" },
+      { tpl:"\"Mój edytowany film\"", desc:"Poland", tag:"localized" },
+      { tpl:"\"のコピー\"", desc:"Japan, \"copy of\"", tag:"localized" },
+      { tpl:"\"無題のビデオ\"", desc:"Japan, \"untitled video\"", tag:"localized" },
+      { tpl:"\"无题\"", desc:"China, \"untitled\"", tag:"localized" },
+      { tpl:"\"Video dari ponsel saya\"", desc:"Indonesia", tag:"localized" },
+      { tpl:"\"moje upravené video\"", desc:"Czechia", tag:"localized" },
+      { tpl:"\"Klip wideo bez tytułu\"", desc:"Poland", tag:"localized" },
+      { tpl:"\"Minha apresentação de slides\"", desc:"Brazil/Portugal", tag:"localized" },
+      { tpl:"\"Mijn diavoorstelling\"", desc:"Netherlands", tag:"localized" },
+    ]
+  },
+  {
+    section: "NSFW Playlist",
+    dorks: [
+      { tpl:"240p 400k", desc:"NSFW Playlist (filter: Playlist)", tag:"nsfw-playlist" },
+      { tpl:"480p 600k", desc:"NSFW Playlist (filter: Playlist)", tag:"nsfw-playlist" },
+      { tpl:"480p 2000k", desc:"NSFW Playlist (filter: Playlist)", tag:"nsfw-playlist" },
+      { tpl:"720p 1500k", desc:"NSFW Playlist (filter: Playlist)", tag:"nsfw-playlist" },
+      { tpl:"720p 4000k", desc:"NSFW Playlist (filter: Playlist)", tag:"nsfw-playlist" },
+      { tpl:"Clips4Sale", desc:"NSFW Playlist (filter: Playlist)", tag:"nsfw-playlist" },
+    ]
+  },
+  {
+    section: "Microsoft Teams",
+    dorks: [
+      { tpl:"\"Meeting Recording\"", desc:"Microsoft Teams", tag:"microsoft-teams" },
+      { tpl:"\"Meeting in General\"", desc:"Microsoft Teams", tag:"microsoft-teams" },
+    ]
+  },
+  {
+    section: "AI Editor",
+    dorks: [
+      { tpl:"\"PixVerse * Image Text *\"", desc:"wildcard, AI slop", tag:"ai-editor" },
+      { tpl:"\"Generated File\"", desc:"AI slop", tag:"ai-editor" },
+      { tpl:"\"mp4 media web\"", desc:"AI slop", tag:"ai-editor" },
+      { tpl:"\"vidu video\"", desc:"AI slop", tag:"ai-editor" },
+    ]
+  },
+  {
+    section: "VHS burned to DVD",
+    dorks: [
+      { tpl:"\"VCD\" * \"0\"", desc:"wildcard search", tag:"vhs-burned-to-dvd" },
+    ]
+  },
+  {
+    section: "VHS",
+    dorks: [
+      { tpl:"\"DVD\" * \"0\"", desc:"wildcard search", tag:"vhs" },
+      { tpl:"\"MP1\" * \"0\"", desc:"wildcard search", tag:"vhs" },
+    ]
+  },
+  {
+    section: "File Path",
+    dorks: [
+      { tpl:"\"100MEDIA\"", desc:"File Path", tag:"file-path" },
+      { tpl:"\"story_fbid\"", desc:"Facebook", tag:"file-path" },
+    ]
+  },
+  {
+    section: "Camera",
+    dorks: [
+      { tpl:"\"VR_MOVIE.VRO\"", desc:"DVD camcorder", tag:"camera" },
+      { tpl:"\"Video cam direct upload\"", desc:"video response era", tag:"camera" },
+      { tpl:"\"This video was produced with a Swivl!\"", desc:"school lecture capture", tag:"camera" },
+      { tpl:"\"XDCAM EX HQ\"", desc:"Camera", tag:"camera" },
+    ]
+  },
+  {
+    section: "iPhone",
+    dorks: [
+      { tpl:"\"sent from my iphone\"", desc:"iPhone", tag:"iphone" },
+    ]
+  },
+  {
+    section: "iPad",
+    dorks: [
+      { tpl:"\"sent from my ipad\"", desc:"iPad", tag:"ipad" },
+    ]
+  },
+  {
+    section: "Doorbell Camera",
+    dorks: [
+      { tpl:"\"RingVideo\"", desc:"Doorbell Camera", tag:"doorbell-camera" },
+      { tpl:"\"Ring FrontDoor\"", desc:"Doorbell Camera", tag:"doorbell-camera" },
+    ]
+  },
+  {
+    section: "Bit Rate",
+    dorks: [
+      { tpl:"\"35 Mbps VBR\"", desc:"Bit Rate", tag:"bit-rate" },
+    ]
+  },
+  {
+    section: "Phone",
+    dorks: [
+      { tpl:"\"Sent using a Sony Ericsson mobile phone\"", desc:"Phone", tag:"phone" },
+      { tpl:"\"Messenger creation\"", desc:"Facebook Messenger", tag:"phone" },
+    ]
+  },
+  {
+    section: "Resolution",
+    dorks: [
+      { tpl:"\"640x360 - SD MP4.mp4\"", desc:"music", tag:"resolution" },
+      { tpl:"\"HD 1080p 4 8Mbps\"", desc:"Resolution", tag:"resolution" },
+      { tpl:"hd 1920 1080", desc:"stock footage", tag:"resolution" },
+      { tpl:"\"hd 1280 720\"", desc:"stock footage", tag:"resolution" },
+      { tpl:"\"hd 3840 2160\"", desc:"stock footage", tag:"resolution" },
+    ]
+  },
+  // ── file extensions ──
+  {
+    section: "File extensions",
+    dorks: [
+      { tpl:"\".MKV\"", desc:"OBS, MKVToolNix, media rips", tag:"format" },
+      { tpl:"\".WEBM\"", desc:"Web video, screen recorders", tag:"format" },
+      { tpl:"\".MTS\"", desc:"AVCHD camcorders", tag:"format" },
+      { tpl:"\".TS\"", desc:"DVR / IPTV recordings", tag:"format" },
+      { tpl:"\".MP4\"", desc:"Universal", tag:"format" },
+      { tpl:"\".3gp\"", desc:"Early phones", tag:"format" },
+      { tpl:"\".MOV\"", desc:"Apple / Camera", tag:"format" },
+      { tpl:"\".AVI\"", desc:"Legacy", tag:"format" },
+      { tpl:"\".WMV\"", desc:"Windows", tag:"format" },
+      { tpl:"\".FLAC\"", desc:"Copyright music", tag:"format" },
+      { tpl:"\".WAV\"", desc:"User-created music", tag:"format" },
+      { tpl:"\".3g2\"", desc:"Early phones", tag:"format" },
+      { tpl:"\".VOB\"", desc:"DVD", tag:"format" },
+      { tpl:"\".mpeg\"", desc:"MPEG video", tag:"format" },
+      { tpl:"\".mpg\"", desc:"MPEG / DVD rips", tag:"format" },
+      { tpl:"\".flv\"", desc:"Flash video", tag:"format" },
+      { tpl:"\".rmvb\"", desc:"RealMedia", tag:"format" },
+      { tpl:"\".hevc\"", desc:"H.265 raw video", tag:"format" },
+      { tpl:"\".divx\"", desc:"DivX encodes", tag:"format" },
+      { tpl:"\".qt\"", desc:"QuickTime", tag:"format" },
+    ]
+  },
+  // ── numbered formats (sort by View Count, use Before:YYYY) ──
+  {
+    section: "Camera (numbered)",
+    dorks: [
+      { tpl:"R001XXXX", desc:"Ricoh / Theta 360 — digit range 0001-9999", tag:"camera" },
+      { tpl:"STE_XXXX", desc:"Samsung stereo video — digit range 0001-9999", tag:"camera" },
+      { tpl:"MVI XXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"MOV XXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"100 XXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"SAM XXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"DSC XXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"SDV XXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"DSCFXXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"DSCNXXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"PICTXXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"MAQ0XXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"MOL0XX", desc:"Camera — digit range A-F, 0-9", tag:"camera" },
+      { tpl:"P100XXXX", desc:"Camera — digit range 0000-1999", tag:"camera" },
+      { tpl:"MAH0XXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"CIMGXXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"IMGPXXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"VideoXXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"MOV0XXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"M4H0XXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"M4V0XXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"SDC1XXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"SANYXXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"HPIMXXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"GEDCXXXX", desc:"Camera — digit range 0000-9999", tag:"camera" },
+      { tpl:"VID0XXXX", desc:"Camera — digit range 0000-5000", tag:"camera" },
+      { tpl:"DSC 0XXXX", desc:"Camera — digit range 0000-5000", tag:"camera" },
+      { tpl:"CAM0XXXX", desc:"Camera — digit range 0000-5000", tag:"camera" },
+      { tpl:"HDV XXXX", desc:"Camera — digit range 0001-5000", tag:"camera" },
+      { tpl:"DSCIXXXX", desc:"Camera — digit range 0001-4000", tag:"camera" },
+      { tpl:"SNV3XXXX", desc:"Camera — digit range 0001-3000", tag:"camera" },
+      { tpl:"MOVXXXXA", desc:"Camera — digit range 0000-3000", tag:"camera" },
+      { tpl:"Zi6 XXXX", desc:"Camera — digit range 0001-2000", tag:"camera" },
+      { tpl:"0XXXX.MTS", desc:"Camera — digit range 0000-2000", tag:"camera" },
+      { tpl:"SSPXXXXX", desc:"Camera — digit range 0001-2000", tag:"camera" },
+      { tpl:"IMAGXXXX", desc:"Camera — digit range 0000-2000", tag:"camera" },
+      { tpl:"CXXXX", desc:"Camera — digit range 0000-2000", tag:"camera" },
+      { tpl:"SUNPXXXX", desc:"Camera — digit range 0000-1500", tag:"camera" },
+      { tpl:"PC10XXXX", desc:"Camera — digit range 0001-1050", tag:"camera" },
+      { tpl:"PTDCXXXX", desc:"Camera — digit range 0000-1000", tag:"camera" },
+      { tpl:"VCLPXXXX", desc:"Camera — digit range 0001-1000", tag:"camera" },
+      { tpl:"KVIDXXXX", desc:"Camera — digit range 0000-1000", tag:"camera" },
+      { tpl:"WEB_0XXX", desc:"Camera — digit range 001-999", tag:"camera" },
+      { tpl:"ZOOM0XXX", desc:"Camera — digit range 001-800", tag:"camera" },
+      { tpl:"SVM AXXXX", desc:"Camera — digit range 0000-1000", tag:"camera" },
+      { tpl:"AVI00XXX", desc:"Camera — digit range 000-100", tag:"camera" },
+      { tpl:"AVI 0XXX", desc:"Camera — digit range 001-150", tag:"camera" },
+      { tpl:"ВидеоXXXX", desc:"Russia — digit range 0000-1000", tag:"camera" },
+      { tpl:"im000XXX", desc:"Camera — digit range 001-899", tag:"camera" },
+      { tpl:"SV A0XXX", desc:"Camera — digit range 001-600", tag:"camera" },
+      { tpl:"GEDV0XXX", desc:"Camera — digit range 001-500", tag:"camera" },
+      { tpl:"MAV 0XXX", desc:"Japan — digit range 000-399", tag:"camera" },
+      { tpl:"MOVIE 0XXX", desc:"Camera — digit range 000-300", tag:"camera" },
+      { tpl:"ANMR0XXX", desc:"Camera — digit range 000-300", tag:"camera" },
+      { tpl:"Snímek XXX", desc:"Czech — digit range 001-300", tag:"camera" },
+      { tpl:"DIGI0XXX", desc:"Camera — digit range 001-300", tag:"camera" },
+      { tpl:"ASF 0XXX", desc:"Camera — digit range 001-300", tag:"camera" },
+      { tpl:"IONX0XXX", desc:"Camera — digit range 001-250", tag:"camera" },
+      { tpl:"ArcSoft VideoXXX", desc:"Camera — digit range 1-249", tag:"camera" },
+      { tpl:"SMOV0XXX", desc:"Camera — digit range 001-200", tag:"camera" },
+      { tpl:"RCA 0XXX", desc:"Camera — digit range 001-200", tag:"camera" },
+      { tpl:"MOVA0XXX", desc:"Camera — digit range 001-200", tag:"camera" },
+      { tpl:"WideoXXX", desc:"Camera — digit range 000-199", tag:"camera" },
+      { tpl:"PCDV0XXX", desc:"Camera — digit range 001-150", tag:"camera" },
+      { tpl:"HD0 0XXX", desc:"Camera — digit range 000-120", tag:"camera" },
+      { tpl:"SMDC0XXX", desc:"Camera — digit range 001-100", tag:"camera" },
+      { tpl:"MVC XXXV", desc:"Camera — digit range 001-100", tag:"camera" },
+      { tpl:"MA0 00XX", desc:"Japan — digit range 00-99", tag:"camera" },
+      { tpl:"MMF00XX", desc:"Camera — digit range 00-99", tag:"camera" },
+      { tpl:"ZOE 00XX", desc:"Camera — digit range 01-50", tag:"camera" },
+      { tpl:"101 XXXX", desc:"Camera — digit range 0001-6500", tag:"camera" },
+      { tpl:"VIDXXXX", desc:"Camera — digit range 0000-5000", tag:"camera" },
+      { tpl:"\"PIC XXXX\"", desc:"Camera — digit range 0001-4000", tag:"camera" },
+      { tpl:"102 XXXX", desc:"Camera — digit range 0001-4000", tag:"camera" },
+      { tpl:"S500XXXX", desc:"Camera — digit range 0001-3000", tag:"camera" },
+      { tpl:"Picture XXXX", desc:"Camera — digit range 0001-3000", tag:"camera" },
+      { tpl:"VídeoXXXX", desc:"Brazil/Portugal — digit range 0001-2000", tag:"camera" },
+      { tpl:"照片 XXX", desc:"China — digit range 001-1500", tag:"camera" },
+      { tpl:"SNC0XXXX", desc:"Camera — digit range 0001-1250", tag:"camera" },
+      { tpl:"XXXX.mpeg", desc:"Camera — digit range 0001-1000", tag:"camera" },
+      { tpl:"MOVXXX", desc:"hex variants too, e.g. MOV42A — digit range 000-999", tag:"camera" },
+      { tpl:"Photo XXX", desc:"Camera — digit range 001-900", tag:"camera" },
+      { tpl:"\"Obraz XXX\"", desc:"Poland — digit range 001-500", tag:"camera" },
+      { tpl:"MPEG0XXX", desc:"Camera — digit range 001-500", tag:"camera" },
+      { tpl:"Film0XXX", desc:"Poland — digit range 001-300", tag:"camera" },
+      { tpl:"DV000XXX", desc:"Camera — digit range 001-300", tag:"camera" },
+      { tpl:"FOTO0XXX", desc:"Camera — digit range 001-250", tag:"camera" },
+      { tpl:"DCFC0XXX", desc:"Camera — digit range 001-199", tag:"camera" },
+      { tpl:"\"วิดีโอ0XXX\"", desc:"Thailand — digit range 000-140", tag:"camera" },
+      { tpl:"AK000XXX", desc:"Camera — digit range 001-100", tag:"camera" },
+      { tpl:"NORMAL000XX", desc:"Camera — digit range 00-99", tag:"camera" },
+      { tpl:"Eco 000XX", desc:"PlayStation Eye — digit range 01-99", tag:"camera" },
+      { tpl:"L00000XX", desc:"Camera — digit range 01-60", tag:"camera" },
+      { tpl:"Videoklip 00XX", desc:"Hungary — digit range 01-50", tag:"camera" },
+      { tpl:"DV000XX", desc:"Camera — digit range 01-30", tag:"camera" },
+    ]
+  },
+  {
+    section: "Action Cam (numbered)",
+    dorks: [
+      { tpl:"VIRB0XXX", desc:"Garmin VIRB — digit range 001-999", tag:"action-cam" },
+      { tpl:"AMBAXXXX", desc:"Action Cam — digit range 0001-5000", tag:"action-cam" },
+      { tpl:"YDXJXXXX", desc:"Action Cam — digit range 0001-5000", tag:"action-cam" },
+      { tpl:"FHDXXXX", desc:"Action Cam — digit range 0001-1000", tag:"action-cam" },
+      { tpl:"00XXXXA", desc:"Action Cam — digit range 0001-2000", tag:"action-cam" },
+      { tpl:"ACTP0XXX", desc:"Action Cam — digit range 001-400", tag:"action-cam" },
+      { tpl:"LOOP0XXX", desc:"Action Cam — digit range 001-100", tag:"action-cam" },
+      { tpl:"ACXS0XXX", desc:"Action Cam — digit range 001-100", tag:"action-cam" },
+      { tpl:"NORM0XXX", desc:"Action Cam — digit range 000-500", tag:"action-cam" },
+      { tpl:"EKEN00XX", desc:"Action Cam — digit range 01-50", tag:"action-cam" },
+    ]
+  },
+  {
+    section: "Smartphone (numbered)",
+    dorks: [
+      { tpl:"IMG XXXX", desc:"Smartphone — digit range 0000-9999", tag:"smartphone" },
+    ]
+  },
+  {
+    section: "Dashcam (numbered)",
+    dorks: [
+      { tpl:"FILEXXXX", desc:"Dashcam — digit range 0000-9999", tag:"dashcam" },
+      { tpl:"VICO0XXX", desc:"Dashcam — digit range 001-250", tag:"dashcam" },
+      { tpl:"EMER0XXX", desc:"Dashcam — digit range 001-100", tag:"dashcam" },
+    ]
+  },
+  {
+    section: "GoPro (numbered)",
+    dorks: [
+      { tpl:"GOPRXXXX", desc:"GoPro — digit range 0000-9999", tag:"gopro" },
+      { tpl:"GP01XXXX", desc:"GoPro — digit range 0000-9999", tag:"gopro" },
+      { tpl:"GX01XXXX", desc:"GoPro — digit range 0000-9999", tag:"gopro" },
+      { tpl:"GH01XXXX", desc:"GoPro — digit range 0000-9999", tag:"gopro" },
+      { tpl:"G01000XX", desc:"GoPro — digit range 10-99", tag:"gopro" },
+    ]
+  },
+  {
+    section: "Drone (numbered)",
+    dorks: [
+      { tpl:"DJI XXXX", desc:"Drone — digit range 0000-2000", tag:"drone" },
+      { tpl:"MAX 0XXX", desc:"Drone — digit range 001-150", tag:"drone" },
+      { tpl:"CADDX0000XX", desc:"Drone — digit range 01-50", tag:"drone" },
+    ]
+  },
+  {
+    section: "Nintendo DS (numbered)",
+    dorks: [
+      { tpl:"HNI 0XXX", desc:"Nintendo DS — digit range 000-100", tag:"nintendo-ds" },
+    ]
+  },
+  {
+    section: "Misc (numbered)",
+    dorks: [
+      { tpl:"WA0XXX", desc:"Misc — digit range 000-999", tag:"misc" },
+      { tpl:"\"HHMMSS\"", desc:"time of day — digit range 000000-235959", tag:"misc" },
+      { tpl:"XXXX.MP4", desc:"Misc — digit range 0000-9999", tag:"misc" },
+      { tpl:"ClipXXXX", desc:"Misc — digit range 0000-2000", tag:"misc" },
+      { tpl:"AVSEQXX", desc:"Misc — digit range 00-99", tag:"misc" },
+      { tpl:"AVSEQXX.DAT", desc:"Misc — digit range 00-99", tag:"misc" },
+      { tpl:"Videoplayback XXX", desc:"Misc — digit range 1-500", tag:"misc" },
+      { tpl:"\"Filmato 0XXX\"", desc:"Misc — digit range 001-120", tag:"misc" },
+      { tpl:"\"Фильм 0XXX\"", desc:"Russia — digit range 001-250", tag:"misc" },
+    ]
+  },
+  {
+    section: "DVD (numbered)",
+    dorks: [
+      { tpl:"VTS XX X", desc:"DVD — digit range 00-99, 0-9", tag:"dvd" },
+      { tpl:"MUSIC0X.DAT", desc:"karaoke — digit range 1-9", tag:"dvd" },
+      { tpl:"VTS XXX 1", desc:"DVD — digit range 000-999", tag:"dvd" },
+      { tpl:"VTS 01 XXX", desc:"DVD — digit range 000-999", tag:"dvd" },
+    ]
+  },
+  {
+    section: "Video Editor (numbered)",
+    dorks: [
+      { tpl:"\"My Slideshow Video\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"My Stupeflix Video\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"My Videolicious Video\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"My Slideshow XX\"", desc:"Video Editor — digit range 00-99", tag:"video-editor" },
+      { tpl:"\"My Stupeflix Video XXXX\"", desc:"Video Editor — digit range 0000-1050", tag:"video-editor" },
+      { tpl:"\"Sequence XXX\"", desc:"Video Editor — digit range 001-200", tag:"video-editor" },
+      { tpl:"\"My Movie X\"", desc:"e.g. \"My Movie 1\" — digit range 1-100", tag:"video-editor" },
+    ]
+  },
+  {
+    section: "Camcorder (numbered)",
+    dorks: [
+      { tpl:"M2U0XXXX", desc:"Camcorder — digit range 0000-9999", tag:"camcorder" },
+    ]
+  },
+  {
+    section: "Phone (numbered)",
+    dorks: [
+      { tpl:"Picture XXX", desc:"Phone — digit range 001-1220", tag:"phone" },
+      { tpl:"Moto_0XXX", desc:"Phone — digit range 000-999", tag:"phone" },
+      { tpl:"4XXX", desc:"Phone (hex) — digit range AAA-FFF", tag:"phone" },
+      { tpl:"Trim 4XXX", desc:"Phone (hex) — digit range AAA-FFF", tag:"phone" },
+      { tpl:"Copy 4XXX", desc:"Phone (hex) — digit range AAA-FFF", tag:"phone" },
+      { tpl:"Video 4XXX", desc:"Phone (hex) — digit range AAA-FFF", tag:"phone" },
+      { tpl:"\"Month DD, YYYY\"", desc:"Phone", tag:"phone" },
+    ]
+  },
+  {
+    section: "Drone / Dashcam (numbered)",
+    dorks: [
+      { tpl:"MOVIXXXX", desc:"Drone / Dashcam — digit range 0000-1050", tag:"drone-dashcam" },
+      { tpl:"REC XXXX", desc:"Drone / Dashcam — digit range 0000-1000", tag:"drone-dashcam" },
+    ]
+  },
+  {
+    section: "Body Cam (numbered)",
+    dorks: [
+      { tpl:"\"Axon Body * Video\"", desc:"Body Cam", tag:"body-cam" },
+      { tpl:"\"Axon Flex Video\"", desc:"Body Cam", tag:"body-cam" },
+    ]
+  },
+  {
+    section: "Blender 3D (numbered)",
+    dorks: [
+      { tpl:"\"0001 0XXX\"", desc:"Blender 3D — digit range 019-500", tag:"blender-3d" },
+    ]
+  },
+  {
+    section: "Trail Cam / Camera (numbered)",
+    dorks: [
+      { tpl:"IM000XXX", desc:"Trail Cam / Camera — digit range 000-400", tag:"trail-cam-camera" },
+    ]
+  },
+  {
+    section: "Trail Cam (numbered)",
+    dorks: [
+      { tpl:"PRMS0XXX", desc:"Trail Cam — digit range 001-200", tag:"trail-cam" },
+      { tpl:"MDGC0XXX", desc:"Trail Cam — digit range 001-150", tag:"trail-cam" },
+      { tpl:"HUNT0XXX", desc:"Trail Cam — digit range 001-100", tag:"trail-cam" },
+    ]
+  },
+  {
+    section: "Screen Recorder (numbered)",
+    dorks: [
+      { tpl:"\"Kazam Screencast 000XX\"", desc:"Screen Recorder — digit range 01-50", tag:"screen-recorder" },
+    ]
+  },
+  {
+    section: "Time-lapse (numbered)",
+    dorks: [
+      { tpl:"YDTL0XXX", desc:"Time-lapse — digit range 001-300", tag:"time-lapse" },
+    ]
+  },
+  {
+    section: "Game Capture (numbered)",
+    dorks: [
+      { tpl:"MovieXXX", desc:"The Sims — digit range 001-200", tag:"game-capture" },
+    ]
+  },
+  {
+    section: "Hunting Camera (numbered)",
+    dorks: [
+      { tpl:"ATNX0XXX", desc:"Hunting Camera — digit range 001-100", tag:"hunting-camera" },
+    ]
+  },
+  {
+    section: "Time-lapse Camera (numbered)",
+    dorks: [
+      { tpl:"TLC000XX", desc:"Time-lapse Camera — digit range 01-80", tag:"time-lapse-camera" },
+    ]
+  },
+  {
+    section: "Webcam (numbered)",
+    dorks: [
+      { tpl:"\"TVideo_000XX\"", desc:"Webcam — digit range 01-50", tag:"webcam" },
+    ]
+  },
+  {
+    section: "Security Camera (numbered)",
+    dorks: [
+      { tpl:"CH000000000000XX", desc:"DVR channel dumps — digit range 01-16", tag:"security-camera" },
+    ]
+  },
+  {
+    section: "Game capture — fixed console DVR IDs",
+    dorks: [
+      { tpl:"501A0001", desc:"NHL", tag:"game-capture-id" },
+      { tpl:"NHL14XBX", desc:"NHL 14", tag:"game-capture-id" },
+      { tpl:"771A0001", desc:"UFC", tag:"game-capture-id" },
+      { tpl:"741A0001", desc:"FIFA 10", tag:"game-capture-id" },
+      { tpl:"632A0001", desc:"FIFA 11", tag:"game-capture-id" },
+      { tpl:"491A0001", desc:"FIFA 12", tag:"game-capture-id" },
+      { tpl:"521A0001", desc:"Madden 11", tag:"game-capture-id" },
+      { tpl:"NCA14XBX", desc:"NCAA Football 14", tag:"game-capture-id" },
+    ]
+  },
+  {
+    section: "Numbered formats — multi-variable (fill in both ranges)",
+    dorks: [
+      { tpl:"P1XX0XXX", desc:"v1: 01-35, v2: 001-999 — Camera", tag:"camera" },
+      { tpl:"PAXX0XXX", desc:"v1: 00-30, v2: 001-499 — Camera", tag:"camera" },
+      { tpl:"PBXX0XXX", desc:"v1: 00-30, v2: 001-499 — Camera", tag:"camera" },
+      { tpl:"VXX0XXX", desc:"v1: 00-50, v2: 101-300 — Camera", tag:"camera" },
+      { tpl:"PCXX00XX", desc:"v1: 00-30, v2: 01-99 — Camera", tag:"camera" },
+      { tpl:"\"Sequence XX X\"", desc:"v1: 01-99, v2: 1-3 — Video Editor", tag:"video-editor" },
+      { tpl:"\"My Project X\"", desc:"0-50 — Video Editor", tag:"video-editor" },
+      { tpl:"\"Il mio filmato X\"", desc:"1-100 — Misc - Italy", tag:"misc-italy" },
+      { tpl:"10X XXXX", desc:"v1: 3-9, v2: 0001-2000 — Camera", tag:"camera" },
+      { tpl:"L10X0XXX", desc:"v1: 0-9, v2: 001-120 — Camera", tag:"camera" },
+      { tpl:"MOVXXX.MOD", desc:"v1: 0-9, v2: 00-99 / AA-FF (e.g. MOV4AA.MOD) — Camera", tag:"camera" },
+      { tpl:"SXXX00XX", desc:"v1: 1-8, v2: 00-99, v3: 01-99 (e.g. S1230011) — Camera", tag:"camera" },
+      { tpl:"\"X.mpg\"", desc:"1-1000 — Misc", tag:"misc" },
+      { tpl:"(X).mpg", desc:"1-500 — Camera", tag:"camera" },
+      { tpl:"\"Produce X\"", desc:"1-300 — Misc", tag:"misc" },
+      { tpl:"\"Screencast X\"", desc:"1-200 — Screen Recorder", tag:"screen-recorder" },
+      { tpl:"\"Untitled Project X\"", desc:"1-150 — Misc", tag:"misc" },
+      { tpl:"\"X.webm\"", desc:"0-100 — Misc", tag:"misc" },
+      { tpl:"\"My Video HD X\"", desc:"1-100 — Video Editor", tag:"video-editor" },
+      { tpl:"(X).m2ts", desc:"1-100 — Camera", tag:"camera" },
+      { tpl:"X.rmvb", desc:"1-100 — Misc", tag:"misc" },
+      { tpl:"X.divx", desc:"1-100 — Misc", tag:"misc" },
+      { tpl:"\"X.ogv\"", desc:"0-50 — Misc", tag:"misc" },
+      { tpl:"TITLE01 X", desc:"1-50 — DVD", tag:"dvd" },
+      { tpl:"\"(X).mkv\"", desc:"1-45 — Misc - YouTube intros", tag:"misc-youtube-intros" },
+      { tpl:"XVR CHX", desc:"1-30 — Security Camera", tag:"security-camera" },
+      { tpl:"\"X FLV VIDEO\"", desc:"0-9 — Game Capture", tag:"game-capture" },
+    ]
+  },
+  // ── date-based formats (use Before:YYYY) ──
+  {
+    section: "Date-based formats",
+    dorks: [
+      { tpl:"Screencast YYYY-MM-DD", desc:">2020 — Screen Recorder (ChromeOS/GNOME)", tag:"screen-recorder" },
+      { tpl:"PANO_YYYYMMDD", desc:">2015 — Smartphone - Android panoramic", tag:"smartphone-android-panoramic" },
+      { tpl:"vlc-record-YYYY-MM-DD", desc:">2008 — Misc - VLC player", tag:"misc-vlc-player" },
+      { tpl:"Video YYYYMMDD", desc:">2012 — Misc", tag:"misc" },
+      { tpl:"VID YYYYMMDD", desc:">2008 — Misc", tag:"misc" },
+      { tpl:"WIN YYYYMMDD", desc:">2013 — Webcam", tag:"webcam" },
+      { tpl:"Capture YYYYMMDD", desc:">2008, <2018 — Webcam", tag:"webcam" },
+      { tpl:"InShot YYYYMMDD", desc:">2016 — App", tag:"app" },
+      { tpl:"PXL YYYYMMDD", desc:">2020 — Smartphone", tag:"smartphone" },
+      { tpl:"WhatsApp Video YYYY MM DD", desc:">2015 — App", tag:"app" },
+      { tpl:"Desktop YYYY MM DD", desc:"Game Capture", tag:"game-capture" },
+      { tpl:"WP YYYYMMDD", desc:">2011, <2018 — Misc", tag:"misc" },
+      { tpl:"KakaoTalk Video YYYY MM", desc:">2012 — Misc", tag:"misc" },
+      { tpl:"\"QuickCapture Video - Month D, YYYY\"", desc:"2007-2013 — Webcam", tag:"webcam" },
+      { tpl:"Webcam YYYYMMDD", desc:"2007-2010 — Webcam", tag:"webcam" },
+      { tpl:"Screen Recording YYYY MM DD", desc:">2012 — Screen Recorder", tag:"screen-recorder" },
+      { tpl:"Bandicam YYYY MM DD", desc:">2010 — Screen Recorder", tag:"screen-recorder" },
+      { tpl:"Javaw YYYY MM DD", desc:">2009 — Game Capture (Minecraft)", tag:"game-capture" },
+      { tpl:"Grand Theft Auto 5 YYYY MM DD", desc:">2008 — Game Capture (GTA V)", tag:"game-capture" },
+      { tpl:"YouCut YYYYMMDD", desc:">May 2018 — Video Editor", tag:"video-editor" },
+      { tpl:"XRecorder YYYYMMDD", desc:">2024 — Screen Recorder", tag:"screen-recorder" },
+      { tpl:"AUD-YYYYMMDD", desc:">2017 — Misc", tag:"misc" },
+      { tpl:"GMTYYYYMMDD", desc:"Zoom", tag:"zoom" },
+      { tpl:"Webcam Recorded Video - Month D, YYYY", desc:"2008-2010 — Webcam", tag:"webcam" },
+      { tpl:"Webcam video Month D, YYYY", desc:"2010-2012 — Webcam", tag:"webcam" },
+      { tpl:"Webcam video from Month D, YYYY", desc:"2011-2016 — Webcam", tag:"webcam" },
+      { tpl:"SCR YYYYMMDD", desc:"2014-2018 — Screen Recorder", tag:"screen-recorder" },
+      { tpl:"Flipagram Month YYYY", desc:"2013-2019 — Video Editor", tag:"video-editor" },
+      { tpl:"Iw3mp YYYYMMDD", desc:"2008-2020 — Game Capture (COD 4)", tag:"game-capture" },
+      { tpl:"\"AR.Drone 2.0 Video: YYYY\"", desc:"2015-2021 — Drone", tag:"drone" },
+      { tpl:"WA VID YYYYMMDD", desc:"2018-2023 — App", tag:"app" },
+      { tpl:"XRecorder DDMMYYYY", desc:"2021-2024 — Screen Recorder", tag:"screen-recorder" },
+      { tpl:"CODWAWMP YYYY MM DD", desc:"2008-2023 — Game Capture (COD WAW)", tag:"game-capture" },
+      { tpl:"Hl2 YYYY MM DD", desc:"2008-2023 — Game Capture (Half-Life)", tag:"game-capture" },
+      { tpl:"Chrome YYYY MM DD", desc:">2010 — Screen Recorder", tag:"screen-recorder" },
+      { tpl:"Simplescreenrecorder YYYY MM DD", desc:">2023 — Screen Recorder", tag:"screen-recorder" },
+      { tpl:"720p YYMMDD", desc:">2023 — Vyond / GoAnimate", tag:"vyond-goanimate" },
+      { tpl:"RobloxApp YYYYMMDD", desc:">2009 — Game Capture (Roblox)", tag:"game-capture" },
+      { tpl:"RobloxApp YYYY MM DD", desc:">2009 — Game Capture (Roblox)", tag:"game-capture" },
+      { tpl:"VLC Record YYYY MM DD", desc:">2010 — Misc", tag:"misc" },
+      { tpl:"Vlcsnap YYYY", desc:">2010, <2023 — Misc", tag:"misc" },
+      { tpl:"mobizen YYYYMMDD", desc:">2014 — Screen Recorder", tag:"screen-recorder" },
+      { tpl:"obs YYYY-MM-DD", desc:">2018 — Screen Recorder (OBS)", tag:"screen-recorder" },
+      { tpl:"Videoshop YYYY MM", desc:">2019 — Camera", tag:"camera" },
+      { tpl:"ScreenRecording MM DD YYYY", desc:">2017 — Screen Recorder", tag:"screen-recorder" },
+      { tpl:"VDD MM YY / VDDMMYY", desc:"2008-2017 — Camera", tag:"camera" },
+      { tpl:"YYYY년 M월 D일", desc:">2010 — South Korean date titles", tag:"south-korean-date-titles" },
+      { tpl:"YYYY年M月D日", desc:">2010 — Japanese date titles", tag:"japanese-date-titles" },
+      { tpl:"\"My Movie (MM DD, 2013)\"", desc:"Camera", tag:"camera" },
+      { tpl:"\"Project of DD Mth 2011 PDT\"", desc:"2011 only — Video Editor", tag:"video-editor" },
+    ]
+  },
+  // ── ancient YouTube 2006-2008 (deepest layer, use Before:2008) ──
+  {
+    section: "App (2006-2008)",
+    dorks: [
+      { tpl:"\"Qik\"", desc:"Qik mobile video (2008-2011)", tag:"app" },
+      { tpl:"\"Video from Tweetcaster\"", desc:"App", tag:"app" },
+    ]
+  },
+  {
+    section: "Video Editor (2006-2008)",
+    dorks: [
+      { tpl:"\"Made with One True Media\"", desc:"Video Editor (2005-2014)", tag:"video-editor" },
+      { tpl:"muuvee00XX", desc:"Video Editor — digit range 00-40", tag:"video-editor" },
+      { tpl:"\"My Great Movie\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"My First Project\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"I created this video with the YouTube Slideshow Creator\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"I created this video with the YouTube Video Editor\"", desc:"Video Editor", tag:"video-editor" },
+      { tpl:"\"My stop motion movie\"", desc:"Video Editor", tag:"video-editor" },
+    ]
+  },
+  {
+    section: "Screen Recorder (2006-2008)",
+    dorks: [
+      { tpl:"\"Jing\"", desc:"TechSmith Jing (2007-2013)", tag:"screen-recorder" },
+      { tpl:"\"My Ezvid Video\"", desc:"Screen Recorder", tag:"screen-recorder" },
+    ]
+  },
+  {
+    section: "Phone (2006-2008)",
+    dorks: [
+      { tpl:"\"You have new picture mail! (video)\"", desc:"Phone", tag:"phone" },
+      { tpl:"\"Media1.3gp\"", desc:"Phone", tag:"phone" },
+      { tpl:"\"Media1.3g2\"", desc:"Phone", tag:"phone" },
+      { tpl:"\"New Multimedia Message\"", desc:"Phone", tag:"phone" },
+      { tpl:"\"Multimedia Message\"", desc:"Phone", tag:"phone" },
+      { tpl:"\"Video from my phone\"", desc:"Phone", tag:"phone" },
+      { tpl:"\"Video uploaded from my mobile phone\"", desc:"Phone", tag:"phone" },
+      { tpl:"\"For Month DD, YYYY\"", desc:"Phone", tag:"phone" },
+      { tpl:"0_VIDEO_0XX", desc:"Phone — digit range 01-54", tag:"phone" },
+      { tpl:"\"You have received a new message\"", desc:"Phone", tag:"phone" },
+      { tpl:"\"Sent from my blackberry smartphone\"", desc:"Phone", tag:"phone" },
+      { tpl:"\"This video was uploaded from an Android phone\"", desc:"Phone", tag:"phone" },
+      { tpl:"\"Sprint PictureMail\"", desc:"Phone", tag:"phone" },
+    ]
+  },
+  {
+    section: "Misc (2006-2008)",
+    dorks: [
+      { tpl:"\"Video.3g2\"", desc:"Misc", tag:"misc" },
+      { tpl:"\"XiaoYing video\"", desc:"Misc", tag:"misc" },
+    ]
+  },
+  {
+    section: "Camera (2006-2008)",
+    dorks: [
+      { tpl:"\"Recorded on Month DD, YYYY using a Flip Video Camcorder\"", desc:"Camera", tag:"camera" },
+      { tpl:"Video0XX", desc:"Camera — digit range 00-10", tag:"camera" },
+      { tpl:"Vid0XX", desc:"Camera — digit range 00-10", tag:"camera" },
+      { tpl:"MOV000XX", desc:"Camera — digit range 00-10", tag:"camera" },
+      { tpl:"\"Recorded on Month DD, YYYY using a Flip Video Camera\"", desc:"Camera", tag:"camera" },
+      { tpl:"\"Created on Month DD, YYYY using FlipShare\"", desc:"Camera", tag:"camera" },
+      { tpl:"\"Dvgrab\"", desc:"Camera", tag:"camera" },
+      { tpl:"\"Click here to change title\"", desc:"Camera", tag:"camera" },
+    ]
+  },
+  {
+    section: "Localized / non-English (2006-2008)",
+    dorks: [
+      { tpl:"\"Video van Mijn telefoon\"", desc:"Netherlands", tag:"localized" },
+      { tpl:"\"Vídeo desde mi teléfono\"", desc:"Spanish", tag:"localized" },
+      { tpl:"\"vídeo subido desde mi teléfono móvil\"", desc:"Spanish", tag:"localized" },
+      { tpl:"\"video geüpload van mijn mobiel\"", desc:"Netherlands", tag:"localized" },
+      { tpl:"\"Cliquez pour ajouter un titre…\"", desc:"France, placeholder title", tag:"localized" },
+      { tpl:"\"You have a PXT from\"", desc:"NZ/AU picture messages", tag:"localized" },
+    ]
+  },
+  {
+    section: "Stop Motion (2006-2008)",
+    dorks: [
+      { tpl:"\"Stop motion.avi\"", desc:"Stop Motion", tag:"stop-motion" },
+    ]
+  },
+  {
+    section: "Drone (2006-2008)",
+    dorks: [
+      { tpl:"\"Temp video for share\"", desc:"Drone", tag:"drone" },
+    ]
+  },
+  {
+    section: "File Path (2006-2008)",
+    dorks: [
+      { tpl:"/tmp/upload/ before:2009", desc:"server-side upload path", tag:"file-path" },
+      { tpl:"\"C:\\Documents and Settings\"", desc:"Windows XP path", tag:"file-path" },
+    ]
+  },
+];
+
+// placeholder tokens standalone (non-%s) dorks use for a date/number the
+// user needs to fill in — first match wins, in priority order
+const DORK_PLACEHOLDER_PATTERNS = [
+  /X{2,}/, /YYYYMMDD/, /YYYY-MM-DD/, /YYYY\/MM\/DD/, /DDMMYYYY/, /YYYY MM DD/,
+  /VDDMMYY/, /MM\/DD\/YY/, /DD Mth YYYY/, /YYYY년/, /YYYY年/,
+  /Month\s+DD?,?\s+YYYY/, /YY MM DD/, /YYYY MM/, /YYYY/, /MM DD/
+];
+function findDorkPlaceholder(tpl) {
+  let best = null;
+  DORK_PLACEHOLDER_PATTERNS.forEach(re => {
+    const m = tpl.match(re);
+    if (m && (best === null || m.index < best.index)) {
+      best = { index: m.index, length: m[0].length };
+    }
+  });
+  return best;
+}
+
+function buildDorkList(dorks, containerId, engineNick, mode) {
+  mode = mode || 'query';
   const el = document.getElementById(containerId);
   el.innerHTML = '';
   dorks.forEach(section => {
@@ -9280,11 +10286,18 @@ function buildDorkList(dorks, containerId, engineNick) {
         // put template in search bar
         const input = document.getElementById('searchInput');
         input.value = d.tpl;
-        // position cursor at first %s
-        const pos = d.tpl.indexOf('%s');
-        if (pos > -1) {
+        // position cursor: query dorks -> first %s (type your topic there);
+        // standalone dorks -> first date/number placeholder, if any
+        let sel = null;
+        if (mode === 'query') {
+          const pos = d.tpl.indexOf('%s');
+          if (pos > -1) sel = { index: pos, length: 2 };
+        } else {
+          sel = findDorkPlaceholder(d.tpl);
+        }
+        if (sel) {
           setTimeout(() => {
-            input.setSelectionRange(pos, pos + 2);
+            input.setSelectionRange(sel.index, sel.index + sel.length);
             input.focus();
           }, 50);
         } else {
@@ -9336,8 +10349,9 @@ function filterDorks(query) {
 
 function openDorksOverlay() {
   document.getElementById('dorksOverlay').style.display = 'block';
-  buildDorkList(GOOGLE_DORKS, 'dorkGoogleList', 'g');
-  buildDorkList(YOUTUBE_DORKS, 'dorkYoutubeList', 'yt');
+  buildDorkList(GOOGLE_DORKS, 'dorkGoogleList', 'g', 'query');
+  buildDorkList(YOUTUBE_DORKS_QUERY, 'dorkYoutubeQueryList', 'yt', 'query');
+  buildDorkList(YOUTUBE_DORKS_STANDALONE, 'dorkYoutubeStandaloneList', 'yt', 'standalone');
 
   // focus filter input
   const filterInput = document.getElementById('dorksFilter');
@@ -9385,6 +10399,22 @@ function openDorksOverlay() {
       tab.classList.add('active');
       document.getElementById('dorksTab-' + tab.dataset.tab).style.display = '';
       // re-apply current filter to new tab
+      filterDorks(filterInput.value);
+    };
+  });
+
+  // youtube sub-tab switching: search by query vs search by standalone phrase
+  document.querySelectorAll('#ytDorkModeTabs .bg-tab').forEach(tab => {
+    tab.onclick = () => {
+      document.querySelectorAll('#ytDorkModeTabs .bg-tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('ytDorkMode-query').style.display = 'none';
+      document.getElementById('ytDorkMode-standalone').style.display = 'none';
+      document.getElementById('ytDorkModeHint-query').style.display = 'none';
+      document.getElementById('ytDorkModeHint-standalone').style.display = 'none';
+      tab.classList.add('active');
+      document.getElementById('ytDorkMode-' + tab.dataset.ytmode).style.display = '';
+      document.getElementById('ytDorkModeHint-' + tab.dataset.ytmode).style.display = '';
+      // re-apply current filter to new sub-tab
       filterDorks(filterInput.value);
     };
   });
