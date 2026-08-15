@@ -5635,6 +5635,7 @@ const EMOJI_RULES = [
   [/(instagram|insta)/, '📸'], [/(tiktok)/, '🎵'], [/(facebook|fb\.com)/, '👤'],
   [/(spotify)/, '🎧'], [/(soundcloud)/, '🔊'], [/(bandcamp)/, '🎸'],
   [/(discogs)/, '💿'], [/(last\.?fm)/, '📻'], [/(pitchfork)/, '🎼'],
+  [/(tenor|giphy|gfycat)/, '🎞️'], [/(imgur)/, '🖼️'],
   [/(netflix)/, '🔴'], [/(hulu)/, '🟢'], [/(plex)/, '🟡'], [/(letterboxd)/, '🎞️'],
   [/(imdb)/, '⭐'], [/(rotten ?tomatoes)/, '🍅'], [/(trakt)/, '📊'], [/(justwatch)/, '📺'],
   [/(amazon)/, '📦'], [/(ebay)/, '🔨'], [/(aliexpress|alibaba)/, '🛒'],
@@ -5861,6 +5862,73 @@ function parseBulkLine(line) {
   return { name, url, nick };
 }
 
+// Copies text to the clipboard, falling back to a hidden-textarea +
+// execCommand('copy') if the async Clipboard API isn't available
+// (e.g. some file:// / non-secure-context cases).
+function copyTextToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text).catch(() => copyTextToClipboardFallback(text));
+  }
+  return copyTextToClipboardFallback(text);
+}
+function copyTextToClipboardFallback(text) {
+  return new Promise(resolve => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    try { document.execCommand('copy'); } catch {}
+    document.body.removeChild(ta);
+    resolve();
+  });
+}
+
+// Result dialog after an auto-populate icon sweep. If everything got a real
+// icon, just says so. If some bookmarks still have no better match, asks
+// whether to copy the failed ones (name + url, one per line) to the
+// clipboard so they can be pasted straight into a chat for new emoji rules.
+function showAutoPopulateSummary(checked, changed, failed) {
+  if (checked === 0) {
+    alert('nothing to check — no entries in this scope are on the generic placeholder icon.');
+    return;
+  }
+  if (failed.length === 0) {
+    alert(`applied icons to ${changed} out of ${checked} bookmark${checked === 1 ? '' : 's'} — all done.`);
+    return;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay visible';
+  overlay.style.zIndex = '10001';
+  overlay.innerHTML = `
+    <div class="modal" style="width:380px;">
+      <h3>auto populate results</h3>
+      <div style="font-family:var(--mono);font-size:12px;color:var(--text);line-height:1.6;margin-bottom:16px;">
+        We were only able to apply icons to ${changed} bookmark${changed === 1 ? '' : 's'} out of ${checked} bookmark${checked === 1 ? '' : 's'}. Would you like to copy the bookmarks that failed in order to send them to be further analyzed?
+      </div>
+      <div class="modal-btns">
+        <button class="modal-btn" id="apSummaryNo">no</button>
+        <button class="modal-btn primary" id="apSummaryYes">yes</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const closeIt = () => overlay.remove();
+  overlay.querySelector('#apSummaryNo').addEventListener('click', closeIt);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeIt(); });
+
+  overlay.querySelector('#apSummaryYes').addEventListener('click', () => {
+    const text = failed.map(f => `${f.name} - ${f.url}`).join('\n');
+    const yesBtn = overlay.querySelector('#apSummaryYes');
+    copyTextToClipboard(text).then(() => {
+      yesBtn.textContent = 'copied!';
+      setTimeout(closeIt, 700);
+    });
+  });
+}
+
 document.getElementById('bulkSave').addEventListener('click', () => {
   const iconMode = document.getElementById('bulkIconMode').value; // 'auto' | 'none'
   let catSel = document.getElementById('bulkCat').value;
@@ -5879,27 +5947,31 @@ document.getElementById('bulkSave').addEventListener('click', () => {
   const rawLines = document.getElementById('bulkText').value.split('\n').map(l => l.trim()).filter(Boolean);
 
   // ── no sites pasted → re-guess icons only for entries still on the generic
-  // placeholder icon (🔗 for bookmarks · also 🔍 for osint, its own default) ──
-  // Anything you've deliberately picked yourself is left alone.
+  // link/chain placeholder icon (🔗 for bookmarks · also 🔍 for osint, its own
+  // default). Anything already carrying a specific icon is left alone.
   if (rawLines.length === 0) {
     if (iconMode !== 'auto') { alert('paste some sites, or switch ICONS to "auto populate" to fill in missing icons.'); return; }
     const cats = catSel === '__all__' ? Object.keys(data) : [catSel];
     const isGenericIcon = icon => !icon || icon === '🔗' || (isOsint && icon === '🔍');
-    let changed = 0;
+    let changed = 0, checked = 0;
+    const failed = [];
     cats.forEach(c => {
       (data[c] || []).forEach(item => {
-        if (!isGenericIcon(item.icon)) return; // already has a real icon — don't touch it
+        if (!isGenericIcon(item.icon)) return; // already has a specific icon — don't touch it
+        checked++;
         const guess = guessEmoji(item.name, item.url, item.nick || '');
-        if (item.icon !== guess) {
-          item.icon = guess;
-          changed++;
-        }
+        item.icon = guess; // normalize either way (blank -> explicit fallback, or a real match)
+        // "🔗" is guessEmoji's own last-resort fallback — that means no rule
+        // matched, i.e. this one counts as a failure regardless of whether
+        // the stored value literally changed (blank -> "🔗" is not progress).
+        if (guess === '🔗') failed.push({ name: item.name, url: item.url });
+        else changed++;
       });
     });
     if (isOsint) { saveOsint(); buildOsintTabs(); renderOsint(); }
     else { saveBookmarks(); buildCategoryTabs(); renderBookmarks(); }
     document.getElementById('bulkAddOverlay').classList.remove('visible');
-    alert(changed ? `updated ${changed} icon${changed === 1 ? '' : 's'} to the closest match.` : 'nothing to change — no entries left on the generic placeholder icon.');
+    showAutoPopulateSummary(checked, changed, failed);
     return;
   }
 
