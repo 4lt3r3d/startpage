@@ -4264,9 +4264,80 @@ let notepadWin = null;         // reference to the pop-out notepad/todos window
 
 function saveTodos() { localStorage.setItem('sp_todos', JSON.stringify(todos)); }
 
+// ── Daily safety-net backup (todos + notes) ──
+// A rolling snapshot of every todo list AND every note slot, taken at most once
+// every 24h and never touched by anything else (not switchTodoList, not
+// switchNoteSlot, not cross-window sync, not cloud sync). Keeps the last 7 days
+// so a corruption isn't guaranteed to overwrite the one good backup before
+// anyone notices. Read-only otherwise — nothing in the app ever reads this key
+// except this function and a manual recovery. Reads localStorage directly, so
+// it doesn't matter that the notes variables further down haven't loaded yet.
+const DAILY_BACKUP_KEY = 'sp_dailyBackups';
+const DAILY_BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const NOTE_SLOT_COUNT = 4;
+
+function runDailyBackup() {
+  try {
+    let backups;
+    try { backups = JSON.parse(localStorage.getItem(DAILY_BACKUP_KEY) || '[]'); } catch (e) { backups = []; }
+    if (!Array.isArray(backups)) backups = [];
+
+    const now = Date.now();
+    const last = backups[backups.length - 1];
+    if (last && (now - last.ts) < DAILY_BACKUP_INTERVAL_MS) return; // not due yet
+
+    // todos — every list, not just the active one
+    let lists;
+    try { lists = JSON.parse(localStorage.getItem('sp_todoLists') || 'null'); } catch (e) { lists = null; }
+    if (!Array.isArray(lists) || !lists.length) lists = [{ id: 'default', name: 'todo' }];
+
+    const liveActiveTodoId = localStorage.getItem('sp_activeTodoList') || 'default';
+    const todoSnapshot = {};
+    lists.forEach(l => {
+      let raw;
+      if (l.id === liveActiveTodoId) {
+        raw = localStorage.getItem('sp_todos') || '[]';
+      } else {
+        raw = localStorage.getItem(stashKeyFor(l.id)) || '[]';
+      }
+      try { todoSnapshot[l.id] = JSON.parse(raw); } catch (e) { todoSnapshot[l.id] = []; }
+    });
+
+    // notes — every slot (1-4), not just the active one
+    const liveActiveNoteSlot = parseInt(localStorage.getItem('sp_activeNoteSlot') || '1', 10);
+    const notesSnapshot = {};
+    for (let slot = 1; slot <= NOTE_SLOT_COUNT; slot++) {
+      notesSnapshot[slot] = (slot === liveActiveNoteSlot)
+        ? (localStorage.getItem('sp_notes') || '')
+        : (localStorage.getItem('sp_notes_slot_' + slot) || '');
+    }
+
+    backups.push({
+      ts: now,
+      date: new Date(now).toISOString().slice(0, 10),
+      todoLists: lists,
+      todos: todoSnapshot,
+      activeNoteSlot: liveActiveNoteSlot,
+      notes: notesSnapshot
+    });
+    if (backups.length > 7) backups = backups.slice(-7);
+    localStorage.setItem(DAILY_BACKUP_KEY, JSON.stringify(backups));
+  } catch (e) {
+    console.error('daily backup failed', e);
+  }
+}
+runDailyBackup();
+
 function switchTodoList(id) {
-  if (id === activeTodoListId) return;
-  localStorage.setItem(stashKeyFor(activeTodoListId), JSON.stringify(todos));
+  // Always trust localStorage over our own in-memory activeTodoListId — another
+  // window (the pop-out, or this same tab resumed after being suspended by a RAM
+  // cleaner) can change which list is active without us knowing yet. Stashing
+  // under a stale remembered id is what overwrote a whole list before, so we
+  // re-check the ground truth right before writing anything.
+  const liveActiveId = localStorage.getItem('sp_activeTodoList') || 'default';
+  if (id === liveActiveId) { activeTodoListId = id; return; }
+  const liveTodosJSON = localStorage.getItem('sp_todos') || '[]';
+  localStorage.setItem(stashKeyFor(liveActiveId), liveTodosJSON);
   activeTodoListId = id;
   localStorage.setItem('sp_activeTodoList', activeTodoListId);
   try { todos = JSON.parse(localStorage.getItem(stashKeyFor(id)) || '[]'); } catch (e) { todos = []; }
@@ -4478,8 +4549,13 @@ let activeNoteSlot = parseInt(localStorage.getItem('sp_activeNoteSlot') || '1', 
 if (!(activeNoteSlot >= 1 && activeNoteSlot <= 4)) activeNoteSlot = 1;
 
 function switchNoteSlot(slot) {
-  if (slot === activeNoteSlot || !notepadArea) return;
-  localStorage.setItem('sp_notes_slot_' + activeNoteSlot, notepadArea.value);
+  if (!notepadArea) return;
+  // Same fix as switchTodoList: trust localStorage over our own in-memory
+  // activeNoteSlot, since another window (the pop-out, or this tab resumed
+  // after being suspended) can change it without us knowing yet.
+  const liveActiveSlot = parseInt(localStorage.getItem('sp_activeNoteSlot') || '1', 10);
+  if (slot === liveActiveSlot) { activeNoteSlot = slot; return; }
+  localStorage.setItem('sp_notes_slot_' + liveActiveSlot, localStorage.getItem('sp_notes') || '');
   activeNoteSlot = slot;
   localStorage.setItem('sp_activeNoteSlot', String(activeNoteSlot));
   const stashed = localStorage.getItem('sp_notes_slot_' + slot);
@@ -4781,8 +4857,12 @@ function notepadPopOut() {
     })();
 
     function switchTodoList(id) {
-      if (id === activeTodoListId) return;
-      localStorage.setItem(stashKeyFor(activeTodoListId), JSON.stringify(getTodos()));
+      // Same fix as the main page: re-check localStorage directly instead of
+      // trusting our own activeTodoListId, since this pop-out can go stale
+      // while the main window (or another pop-out) changes lists.
+      var liveActiveId = localStorage.getItem('sp_activeTodoList') || 'default';
+      if (id === liveActiveId) { activeTodoListId = id; return; }
+      localStorage.setItem(stashKeyFor(liveActiveId), localStorage.getItem('sp_todos') || '[]');
       activeTodoListId = id;
       localStorage.setItem('sp_activeTodoList', activeTodoListId);
       var stashed;
@@ -4901,8 +4981,12 @@ function notepadPopOut() {
     if (!(activeNoteSlot >= 1 && activeNoteSlot <= 4)) activeNoteSlot = 1;
 
     function switchNoteSlot(slot) {
-      if (slot === activeNoteSlot) return;
-      localStorage.setItem('sp_notes_slot_' + activeNoteSlot, area.value);
+      // Same fix as the main page: re-check localStorage directly instead of
+      // trusting our own activeNoteSlot, since this pop-out can go stale
+      // while the main window (or another pop-out) changes slots.
+      var liveActiveSlot = parseInt(localStorage.getItem('sp_activeNoteSlot') || '1', 10);
+      if (slot === liveActiveSlot) { activeNoteSlot = slot; return; }
+      localStorage.setItem('sp_notes_slot_' + liveActiveSlot, area.value);
       activeNoteSlot = slot;
       localStorage.setItem('sp_activeNoteSlot', String(activeNoteSlot));
       var stashed = localStorage.getItem('sp_notes_slot_' + slot);
