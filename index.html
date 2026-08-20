@@ -4474,6 +4474,11 @@ function renderTodos() {
       });
       input.addEventListener('blur', commitEdit);
     });
+
+    // right-click to move this task to another list
+    item.title = 'right-click to move to another list';
+    item.addEventListener('contextmenu', e => showTodoMoveCtx(e, i));
+
     list.appendChild(item);
   });
   const remaining = todos.filter(t => !t.done).length;
@@ -4488,6 +4493,56 @@ function addTodo(text) {
   todos.unshift({ text: text.trim(), done: false });
   saveTodos(); renderTodos();
   document.getElementById('todoInput').value = '';
+}
+
+// ── right-click a todo item to move it to a different list ──
+// Mirrors the engine/category ctx-menu pattern elsewhere in this file:
+// built fresh on each right-click, removed on next outside click.
+let todoMoveCtxMenu = null;
+function showTodoMoveCtx(e, index) {
+  e.preventDefault();
+  if (todoMoveCtxMenu) { todoMoveCtxMenu.remove(); todoMoveCtxMenu = null; }
+  const others = todoLists.filter(l => l.id !== activeTodoListId);
+  if (!others.length) return; // no other list to move to yet
+
+  todoMoveCtxMenu = document.createElement('div');
+  todoMoveCtxMenu.className = 'ctx-menu visible';
+  todoMoveCtxMenu.style.left = Math.min(e.clientX, window.innerWidth - 160) + 'px';
+  todoMoveCtxMenu.style.top = Math.min(e.clientY, window.innerHeight - (14 + others.length * 30)) + 'px';
+  todoMoveCtxMenu.style.zIndex = '10001';
+  todoMoveCtxMenu.innerHTML =
+    '<div class="ctx-item" style="cursor:default;color:var(--text3);font-size:9px;letter-spacing:0.08em;text-transform:uppercase;">move to list</div>' +
+    '<div class="ctx-sep"></div>' +
+    others.map(l => `<div class="ctx-item" data-id="${l.id}">→ ${escHtml(l.name)}</div>`).join('');
+  document.body.appendChild(todoMoveCtxMenu);
+
+  todoMoveCtxMenu.querySelectorAll('.ctx-item[data-id]').forEach(el => {
+    el.addEventListener('click', () => {
+      moveTodoToList(index, el.dataset.id);
+      todoMoveCtxMenu.remove();
+      todoMoveCtxMenu = null;
+    });
+  });
+
+  setTimeout(() => document.addEventListener('click', () => {
+    if (todoMoveCtxMenu) { todoMoveCtxMenu.remove(); todoMoveCtxMenu = null; }
+  }, { once: true }), 10);
+}
+
+// moves todos[index] out of the currently active list and into targetId's
+// stash (targetId is always an inactive list here, so it's safe to write
+// straight to its stash key rather than routing through switchTodoList).
+function moveTodoToList(index, targetId) {
+  const todo = todos[index];
+  if (!todo) return;
+  let targetTodos;
+  try { targetTodos = JSON.parse(localStorage.getItem(stashKeyFor(targetId)) || '[]'); } catch (e) { targetTodos = []; }
+  targetTodos.unshift({ ...todo });
+  localStorage.setItem(stashKeyFor(targetId), JSON.stringify(targetTodos));
+
+  todos.splice(index, 1);
+  saveTodos();
+  renderTodos();
 }
 
 document.getElementById('todoInput').addEventListener('keydown', e => { if (e.key === 'Enter') addTodo(e.target.value); });
