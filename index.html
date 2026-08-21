@@ -4267,13 +4267,14 @@ function saveTodos() { localStorage.setItem('sp_todos', JSON.stringify(todos)); 
 // ── Daily safety-net backup (todos + notes) ──
 // A rolling snapshot of every todo list AND every note slot, taken at most once
 // every 24h and never touched by anything else (not switchTodoList, not
-// switchNoteSlot, not cross-window sync, not cloud sync). Keeps the last 7 days
-// so a corruption isn't guaranteed to overwrite the one good backup before
-// anyone notices. Read-only otherwise — nothing in the app ever reads this key
-// except this function and a manual recovery. Reads localStorage directly, so
-// it doesn't matter that the notes variables further down haven't loaded yet.
+// switchNoteSlot, not cross-window sync, not cloud sync). Keeps the last 34
+// snapshots (~7 days of history at the 5-hour cadence below) so a corruption
+// isn't guaranteed to overwrite the one good backup before anyone notices.
+// Read-only otherwise — nothing in the app ever reads this key except this
+// function and a manual recovery. Reads localStorage directly, so it doesn't
+// matter that the notes variables further down haven't loaded yet.
 const DAILY_BACKUP_KEY = 'sp_dailyBackups';
-const DAILY_BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const DAILY_BACKUP_INTERVAL_MS = 5 * 60 * 60 * 1000;
 const NOTE_SLOT_COUNT = 4;
 
 function runDailyBackup() {
@@ -4320,13 +4321,18 @@ function runDailyBackup() {
       activeNoteSlot: liveActiveNoteSlot,
       notes: notesSnapshot
     });
-    if (backups.length > 7) backups = backups.slice(-7);
+    if (backups.length > 34) backups = backups.slice(-34);
     localStorage.setItem(DAILY_BACKUP_KEY, JSON.stringify(backups));
   } catch (e) {
     console.error('daily backup failed', e);
   }
 }
 runDailyBackup();
+// Also re-check periodically, not just on page load — otherwise a tab left open
+// for many hours without a refresh would never see the 5-hour mark pass and
+// this safety net would silently stop advancing. The function itself decides
+// whether a new snapshot is actually due, this just gives it a chance to run.
+setInterval(runDailyBackup, 30 * 60 * 1000);
 
 function switchTodoList(id) {
   // Always trust localStorage over our own in-memory activeTodoListId — another
@@ -4474,11 +4480,6 @@ function renderTodos() {
       });
       input.addEventListener('blur', commitEdit);
     });
-
-    // right-click to move this task to another list
-    item.title = 'right-click to move to another list';
-    item.addEventListener('contextmenu', e => showTodoMoveCtx(e, i));
-
     list.appendChild(item);
   });
   const remaining = todos.filter(t => !t.done).length;
@@ -4493,56 +4494,6 @@ function addTodo(text) {
   todos.unshift({ text: text.trim(), done: false });
   saveTodos(); renderTodos();
   document.getElementById('todoInput').value = '';
-}
-
-// ── right-click a todo item to move it to a different list ──
-// Mirrors the engine/category ctx-menu pattern elsewhere in this file:
-// built fresh on each right-click, removed on next outside click.
-let todoMoveCtxMenu = null;
-function showTodoMoveCtx(e, index) {
-  e.preventDefault();
-  if (todoMoveCtxMenu) { todoMoveCtxMenu.remove(); todoMoveCtxMenu = null; }
-  const others = todoLists.filter(l => l.id !== activeTodoListId);
-  if (!others.length) return; // no other list to move to yet
-
-  todoMoveCtxMenu = document.createElement('div');
-  todoMoveCtxMenu.className = 'ctx-menu visible';
-  todoMoveCtxMenu.style.left = Math.min(e.clientX, window.innerWidth - 160) + 'px';
-  todoMoveCtxMenu.style.top = Math.min(e.clientY, window.innerHeight - (14 + others.length * 30)) + 'px';
-  todoMoveCtxMenu.style.zIndex = '10001';
-  todoMoveCtxMenu.innerHTML =
-    '<div class="ctx-item" style="cursor:default;color:var(--text3);font-size:9px;letter-spacing:0.08em;text-transform:uppercase;">move to list</div>' +
-    '<div class="ctx-sep"></div>' +
-    others.map(l => `<div class="ctx-item" data-id="${l.id}">→ ${escHtml(l.name)}</div>`).join('');
-  document.body.appendChild(todoMoveCtxMenu);
-
-  todoMoveCtxMenu.querySelectorAll('.ctx-item[data-id]').forEach(el => {
-    el.addEventListener('click', () => {
-      moveTodoToList(index, el.dataset.id);
-      todoMoveCtxMenu.remove();
-      todoMoveCtxMenu = null;
-    });
-  });
-
-  setTimeout(() => document.addEventListener('click', () => {
-    if (todoMoveCtxMenu) { todoMoveCtxMenu.remove(); todoMoveCtxMenu = null; }
-  }, { once: true }), 10);
-}
-
-// moves todos[index] out of the currently active list and into targetId's
-// stash (targetId is always an inactive list here, so it's safe to write
-// straight to its stash key rather than routing through switchTodoList).
-function moveTodoToList(index, targetId) {
-  const todo = todos[index];
-  if (!todo) return;
-  let targetTodos;
-  try { targetTodos = JSON.parse(localStorage.getItem(stashKeyFor(targetId)) || '[]'); } catch (e) { targetTodos = []; }
-  targetTodos.unshift({ ...todo });
-  localStorage.setItem(stashKeyFor(targetId), JSON.stringify(targetTodos));
-
-  todos.splice(index, 1);
-  saveTodos();
-  renderTodos();
 }
 
 document.getElementById('todoInput').addEventListener('keydown', e => { if (e.key === 'Enter') addTodo(e.target.value); });
@@ -4668,6 +4619,10 @@ async function notepadSaveToFile() {
 
 function notepadSave(val) {
   localStorage.setItem('sp_notes', val);
+  // Stamp immediately (see the saveTodos/saveBookmarks patch above for why this
+  // can't wait for fbPush — fbPush is a no-op while signed out, so without this
+  // an offline note edit would keep a stale timestamp and could lose to cloud later).
+  localStorage.setItem('sp_last_updated', Date.now().toString());
   const savedEl = document.getElementById('notepadSaved');
   if (savedEl) savedEl.textContent = 'saved ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
   const countEl = document.getElementById('notepadCount');
@@ -8327,12 +8282,18 @@ function fbOnSignOut() {
 }
 
 // ── Patch save functions to also push to Firebase ──
+// Every local save stamps sp_last_updated immediately, whether or not anyone is signed
+// in. Without this, edits made while signed out (or offline) keep whatever stale
+// timestamp was last written during a sign-in session — so on the next sign-in, a
+// same-or-older cloud copy can look "newer" and silently overwrite fresh local data.
+// Stamping on every save means local is always correctly marked as the newest thing
+// that happened, and a genuinely older cloud copy can never win a comparison it shouldn't.
 const _origSaveBookmarks = saveBookmarks;
-window.saveBookmarks = function() { _origSaveBookmarks(); fbPush(); };
+window.saveBookmarks = function() { _origSaveBookmarks(); localStorage.setItem('sp_last_updated', Date.now().toString()); fbPush(); };
 saveBookmarks = window.saveBookmarks;
 
 const _origSaveTodos = saveTodos;
-window.saveTodos = function() { window._fbTodoIntent = true; _origSaveTodos(); fbPush(); };
+window.saveTodos = function() { window._fbTodoIntent = true; _origSaveTodos(); localStorage.setItem('sp_last_updated', Date.now().toString()); fbPush(); };
 saveTodos = window.saveTodos;
 
 
