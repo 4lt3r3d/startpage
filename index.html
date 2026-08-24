@@ -11341,6 +11341,35 @@ function classifyYouTubeSource(raw) {
   return null;
 }
 
+// Resolves a channel reference down to its real channel ID (UC...) plus a
+// thumbnail, for the "always live" order — cached indefinitely since neither
+// changes. Used instead of resolveUploadsPlaylistId when order === 'live',
+// since a live feed embeds via channel ID, not the uploads playlist.
+async function resolveChannelInfo(source) {
+  const cacheKey = 'sp_yt_channelinfo_' + source.refType + '_' + source.ref;
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) { try { return JSON.parse(cached); } catch {} }
+
+  const attempts = [];
+  if (source.refType === 'id') attempts.push({ id: source.ref });
+  if (source.refType === 'handle') attempts.push({ forHandle: source.ref });
+  if (source.refType === 'custom' || source.refType === 'user') {
+    attempts.push({ forHandle: '@' + source.ref });
+    attempts.push({ forUsername: source.ref });
+  }
+
+  for (const params of attempts) {
+    const data = await ytApi('channels', { part: 'snippet', ...params });
+    const item = data?.items?.[0];
+    if (item?.id) {
+      const info = { channelId: item.id, thumb: item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url || null };
+      localStorage.setItem(cacheKey, JSON.stringify(info));
+      return info;
+    }
+  }
+  return null;
+}
+
 // Resolves a channel reference down to its uploads playlist ID (the standard
 // playlist YouTube maintains of every public upload, newest first) — cached
 // indefinitely since a channel's uploads playlist ID never changes. A bare
@@ -11438,6 +11467,20 @@ function saveCursors(cursors) {
 // grid doesn't reset progress, and two feeds watching the same channel with the
 // same order share a cursor while different orders on the same channel don't.
 async function resolveDynamicFeed(feed) {
+  // "Always live" — no uploads playlist, no cursor. Always embeds whatever
+  // this channel's current live broadcast is (YouTube's own channel-live
+  // embed endpoint), so there's nothing to advance between refreshes.
+  if (feed.order === 'live') {
+    if (!feed.channelId) return null;
+    return {
+      id: feed.channelId,
+      indexing: false,
+      embedSrc: `https://www.youtube.com/embed/live_stream?channel=${feed.channelId}&autoplay=1&mute=0`,
+      thumbSrc: feed.channelThumb || null,
+      thumbFallback: null,
+    };
+  }
+
   const playlistId = feed.uploadsPlaylistId || feed.sourceRef;
   if (!playlistId) return null;
 
@@ -11498,7 +11541,7 @@ function handleThumbError(img, fallback) {
   }
 }
 
-const ORDER_BADGE_LABEL = { newest: 'NEW→OLD', oldest: 'OLD→NEW', latest: 'LATEST', random: 'RANDOM' };
+const ORDER_BADGE_LABEL = { newest: 'NEW→OLD', oldest: 'OLD→NEW', latest: 'LATEST', random: 'RANDOM', live: 'LIVE' };
 
 // Renders one tile's inner markup for a fully-resolved feed (static, or a
 // dynamic feed that has already been resolved to a specific video) and wires
@@ -11512,7 +11555,7 @@ function renderFeedTile(feed, wrap) {
 
   const badges = `
     <div class="feed-platform-badge" style="border-color:${feed.color}66;color:${feed.color};">${escHtml(feed.platformLabel || '')}</div>
-    ${feed.dynamic ? `<div class="feed-platform-badge" style="border-color:var(--accent2);color:var(--accent);" title="cycling through this ${escHtml(feed.sourceKind)}'s videos, ${escHtml(feed.order)} order">${ORDER_BADGE_LABEL[feed.order] || feed.order.toUpperCase()}</div>` : ''}
+    ${feed.dynamic ? `<div class="feed-platform-badge" style="border-color:var(--accent2);color:var(--accent);" title="${feed.order === 'live' ? "always shows this channel's current live broadcast" : `cycling through this ${escHtml(feed.sourceKind)}'s videos, ${escHtml(feed.order)} order`}">${ORDER_BADGE_LABEL[feed.order] || feed.order.toUpperCase()}</div>` : ''}
     ${feed.indexing ? `<div class="feed-platform-badge" style="border-color:#ffb02066;color:#ffb020;" title="still paging through this channel's full history — the true oldest video will show once indexing finishes">INDEXING…</div>` : ''}
     ${feed.unverified ? `<div class="feed-platform-badge" style="border-color:#ffb02066;color:#ffb020;border-style:dashed;" title="not on the verified platform list — may not load, tap ↗ to open on the site instead">UNTESTED</div>` : ''}`;
 
@@ -11615,7 +11658,9 @@ function openFeedsEdit() {
         <br><br>
         Paste a YouTube <b>channel</b> (/@handle, /channel/UC…, /c/name, /user/name) or
         <b>playlist</b> URL instead of a specific video and you'll get to pick a playback order —
-        it'll cycle through that channel/playlist's actual videos on every new tab/window/refresh.
+        it'll cycle through that channel/playlist's actual videos on every new tab/window/refresh,
+        or pick <b>always live</b> to always show that channel's current live broadcast (for 24/7
+        streaming channels), regardless of refresh.
         Needs a free YouTube Data API v3 key the first time (paste once, stored in this browser).
       </p>
 
@@ -11691,6 +11736,7 @@ function openFeedsEdit() {
             <option value="newest">newest → oldest (cycles back in time each refresh)</option>
             <option value="oldest">oldest → newest (cycles forward in time each refresh)</option>
             <option value="latest">always the latest upload</option>
+            <option value="live" class="feed-order-live-opt">always live (this channel's current stream)</option>
             <option value="random">random each time</option>
           </select>
         </div>`;
@@ -11713,8 +11759,14 @@ function openFeedsEdit() {
       urlInput.addEventListener('input', e => {
         draft[i].urlInput = e.target.value; // store raw for save-time parsing
         // live-classify as the user types/pastes so the order picker shows up immediately
-        const isSource = !!classifyYouTubeSource(e.target.value.trim());
-        orderWrap.style.display = isSource ? 'block' : 'none';
+        const src = classifyYouTubeSource(e.target.value.trim());
+        orderWrap.style.display = src ? 'block' : 'none';
+        // "always live" only makes sense for a channel, not a fixed playlist
+        const liveOpt = orderSelect.querySelector('.feed-order-live-opt');
+        if (liveOpt) {
+          liveOpt.disabled = !src || src.kind !== 'channel';
+          if (liveOpt.disabled && orderSelect.value === 'live') orderSelect.value = '';
+        }
       });
       orderSelect.addEventListener('change', e => {
         draft[i].order = e.target.value;
@@ -11789,6 +11841,23 @@ function openFeedsEdit() {
           return;
         }
         saveBtn.textContent = `resolving feed ${i+1}…`;
+
+        if (order === 'live') {
+          const info = await resolveChannelInfo(parsed.source);
+          if (!info) {
+            errEl.textContent = `feed ${i+1}: couldn't resolve that channel — check the URL, or that the YouTube API key is valid and has the YouTube Data API v3 enabled`;
+            saveBtn.disabled = false; saveBtn.textContent = origLabel;
+            return;
+          }
+          newFeeds.push({
+            platform: 'youtube', platformLabel: 'YouTube', color: '#ff0033',
+            dynamic: true, sourceKind: parsed.source.kind, sourceRef: parsed.source.ref,
+            channelId: info.channelId, channelThumb: info.thumb,
+            order, title, raw: parsed.raw,
+          });
+          continue;
+        }
+
         const uploadsPlaylistId = await resolveUploadsPlaylistId(parsed.source);
         if (!uploadsPlaylistId) {
           errEl.textContent = `feed ${i+1}: couldn't resolve that ${parsed.source.label} — check the URL, or that the YouTube API key is valid and has the YouTube Data API v3 enabled`;
