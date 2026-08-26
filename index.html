@@ -11535,6 +11535,11 @@ function parseFeedUrl(raw, title) {
 
   if (/^[a-zA-Z0-9_-]{11}$/.test(raw)) return finalizeFeed('youtube', raw, raw, title);
 
+  // A whole channel or playlist, not one fixed video — the caller (the edit modal)
+  // needs to ask for a playback order before this can become a real feed.
+  const ytSource = classifyYouTubeSource(raw);
+  if (ytSource) return { needsOrder: true, source: ytSource, raw, title };
+
   const host = hostOf(raw);
   for (const p of PLATFORMS) {
     if (p.test(host, raw)) {
@@ -11569,9 +11574,266 @@ function parseFeedUrl(raw, title) {
 
 // Upgrades feeds saved before multi-platform support (which only had {id,title}).
 function normalizeFeed(feed) {
+  if (feed && feed.dynamic) return feed; // channel/playlist feed — resolved live, not fixed at save time
   if (feed && feed.platform && feed.embedSrc) return feed;
   if (feed && feed.id) return finalizeFeed('youtube', feed.id, feed.id, feed.title);
   return feed;
+}
+
+// ══════════════════════════════
+//  Dynamic (channel/playlist) YouTube feeds
+// ══════════════════════════════
+// A feed can point at a whole channel or playlist instead of one fixed video.
+// The config (which channel/playlist + which order) is what gets saved/synced;
+// "which video is showing right now" is resolved fresh on every load/refresh
+// by resolveDynamicFeed() below, and never written back into LIVE_FEEDS/Firebase —
+// the index cache and cursor position live in their own localStorage keys, local
+// to this browser only.
+
+function getYtApiKey() {
+  let key = localStorage.getItem('ytApiKey');
+  if (!key) {
+    key = window.prompt('Paste a YouTube Data API v3 key (console.cloud.google.com → APIs & Services → Credentials, same project as your Firebase sync works fine). Stored only in this browser:');
+    if (key && key.trim()) localStorage.setItem('ytApiKey', key.trim());
+  }
+  return (key || '').trim();
+}
+
+async function ytApi(path, params) {
+  const key = getYtApiKey();
+  if (!key) return null;
+  const qs = new URLSearchParams({ ...params, key });
+  try {
+    const res = await fetch(`https://www.googleapis.com/youtube/v3/${path}?${qs}`);
+    if (!res.ok) {
+      const body = await res.text();
+      console.warn('YouTube API error:', res.status, body);
+      if (res.status === 400 || res.status === 403) {
+        if (/API key not valid|forbidden|not been used|disabled/i.test(body)) {
+          localStorage.removeItem('ytApiKey');
+          alert('YouTube API rejected that key (invalid, or the YouTube Data API v3 isn’t enabled for its project) — it was cleared. Try saving the feed again to re-enter it.');
+        }
+      }
+      return null;
+    }
+    return await res.json();
+  } catch (err) {
+    console.warn('YouTube API request failed:', err);
+    return null;
+  }
+}
+
+// Detects a channel/playlist URL (as opposed to one specific video) and what kind it is.
+// Returns null for anything else, including normal watch/live/shorts URLs.
+function classifyYouTubeSource(raw) {
+  let u;
+  try { u = new URL(raw.includes('://') ? raw : 'https://' + raw); } catch { return null; }
+  const host = u.hostname.replace(/^www\./, '').toLowerCase();
+  if (host !== 'youtube.com' && host !== 'm.youtube.com') return null;
+
+  if (u.pathname === '/playlist') {
+    const list = u.searchParams.get('list');
+    return list ? { kind: 'playlist', ref: list, label: 'playlist' } : null;
+  }
+  let m = u.pathname.match(/^\/channel\/(UC[a-zA-Z0-9_-]{10,})/);
+  if (m) return { kind: 'channel', refType: 'id', ref: m[1], label: 'channel' };
+  m = u.pathname.match(/^\/@([a-zA-Z0-9_.-]+)/);
+  if (m) return { kind: 'channel', refType: 'handle', ref: '@' + m[1], label: 'channel' };
+  m = u.pathname.match(/^\/c\/([a-zA-Z0-9_-]+)/);
+  if (m) return { kind: 'channel', refType: 'custom', ref: m[1], label: 'channel' };
+  m = u.pathname.match(/^\/user\/([a-zA-Z0-9_-]+)/);
+  if (m) return { kind: 'channel', refType: 'user', ref: m[1], label: 'channel' };
+  return null;
+}
+
+// Resolves a channel reference down to its real channel ID (UC...) plus a
+// thumbnail, for the "always live" order — cached indefinitely since neither
+// changes. Used instead of resolveUploadsPlaylistId when order === 'live',
+// since a live feed embeds via channel ID, not the uploads playlist.
+async function resolveChannelInfo(source) {
+  const cacheKey = 'sp_yt_channelinfo_' + source.refType + '_' + source.ref;
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) { try { return JSON.parse(cached); } catch {} }
+
+  const attempts = [];
+  if (source.refType === 'id') attempts.push({ id: source.ref });
+  if (source.refType === 'handle') attempts.push({ forHandle: source.ref });
+  if (source.refType === 'custom' || source.refType === 'user') {
+    attempts.push({ forHandle: '@' + source.ref });
+    attempts.push({ forUsername: source.ref });
+  }
+
+  for (const params of attempts) {
+    const data = await ytApi('channels', { part: 'snippet', ...params });
+    const item = data?.items?.[0];
+    if (item?.id) {
+      const info = { channelId: item.id, thumb: item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url || null };
+      localStorage.setItem(cacheKey, JSON.stringify(info));
+      return info;
+    }
+  }
+  return null;
+}
+
+// Resolves a channel reference down to its uploads playlist ID (the standard
+// playlist YouTube maintains of every public upload, newest first) — cached
+// indefinitely since a channel's uploads playlist ID never changes. A bare
+// playlist URL is already a playlist ID, so it passes straight through.
+async function resolveUploadsPlaylistId(source) {
+  if (source.kind === 'playlist') return source.ref;
+
+  const cacheKey = 'sp_yt_uploads_' + source.refType + '_' + source.ref;
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) return cached;
+
+  const attempts = [];
+  if (source.refType === 'id') attempts.push({ id: source.ref });
+  if (source.refType === 'handle') attempts.push({ forHandle: source.ref });
+  if (source.refType === 'custom' || source.refType === 'user') {
+    attempts.push({ forHandle: '@' + source.ref });
+    attempts.push({ forUsername: source.ref });
+  }
+
+  for (const params of attempts) {
+    const data = await ytApi('channels', { part: 'contentDetails', ...params });
+    const uploads = data?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+    if (uploads) {
+      localStorage.setItem(cacheKey, uploads);
+      return uploads;
+    }
+  }
+  return null;
+}
+
+// ── Per-playlist video index — cached in localStorage, built progressively
+// (never one giant fetch chain). Position 0 = newest upload, growing toward
+// the oldest as more pages get pulled in over successive loads.
+function loadIndex(playlistId) {
+  try { return JSON.parse(localStorage.getItem('sp_yt_index_' + playlistId) || 'null') || { ids: [], nextPageToken: null, done: false }; }
+  catch { return { ids: [], nextPageToken: null, done: false }; }
+}
+function saveIndex(playlistId, index) {
+  localStorage.setItem('sp_yt_index_' + playlistId, JSON.stringify(index));
+}
+
+// Extends a playlist's cached index by up to maxPages more pages (50 videos/page),
+// stopping early once untilPosition is covered — callers only pull as much as
+// they actually need right now.
+async function extendIndex(playlistId, untilPosition, maxPages = 10) {
+  let index = loadIndex(playlistId);
+  let pages = 0;
+  while (!index.done && index.ids.length <= untilPosition && pages < maxPages) {
+    const data = await ytApi('playlistItems', {
+      part: 'contentDetails', playlistId, maxResults: 50,
+      pageToken: index.nextPageToken || ''
+    });
+    if (!data) break;
+    for (const item of (data.items || [])) {
+      const vid = item.contentDetails?.videoId;
+      if (vid && !index.ids.includes(vid)) index.ids.push(vid);
+    }
+    index.nextPageToken = data.nextPageToken || null;
+    if (!data.nextPageToken) index.done = true;
+    pages++;
+  }
+  saveIndex(playlistId, index);
+  return index;
+}
+
+// Cheap freshness check — pulls just the first page and prepends anything new,
+// so latest/newest feeds notice new uploads without a full re-index.
+async function refreshIndexHead(playlistId) {
+  let index = loadIndex(playlistId);
+  const data = await ytApi('playlistItems', { part: 'contentDetails', playlistId, maxResults: 10 });
+  if (!data) return index;
+  const freshIds = (data.items || []).map(i => i.contentDetails?.videoId).filter(Boolean);
+  const newOnes = [];
+  for (const id of freshIds) {
+    if (index.ids[0] === id) break; // caught up to what we already had cached
+    if (!index.ids.includes(id)) newOnes.push(id);
+  }
+  if (newOnes.length) {
+    index.ids = [...newOnes, ...index.ids];
+    saveIndex(playlistId, index);
+  }
+  return index;
+}
+
+function loadCursors() {
+  try { return JSON.parse(localStorage.getItem('sp_feed_cursors') || '{}'); } catch { return {}; }
+}
+function saveCursors(cursors) {
+  localStorage.setItem('sp_feed_cursors', JSON.stringify(cursors));
+}
+
+// Resolves which single video a dynamic (channel/playlist) feed should show right
+// now, advances its cursor for next time, and returns render data. The cursor is
+// keyed by source+order (not by feed slot), so re-editing a feed or reordering the
+// grid doesn't reset progress, and two feeds watching the same channel with the
+// same order share a cursor while different orders on the same channel don't.
+async function resolveDynamicFeed(feed) {
+  // "Always live" — no uploads playlist, no cursor. Always embeds whatever
+  // this channel's current live broadcast is (YouTube's own channel-live
+  // embed endpoint), so there's nothing to advance between refreshes.
+  if (feed.order === 'live') {
+    if (!feed.channelId) return null;
+    return {
+      id: feed.channelId,
+      indexing: false,
+      embedSrc: `https://www.youtube.com/embed/live_stream?channel=${feed.channelId}&autoplay=1&mute=0`,
+      thumbSrc: feed.channelThumb || null,
+      thumbFallback: null,
+    };
+  }
+
+  const playlistId = feed.uploadsPlaylistId || feed.sourceRef;
+  if (!playlistId) return null;
+
+  await refreshIndexHead(playlistId);
+  const cursorKey = `${feed.sourceKind}:${feed.sourceRef}:${feed.order}`;
+  const cursors = loadCursors();
+  let index = loadIndex(playlistId);
+  let position;
+  let indexing = false;
+
+  if (feed.order === 'latest') {
+    position = 0;
+  } else if (feed.order === 'random') {
+    if (index.ids.length < 2 && !index.done) index = await extendIndex(playlistId, 25, 3);
+    const last = cursors[cursorKey]?.lastPosition;
+    do { position = Math.floor(Math.random() * Math.max(index.ids.length, 1)); }
+    while (index.ids.length > 1 && position === last);
+    cursors[cursorKey] = { lastPosition: position };
+    saveCursors(cursors);
+  } else if (feed.order === 'newest') {
+    position = cursors[cursorKey]?.position ?? 0;
+    if (position >= index.ids.length && !index.done) index = await extendIndex(playlistId, position);
+    if (position >= index.ids.length) position = Math.max(index.ids.length - 1, 0); // hit the true end — hold there
+    cursors[cursorKey] = { position: index.done ? Math.min(position + 1, index.ids.length - 1) : position + 1 };
+    saveCursors(cursors);
+  } else { // oldest
+    if (!index.done) index = await extendIndex(playlistId, index.ids.length + 500, 10);
+    if (!index.done) {
+      // still walking toward the real start — show the farthest-known video so
+      // far as a stand-in without moving the cursor yet, so it's accurate once done
+      position = Math.max(index.ids.length - 1, 0);
+      indexing = true;
+    } else {
+      const stored = cursors[cursorKey]?.position;
+      position = stored != null ? stored : index.ids.length - 1;
+      cursors[cursorKey] = { position: Math.max(position - 1, 0) };
+      saveCursors(cursors);
+    }
+  }
+
+  const id = index.ids[Math.max(0, Math.min(position, index.ids.length - 1))];
+  if (!id) return null;
+  return {
+    id, indexing,
+    embedSrc: `https://www.youtube.com/embed/${id}?autoplay=1&mute=0&rel=0&modestbranding=1`,
+    thumbSrc: `https://img.youtube.com/vi/${id}/maxresdefault.jpg`,
+    thumbFallback: `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
+  };
 }
 
 function handleThumbError(img, fallback) {
@@ -11582,6 +11844,40 @@ function handleThumbError(img, fallback) {
     img.style.display = 'none';
     if (img.nextElementSibling) img.nextElementSibling.style.display = 'flex';
   }
+}
+
+const ORDER_BADGE_LABEL = { newest: 'NEW→OLD', oldest: 'OLD→NEW', latest: 'LATEST', random: 'RANDOM', live: 'LIVE' };
+
+// Renders one tile's inner markup for a fully-resolved feed (static, or a
+// dynamic feed that has already been resolved to a specific video) and wires
+// up its click-to-play handler. Shared by the sync (static) and async
+// (dynamic, post-resolve) paths in buildFeeds() so the markup only lives once.
+function renderFeedTile(feed, wrap) {
+  const thumbHtml = feed.thumbSrc
+    ? `<img class="feed-thumb" src="${feed.thumbSrc}" onerror="handleThumbError(this, ${feed.thumbFallback ? `'${feed.thumbFallback}'` : 'null'})" alt="${escHtml(feed.title || '')}">
+       <div class="feed-thumb-placeholder" style="background:${feed.color}22;color:${feed.color};">${escHtml(feed.platformLabel || '')}</div>`
+    : `<div class="feed-thumb feed-thumb-placeholder" style="display:flex;background:${feed.color}22;color:${feed.color};">${escHtml(feed.platformLabel || '')}</div>`;
+
+  const badges = `
+    <div class="feed-platform-badge" style="border-color:${feed.color}66;color:${feed.color};">${escHtml(feed.platformLabel || '')}</div>
+    ${feed.dynamic ? `<div class="feed-platform-badge" style="border-color:var(--accent2);color:var(--accent);" title="${feed.order === 'live' ? "always shows this channel's current live broadcast" : `cycling through this ${escHtml(feed.sourceKind)}'s videos, ${escHtml(feed.order)} order`}">${ORDER_BADGE_LABEL[feed.order] || feed.order.toUpperCase()}</div>` : ''}
+    ${feed.indexing ? `<div class="feed-platform-badge" style="border-color:#ffb02066;color:#ffb020;" title="still paging through this channel's full history — the true oldest video will show once indexing finishes">INDEXING…</div>` : ''}
+    ${feed.unverified ? `<div class="feed-platform-badge" style="border-color:#ffb02066;color:#ffb020;border-style:dashed;" title="not on the verified platform list — may not load, tap ↗ to open on the site instead">UNTESTED</div>` : ''}`;
+
+  wrap.innerHTML = `
+    ${thumbHtml}
+    <div class="feed-overlay">
+      <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
+        ${badges}
+      </div>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:6px;">
+        <div class="feed-title">${escHtml(feed.title || '')}</div>
+        ${feed.unverified ? `<a class="feed-open-link" href="${feed.watchUrl}" target="_blank" rel="noopener noreferrer" title="open on ${escHtml(feed.platformLabel || 'site')}" onclick="event.stopPropagation();">↗</a>` : ''}
+      </div>
+    </div>
+    <div class="feed-play-btn">▶</div>`;
+
+  wrap.addEventListener('click', () => playFeedInline(feed, wrap));
 }
 
 function buildFeeds() {
@@ -11604,34 +11900,26 @@ function buildFeeds() {
   LIVE_FEEDS.forEach((feed, i) => {
     const wrap = document.createElement('div');
     wrap.className = 'feed-item';
-    wrap.dataset.id = feed.id;
+    wrap.dataset.id = feed.dynamic ? feed.sourceRef : feed.id;
     // when there are 3 feeds, make the 3rd one span both columns
     if (count === 3 && i === 2) wrap.style.gridColumn = '1 / -1';
-
-    const thumbHtml = feed.thumbSrc
-      ? `<img class="feed-thumb" src="${feed.thumbSrc}" onerror="handleThumbError(this, ${feed.thumbFallback ? `'${feed.thumbFallback}'` : 'null'})" alt="${escHtml(feed.title || '')}">
-         <div class="feed-thumb-placeholder" style="background:${feed.color}22;color:${feed.color};">${escHtml(feed.platformLabel || '')}</div>`
-      : `<div class="feed-thumb feed-thumb-placeholder" style="display:flex;background:${feed.color}22;color:${feed.color};">${escHtml(feed.platformLabel || '')}</div>`;
-
-    const badges = `
-      <div class="feed-platform-badge" style="border-color:${feed.color}66;color:${feed.color};">${escHtml(feed.platformLabel || '')}</div>
-      ${feed.unverified ? `<div class="feed-platform-badge" style="border-color:#ffb02066;color:#ffb020;border-style:dashed;" title="not on the verified platform list — may not load, tap ↗ to open on the site instead">UNTESTED</div>` : ''}`;
-
-    wrap.innerHTML = `
-      ${thumbHtml}
-      <div class="feed-overlay">
-        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
-          ${badges}
-        </div>
-        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:6px;">
-          <div class="feed-title">${escHtml(feed.title || '')}</div>
-          ${feed.unverified ? `<a class="feed-open-link" href="${feed.watchUrl}" target="_blank" rel="noopener noreferrer" title="open on ${escHtml(feed.platformLabel || 'site')}" onclick="event.stopPropagation();">↗</a>` : ''}
-        </div>
-      </div>
-      <div class="feed-play-btn">▶</div>`;
-
-    wrap.addEventListener('click', () => playFeedInline(feed, wrap));
     container.appendChild(wrap);
+
+    if (!feed.dynamic) {
+      renderFeedTile(feed, wrap);
+      return;
+    }
+
+    // Dynamic (channel/playlist) feed — show a resolving state, then patch in
+    // whichever video the order/cursor picks once resolveDynamicFeed() returns.
+    wrap.innerHTML = `<div class="feed-thumb feed-thumb-placeholder" style="display:flex;background:${feed.color}22;color:${feed.color};">resolving…</div>`;
+    resolveDynamicFeed(feed).then(resolved => {
+      if (!resolved) {
+        wrap.innerHTML = `<div class="feed-thumb feed-thumb-placeholder" style="display:flex;background:#ffb02022;color:#ffb020;text-align:center;padding:8px;">couldn't load ${escHtml(feed.title || 'this feed')} — check the YouTube API key in the edit modal</div>`;
+        return;
+      }
+      renderFeedTile({ ...feed, ...resolved }, wrap);
+    });
   });
 }
 
@@ -11672,6 +11960,13 @@ function openFeedsEdit() {
         Anything else gets tried as a best-effort embed, marked <span style="color:#ffb020;">UNTESTED</span>
         on the tile — most sites block being framed, so it may just stay blank; an ↗ link lets you
         open it on the real site instead.
+        <br><br>
+        Paste a YouTube <b>channel</b> (/@handle, /channel/UC…, /c/name, /user/name) or
+        <b>playlist</b> URL instead of a specific video and you'll get to pick a playback order —
+        it'll cycle through that channel/playlist's actual videos on every new tab/window/refresh,
+        or pick <b>always live</b> to always show that channel's current live broadcast (for 24/7
+        streaming channels), regardless of refresh.
+        Needs a free YouTube Data API v3 key the first time (paste once, stored in this browser).
       </p>
 
       <div id="feedsEditList"></div>
@@ -11737,12 +12032,30 @@ function openFeedsEdit() {
       row.innerHTML = `
         <label>FEED ${i+1} · TITLE</label>
         <input type="text" class="feed-edit-title" data-i="${i}" value="${escHtml(draft[i]?.title || '')}" placeholder="Feed name" maxlength="60">
-        <label>FEED ${i+1} · VIDEO / LIVE URL</label>
-        <input type="text" class="feed-edit-url" data-i="${i}" placeholder="https://www.youtube.com/watch?v=... or twitch.tv/... , kick.com/... , rumble.com/... etc." style="font-family:var(--mono);font-size:11px;">`;
+        <label>FEED ${i+1} · VIDEO / LIVE / CHANNEL / PLAYLIST URL</label>
+        <input type="text" class="feed-edit-url" data-i="${i}" placeholder="https://www.youtube.com/watch?v=... or twitch.tv/... , kick.com/... , rumble.com/... etc." style="font-family:var(--mono);font-size:11px;">
+        <div class="feed-order-wrap" data-i="${i}" style="display:none;margin-top:6px;">
+          <label style="color:var(--accent);">↳ this is a whole channel/playlist — play its videos in what order?</label>
+          <select class="feed-edit-order" data-i="${i}" style="font-family:var(--mono);font-size:11px;">
+            <option value="">choose order…</option>
+            <option value="newest">newest → oldest (cycles back in time each refresh)</option>
+            <option value="oldest">oldest → newest (cycles forward in time each refresh)</option>
+            <option value="latest">always the latest upload</option>
+            <option value="live" class="feed-order-live-opt">always live (this channel's current stream)</option>
+            <option value="random">random each time</option>
+          </select>
+        </div>`;
       list.appendChild(row);
       // pre-fill URL with current raw value (falls back to reconstructing a youtube URL for old entries)
       const urlInput = row.querySelector('.feed-edit-url');
       urlInput.value = draft[i]?.urlInput ?? draft[i]?.raw ?? (draft[i]?.id && (!draft[i]?.platform || draft[i].platform === 'youtube') ? 'https://www.youtube.com/watch?v=' + draft[i].id : '');
+
+      const orderWrap = row.querySelector('.feed-order-wrap');
+      const orderSelect = row.querySelector('.feed-edit-order');
+      if (draft[i]?.dynamic) {
+        orderWrap.style.display = 'block';
+        orderSelect.value = draft[i].order || '';
+      }
 
       // bind input to draft
       row.querySelector('.feed-edit-title').addEventListener('input', e => {
@@ -11750,6 +12063,18 @@ function openFeedsEdit() {
       });
       urlInput.addEventListener('input', e => {
         draft[i].urlInput = e.target.value; // store raw for save-time parsing
+        // live-classify as the user types/pastes so the order picker shows up immediately
+        const src = classifyYouTubeSource(e.target.value.trim());
+        orderWrap.style.display = src ? 'block' : 'none';
+        // "always live" only makes sense for a channel, not a fixed playlist
+        const liveOpt = orderSelect.querySelector('.feed-order-live-opt');
+        if (liveOpt) {
+          liveOpt.disabled = !src || src.kind !== 'channel';
+          if (liveOpt.disabled && orderSelect.value === 'live') orderSelect.value = '';
+        }
+      });
+      orderSelect.addEventListener('change', e => {
+        draft[i].order = e.target.value;
       });
     }
 
@@ -11771,6 +12096,10 @@ function openFeedsEdit() {
         const idx = parseInt(inp.dataset.i);
         draft[idx].urlInput = inp.value;
       });
+      overlay.querySelectorAll('.feed-edit-order').forEach(sel => {
+        const idx = parseInt(sel.dataset.i);
+        if (sel.value) draft[idx].order = sel.value;
+      });
       feedCount = parseInt(btn.dataset.n);
       renderEditList();
     });
@@ -11779,15 +12108,19 @@ function openFeedsEdit() {
   renderEditList();
   overlay.querySelector('.feed-edit-title')?.focus();
 
-  overlay.querySelector('#feedsEditSave').addEventListener('click', () => {
+  const saveBtn = overlay.querySelector('#feedsEditSave');
+  saveBtn.addEventListener('click', async () => {
     const errEl = overlay.querySelector('#feedsEditError');
     const newFeeds = [];
 
     // read current inputs fresh
     const titles = overlay.querySelectorAll('.feed-edit-title');
     const urls   = overlay.querySelectorAll('.feed-edit-url');
+    const orders = overlay.querySelectorAll('.feed-edit-order');
 
     errEl.textContent = '';
+    saveBtn.disabled = true;
+    const origLabel = saveBtn.textContent;
 
     for (let i = 0; i < feedCount; i++) {
       const title  = titles[i].value.trim() || ('Feed ' + (i+1));
@@ -11796,12 +12129,54 @@ function openFeedsEdit() {
 
       if (!parsed) {
         errEl.textContent = `feed ${i+1}: couldn't recognize that URL — check the supported list above`;
+        saveBtn.disabled = false; saveBtn.textContent = origLabel;
         return;
       }
       if (parsed.unsupported) {
         errEl.textContent = `feed ${i+1}: ${parsed.label} can't be embedded — ${parsed.reason}`;
+        saveBtn.disabled = false; saveBtn.textContent = origLabel;
         return;
       }
+
+      if (parsed.needsOrder) {
+        const order = orders[i]?.value || '';
+        if (!order) {
+          errEl.textContent = `feed ${i+1}: this is a ${parsed.source.label} — pick a playback order above before saving`;
+          saveBtn.disabled = false; saveBtn.textContent = origLabel;
+          return;
+        }
+        saveBtn.textContent = `resolving feed ${i+1}…`;
+
+        if (order === 'live') {
+          const info = await resolveChannelInfo(parsed.source);
+          if (!info) {
+            errEl.textContent = `feed ${i+1}: couldn't resolve that channel — check the URL, or that the YouTube API key is valid and has the YouTube Data API v3 enabled`;
+            saveBtn.disabled = false; saveBtn.textContent = origLabel;
+            return;
+          }
+          newFeeds.push({
+            platform: 'youtube', platformLabel: 'YouTube', color: '#ff0033',
+            dynamic: true, sourceKind: parsed.source.kind, sourceRef: parsed.source.ref,
+            channelId: info.channelId, channelThumb: info.thumb,
+            order, title, raw: parsed.raw,
+          });
+          continue;
+        }
+
+        const uploadsPlaylistId = await resolveUploadsPlaylistId(parsed.source);
+        if (!uploadsPlaylistId) {
+          errEl.textContent = `feed ${i+1}: couldn't resolve that ${parsed.source.label} — check the URL, or that the YouTube API key is valid and has the YouTube Data API v3 enabled`;
+          saveBtn.disabled = false; saveBtn.textContent = origLabel;
+          return;
+        }
+        newFeeds.push({
+          platform: 'youtube', platformLabel: 'YouTube', color: '#ff0033',
+          dynamic: true, sourceKind: parsed.source.kind, sourceRef: parsed.source.ref,
+          uploadsPlaylistId, order, title, raw: parsed.raw,
+        });
+        continue;
+      }
+
       newFeeds.push(parsed);
     }
 
@@ -11812,6 +12187,7 @@ function openFeedsEdit() {
     LIVE_FEEDS = newFeeds;
     saveFeeds();
     buildFeeds();
+    saveBtn.disabled = false; saveBtn.textContent = origLabel;
     if (!notes.length) overlay.remove();
     else setTimeout(() => overlay.remove(), 4000);
   });
