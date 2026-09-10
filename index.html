@@ -3223,7 +3223,7 @@ function openEngineEditModal(engine, isVisible, onSave, onDelete, onSaveCategory
 
       <div id="eeCategoryFields" style="display:none;">
         <label>NAME</label>
-        <input type="text" id="ecN" placeholder="AI" maxlength="20">
+        <input type="text" id="ecN" placeholder="e.g. Gaming" maxlength="20">
       </div>
 
       ${engine ? '<div class="modal-btns" style="justify-content:flex-start;margin-bottom:0;padding-bottom:0;border:none;"><button class="modal-btn" id="eeDelete" style="color:var(--red);border-color:var(--red);">✕ delete</button></div>' : ''}
@@ -3434,7 +3434,7 @@ function openCategoryRenameModal(category) {
     <div class="modal">
       <h3>edit category</h3>
       <label>NAME</label>
-      <input type="text" id="ecrN" value="${escHtml(category.name)}" placeholder="AI" maxlength="20">
+      <input type="text" id="ecrN" value="${escHtml(category.name)}" placeholder="e.g. Gaming" maxlength="20">
       <div class="modal-btns">
         <button class="modal-btn" id="ecrCancel">cancel</button>
         <button class="modal-btn primary" id="ecrSave">save</button>
@@ -3654,12 +3654,13 @@ function buildSubrow() {
     wrap.appendChild(btn);
   });
 
-  // "+" — add a new site straight into this category (or spin off a new top-level category)
+  // "+" — add a new site straight into this category (plain "add engine" only —
+  // the add-engine/add-category picker lives on the main row's "+" button only)
   if (!bmLocked) {
     const addBtn = document.createElement('button');
     addBtn.className = 'engine-btn';
     addBtn.textContent = '+';
-    addBtn.title = 'add engine or category';
+    addBtn.title = 'add engine';
     addBtn.style.color = 'var(--text3)';
     addBtn.addEventListener('click', () => {
       openEngineEditModal(null, true, (newEng) => {
@@ -3670,7 +3671,7 @@ function buildSubrow() {
         rebuildVisibleEngines();
         buildEngines();
         saveEngines();
-      }, () => {}, (newCat) => createCategoryEngine(newCat.name));
+      }, () => {});
     });
     wrap.appendChild(addBtn);
   }
