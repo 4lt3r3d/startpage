@@ -327,21 +327,19 @@
   .engine-subrow.open { display: flex; }
   .ai-caret {
     display: inline-block;
-    width: 4px;
-    height: 4px;
-    margin-left: 5px;
-    background: currentColor;
-    vertical-align: middle;
-  }
-  .ai-caret.open {
     width: 0;
     height: 0;
-    margin-left: 4px;
-    background: transparent;
+    margin-left: 5px;
+    vertical-align: middle;
     border-left: 3px solid transparent;
     border-right: 3px solid transparent;
+    border-bottom: 4px solid currentColor;
+  }
+  .ai-caret.open {
+    border-bottom: none;
     border-top: 4px solid currentColor;
   }
+  .modal-type-select { margin-bottom: 14px; font-weight: 500; }
   .engine-subrow-msg {
     display: none;
     font-family: var(--mono);
@@ -3088,14 +3086,13 @@ const ENGINES = [
 
 let activeEngine = 0;
 
-// ── AI sub-category (search-bar quick bar): clicking the "ai" tab reveals a
-// second row of AI-only quick buttons instead of cluttering the main row with
-// one button per AI site. See buildAiSubrow()/moveEngineIntoAiCategory(). ──
-const AI_CATEGORY_ID = 'ai_category';
-const AI_SUB_ENGINES = [];
-let aiSubrowOpen = false;
-let aiCategoryActive = false;   // true when the ai tab itself is selected but no site under it is
-let activeAiSub = null;         // index into AI_SUB_ENGINES when a specific AI site is selected
+// ── categories (search-bar quick bar): clicking a category tab (e.g. "ai")
+// reveals a second row of quick buttons grouped under it, instead of
+// cluttering the main row with one button per site. Any number of categories
+// can exist — see buildSubrow()/moveEngineIntoCategory()/createCategoryEngine(). ──
+let openCategoryId = null;      // id of the category whose sub-row is currently shown, or null
+let activeCategoryId = null;    // id of a category that's the active search target with no site chosen under it yet
+let activeSubEngineId = null;   // id of the specific sub-engine that's the active search target, or null
 
 // visible engines for buttons (top-level only — sub-category engines are excluded)
 const VISIBLE_ENGINES = ENGINES.filter(e => e.show && !e.parent);
@@ -3154,19 +3151,23 @@ function applyEngineCustomizations() {
     rest.forEach(e => ENGINES.push(e));
   }
 
-  // 5. apply saved AI sub-row order the same way, scoped to just the sub-engines
-  let aiSubOrder;
-  try { aiSubOrder = JSON.parse(localStorage.getItem('sp_engines_ai_suborder') || '[]'); } catch (e) { aiSubOrder = []; }
-  if (Array.isArray(aiSubOrder) && aiSubOrder.length) {
-    const subs = ENGINES.filter(e => e.parent === AI_CATEGORY_ID);
-    const byIdSub = new Map(subs.map(e => [e.id, e]));
-    const orderedSubs = aiSubOrder.map(id => byIdSub.get(id)).filter(Boolean);
-    const orderedSubIds = new Set(orderedSubs.map(e => e.id));
-    const restSubs = subs.filter(e => !orderedSubIds.has(e.id));
-    const finalSubs = [...orderedSubs, ...restSubs];
-    for (let i = ENGINES.length - 1; i >= 0; i--) { if (ENGINES[i].parent === AI_CATEGORY_ID) ENGINES.splice(i, 1); }
-    const catIdx = ENGINES.findIndex(e => e.id === AI_CATEGORY_ID);
-    ENGINES.splice(catIdx > -1 ? catIdx + 1 : ENGINES.length, 0, ...finalSubs);
+  // 5. apply saved sub-row order per category the same way, scoped to each category's sub-engines
+  let subOrders;
+  try { subOrders = JSON.parse(localStorage.getItem('sp_engines_suborders') || '{}'); } catch (e) { subOrders = {}; }
+  if (subOrders && typeof subOrders === 'object') {
+    ENGINES.filter(e => e.category).map(e => e.id).forEach(catId => {
+      const order = subOrders[catId];
+      if (!Array.isArray(order) || !order.length) return;
+      const subs = ENGINES.filter(e => e.parent === catId);
+      const byIdSub = new Map(subs.map(e => [e.id, e]));
+      const ordered = order.map(id => byIdSub.get(id)).filter(Boolean);
+      const orderedIds = new Set(ordered.map(e => e.id));
+      const rest = subs.filter(e => !orderedIds.has(e.id));
+      const final = [...ordered, ...rest];
+      for (let i = ENGINES.length - 1; i >= 0; i--) { if (ENGINES[i].parent === catId) ENGINES.splice(i, 1); }
+      const catIdx = ENGINES.findIndex(e => e.id === catId);
+      ENGINES.splice(catIdx > -1 ? catIdx + 1 : ENGINES.length, 0, ...final);
+    });
   }
 
   rebuildVisibleEngines();
@@ -3183,7 +3184,7 @@ function markEngineDeleted(engine) {
 }
 
 // ── engine edit modal helpers ──
-function openEngineEditModal(engine, isVisible, onSave, onDelete) {
+function openEngineEditModal(engine, isVisible, onSave, onDelete, onSaveCategory) {
   // reuse the bookmark modal structure with different fields
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay visible';
@@ -3198,16 +3199,32 @@ function openEngineEditModal(engine, isVisible, onSave, onDelete) {
   }
 
   const displayUrl = engine ? toDisplayUrl(engine.url) : '';
+  // only a fresh "+" add (never an edit) offers the engine/category choice,
+  // and only when the caller actually supplied somewhere to send a category
+  const showTypePicker = !engine && typeof onSaveCategory === 'function';
 
   overlay.innerHTML = `
     <div class="modal">
-      <h3>${engine ? 'edit engine' : 'add engine'}</h3>
-      <label>NAME</label>
-      <input type="text" id="eeN" value="${escHtml(engine ? engine.name : '')}" placeholder="Google" maxlength="30">
-      <label>NICKNAME &nbsp;<span style="color:var(--text3);font-size:9px;letter-spacing:0;">type this in search bar before your query</span></label>
-      <input type="text" id="eeNick" value="${escHtml(engine ? engine.nick : '')}" placeholder="g" maxlength="20" style="font-family:var(--mono);">
-      <label>URL &nbsp;<span style="color:var(--text3);font-size:9px;letter-spacing:0;">replace the search query part with <span style="color:var(--accent);font-family:var(--mono);">%s</span> — e.g. <span style="color:var(--accent);font-family:var(--mono);">https://google.com/search?q=%s</span></span></label>
-      <input type="text" id="eeUrl" value="${escHtml(displayUrl)}" placeholder="https://google.com/search?q=%s" style="font-family:var(--mono);font-size:11px;">
+      ${showTypePicker
+        ? `<select id="eeTypeSelect" class="modal-type-select">
+             <option value="engine">add engine</option>
+             <option value="category">add category</option>
+           </select>`
+        : `<h3>${engine ? 'edit engine' : 'add engine'}</h3>`}
+
+      <div id="eeEngineFields">
+        <label>NAME</label>
+        <input type="text" id="eeN" value="${escHtml(engine ? engine.name : '')}" placeholder="Google" maxlength="30">
+        <label>NICKNAME &nbsp;<span style="color:var(--text3);font-size:9px;letter-spacing:0;">type this in search bar before your query</span></label>
+        <input type="text" id="eeNick" value="${escHtml(engine ? engine.nick : '')}" placeholder="g" maxlength="20" style="font-family:var(--mono);">
+        <label>URL &nbsp;<span style="color:var(--text3);font-size:9px;letter-spacing:0;">replace the search query part with <span style="color:var(--accent);font-family:var(--mono);">%s</span> — e.g. <span style="color:var(--accent);font-family:var(--mono);">https://google.com/search?q=%s</span></span></label>
+        <input type="text" id="eeUrl" value="${escHtml(displayUrl)}" placeholder="https://google.com/search?q=%s" style="font-family:var(--mono);font-size:11px;">
+      </div>
+
+      <div id="eeCategoryFields" style="display:none;">
+        <label>NAME</label>
+        <input type="text" id="ecN" placeholder="AI" maxlength="20">
+      </div>
 
       ${engine ? '<div class="modal-btns" style="justify-content:flex-start;margin-bottom:0;padding-bottom:0;border:none;"><button class="modal-btn" id="eeDelete" style="color:var(--red);border-color:var(--red);">✕ delete</button></div>' : ''}
       <div class="modal-btns">
@@ -3216,9 +3233,27 @@ function openEngineEditModal(engine, isVisible, onSave, onDelete) {
       </div>
     </div>`;
   document.body.appendChild(overlay);
+
+  const eeTypeSelect = overlay.querySelector('#eeTypeSelect');
+  if (eeTypeSelect) {
+    eeTypeSelect.addEventListener('change', () => {
+      const isCat = eeTypeSelect.value === 'category';
+      overlay.querySelector('#eeEngineFields').style.display = isCat ? 'none' : '';
+      overlay.querySelector('#eeCategoryFields').style.display = isCat ? '' : 'none';
+      (isCat ? overlay.querySelector('#ecN') : overlay.querySelector('#eeN')).focus();
+    });
+  }
   overlay.querySelector('#eeN').focus();
 
   overlay.querySelector('#eeSave').addEventListener('click', () => {
+    if (eeTypeSelect && eeTypeSelect.value === 'category') {
+      const catName = overlay.querySelector('#ecN').value.trim();
+      if (!catName) return;
+      onSaveCategory({ name: catName });
+      overlay.remove();
+      return;
+    }
+
     const name = overlay.querySelector('#eeN').value.trim();
     const nick = overlay.querySelector('#eeNick').value.trim().toLowerCase();
     let url    = overlay.querySelector('#eeUrl').value.trim();
@@ -3332,11 +3367,101 @@ function showEngineCtx(e, engine, isVisible, idx) {
   setTimeout(() => document.addEventListener('click', () => { if (engineCtxMenu) engineCtxMenu.remove(); }, { once: true }), 10);
 }
 
+// create a new top-level category button (e.g. from the "add category" option
+// in the "+" modal). Categories never nest — this always lands in the main row.
+function createCategoryEngine(name) {
+  name = (name || '').trim();
+  if (!name) return null;
+  const id = 'cat_' + name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 24) + '_' + Date.now().toString(36);
+  const cat = { id, name, category: true, show: true, nick: '', _custom: true };
+  ENGINES.unshift(cat);
+  rebuildVisibleEngines();
+  buildEngines();
+  saveEngines();
+  return cat;
+}
+
+// ── category ctx menu (right-click a category tab, e.g. "ai") ──
+let categoryCtxMenu = null;
+function showCategoryCtx(e, category) {
+  e.preventDefault();
+  if (categoryCtxMenu) categoryCtxMenu.remove();
+  if (bmLocked) return;
+  categoryCtxMenu = document.createElement('div');
+  categoryCtxMenu.className = 'ctx-menu visible';
+  categoryCtxMenu.style.left = Math.min(e.clientX, window.innerWidth - 160) + 'px';
+  categoryCtxMenu.style.top = Math.min(e.clientY, window.innerHeight - 90) + 'px';
+  categoryCtxMenu.style.zIndex = '10001';
+  categoryCtxMenu.innerHTML = `
+    <div class="ctx-item" id="catCtxEdit">✎ &nbsp;edit</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" id="catCtxDel" style="color:var(--red)">✕ &nbsp;delete</div>`;
+  document.body.appendChild(categoryCtxMenu);
+
+  categoryCtxMenu.querySelector('#catCtxEdit').addEventListener('click', () => {
+    categoryCtxMenu.remove();
+    openCategoryRenameModal(category);
+  });
+
+  categoryCtxMenu.querySelector('#catCtxDel').addEventListener('click', () => {
+    categoryCtxMenu.remove();
+    if (!confirm('delete category "' + category.name + '"? Sites inside it move back to the main row — they will NOT be deleted.')) return;
+    // ungroup its sites back to the main row instead of deleting them —
+    // set parent to null (rather than removing the key) so this survives a
+    // reload: applyEngineCustomizations() merges saved fields onto the
+    // hardcoded baseline with Object.assign, which can overwrite a field but
+    // can't unset one that's missing from the saved diff.
+    ENGINES.forEach(en => { if (en.parent === category.id) { en.parent = null; en._edited = true; } });
+    markEngineDeleted(category);
+    const i = ENGINES.findIndex(en => en.id === category.id);
+    if (i > -1) ENGINES.splice(i, 1);
+    if (openCategoryId === category.id) openCategoryId = null;
+    if (activeCategoryId === category.id) activeCategoryId = null;
+    rebuildVisibleEngines();
+    if (activeEngine >= VISIBLE_ENGINES.length) activeEngine = 0;
+    buildEngines();
+    saveEngines();
+  });
+
+  setTimeout(() => document.addEventListener('click', () => { if (categoryCtxMenu) categoryCtxMenu.remove(); }, { once: true }), 10);
+}
+
+function openCategoryRenameModal(category) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay visible';
+  overlay.style.zIndex = '10000';
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>edit category</h3>
+      <label>NAME</label>
+      <input type="text" id="ecrN" value="${escHtml(category.name)}" placeholder="AI" maxlength="20">
+      <div class="modal-btns">
+        <button class="modal-btn" id="ecrCancel">cancel</button>
+        <button class="modal-btn primary" id="ecrSave">save</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const input = overlay.querySelector('#ecrN');
+  input.focus();
+  input.select();
+
+  overlay.querySelector('#ecrSave').addEventListener('click', () => {
+    const name = input.value.trim();
+    if (!name) return;
+    const i = ENGINES.findIndex(en => en.id === category.id);
+    if (i > -1) { ENGINES[i].name = name; ENGINES[i]._edited = true; }
+    rebuildVisibleEngines();
+    buildEngines();
+    saveEngines();
+    overlay.remove();
+  });
+  overlay.querySelector('#ecrCancel').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
 function rebuildVisibleEngines() {
   VISIBLE_ENGINES.length = 0;
   ENGINES.filter(e => e.show && !e.parent).forEach(e => VISIBLE_ENGINES.push(e));
-  AI_SUB_ENGINES.length = 0;
-  ENGINES.filter(e => e.parent === AI_CATEGORY_ID).forEach(e => AI_SUB_ENGINES.push(e));
 }
 
 function saveEngines() {
@@ -3345,8 +3470,12 @@ function saveEngines() {
   localStorage.setItem('sp_engines_custom', JSON.stringify(custom));
   // save the current visible quick-bar order so drag-reordering persists/syncs too
   localStorage.setItem('sp_engines_order', JSON.stringify(VISIBLE_ENGINES.map(e => e.id)));
-  // save the AI sub-row order too, same reasoning
-  localStorage.setItem('sp_engines_ai_suborder', JSON.stringify(AI_SUB_ENGINES.map(e => e.id)));
+  // save each category's sub-row order too, same reasoning
+  const subOrders = {};
+  ENGINES.filter(e => e.category).forEach(cat => {
+    subOrders[cat.id] = ENGINES.filter(e => e.parent === cat.id).map(e => e.id);
+  });
+  localStorage.setItem('sp_engines_suborders', JSON.stringify(subOrders));
 }
 
 // ── engine drag state ──
@@ -3360,21 +3489,23 @@ function buildEngines() {
     const isCategory = !!e.category;
     const btn = document.createElement('button');
     btn.className = 'engine-btn' + (isCategory ? ' category-btn' : '')
-      + (!aiCategoryActive && activeAiSub === null && i === activeEngine ? ' active' : '')
-      + (isCategory && aiCategoryActive ? ' active' : '');
+      + (!activeCategoryId && activeSubEngineId === null && i === activeEngine ? ' active' : '')
+      + (isCategory && activeCategoryId === e.id ? ' active' : '');
     if (isCategory) {
-      btn.innerHTML = escHtml(e.name) + ' <span class="ai-caret' + (aiSubrowOpen ? ' open' : '') + '"></span>';
+      btn.dataset.catId = e.id;
+      btn.innerHTML = escHtml(e.name) + ' <span class="ai-caret' + (openCategoryId === e.id ? ' open' : '') + '"></span>';
     } else {
       btn.textContent = e.name;
     }
-    btn.title = isCategory ? 'AI sites — click to expand' : 'nick: ' + e.nick;
+    btn.title = isCategory ? (e.name + ' — click to expand') : 'nick: ' + e.nick;
     btn.dataset.idx = i;
 
     if (isCategory) {
       btn.addEventListener('click', () => {
-        if (aiCategoryActive && aiSubrowOpen) { setAiSubrowOpen(false); return; }
+        if (openCategoryId === e.id) { setOpenCategory(null); return; }
         setEngine(i);
       });
+      btn.addEventListener('contextmenu', ev => showCategoryCtx(ev, e));
     } else {
       btn.addEventListener('click', () => setEngine(i));
       btn.addEventListener('contextmenu', ev => showEngineCtx(ev, e, true, i));
@@ -3400,10 +3531,10 @@ function buildEngines() {
       });
       btn.addEventListener('dragover', ev => {
         ev.preventDefault();
-        // dragging a normal button over the AI tab reveals the sub-row so it can be dropped in below
+        // dragging a normal button over any category tab reveals its sub-row so it can be dropped in below
         if (isCategory && engineDragSrcScope === 'main' && engineDragSrc !== null
           && VISIBLE_ENGINES[engineDragSrc] && !VISIBLE_ENGINES[engineDragSrc].category) {
-          setAiSubrowOpen(true);
+          setOpenCategory(e.id);
         }
         btn.style.outline = '1px dashed var(--accent)';
       });
@@ -3413,7 +3544,7 @@ function buildEngines() {
         btn.style.outline = '';
         if (engineDragSrc === null || engineDragSrcScope !== 'main') return;
         if (isCategory) {
-          moveEngineIntoAiCategory(engineDragSrc);
+          moveEngineIntoCategory(engineDragSrc, e.id);
           return;
         }
         if (engineDragSrc === i) return;
@@ -3434,12 +3565,12 @@ function buildEngines() {
     el.appendChild(btn);
   });
 
-  // add "+" button to add new visible engine when unlocked
+  // add "+" button to add a new visible engine (or a new category) when unlocked
   if (!bmLocked) {
     const addBtn = document.createElement('button');
     addBtn.className = 'engine-btn';
     addBtn.textContent = '+';
-    addBtn.title = 'add engine';
+    addBtn.title = 'add engine or category';
     addBtn.style.color = 'var(--text3)';
     addBtn.addEventListener('click', () => {
       openEngineEditModal(null, true, (newEng) => {
@@ -3450,26 +3581,31 @@ function buildEngines() {
         rebuildVisibleEngines();
         buildEngines();
         saveEngines();
-      }, () => {});
+      }, () => {}, (newCat) => createCategoryEngine(newCat.name));
     });
     el.appendChild(addBtn);
   }
 
-  buildAiSubrow();
+  buildSubrow();
 }
 
-// ── AI sub-row: the second row of AI-only quick buttons revealed under the "ai" tab ──
-function buildAiSubrow() {
+// ── sub-row: the second row of quick buttons revealed under whichever category tab is open ──
+function buildSubrow() {
   const wrap = document.getElementById('aiSubrow');
   if (!wrap) return;
   wrap.innerHTML = '';
-  AI_SUB_ENGINES.forEach((e, i) => {
+  wrap.classList.toggle('open', !!openCategoryId);
+  if (!openCategoryId) return;
+  const catId = openCategoryId;
+  const subs = ENGINES.filter(e => e.parent === catId);
+
+  subs.forEach((e, i) => {
     const btn = document.createElement('button');
-    btn.className = 'engine-btn sub-engine-btn' + (activeAiSub === i ? ' active' : '');
+    btn.className = 'engine-btn sub-engine-btn' + (activeSubEngineId === e.id ? ' active' : '');
     btn.textContent = e.name;
     btn.title = 'nick: ' + (e.nick || '—');
-    btn.dataset.subIdx = i;
-    btn.addEventListener('click', () => setAiSub(i));
+    btn.dataset.id = e.id;
+    btn.addEventListener('click', () => setSubEngine(e.id));
     btn.addEventListener('contextmenu', ev => showEngineCtx(ev, e, true, i));
 
     if (!bmLocked) {
@@ -3498,39 +3634,59 @@ function buildAiSubrow() {
         ev.preventDefault();
         btn.style.outline = '';
         if (engineDragSrc === null) return;
-        // a main-row button dropped straight onto a specific AI site — insert it at this spot
+        // a main-row button dropped straight onto a specific site — insert it at this spot
         if (engineDragSrcScope === 'main') {
-          moveEngineIntoAiCategory(engineDragSrc, i);
+          moveEngineIntoCategory(engineDragSrc, catId, i);
           return;
         }
         if (engineDragSrcScope !== 'sub' || engineDragSrc === i) return;
-        const moved = AI_SUB_ENGINES.splice(engineDragSrc, 1)[0];
-        AI_SUB_ENGINES.splice(i, 0, moved);
+        const cur = ENGINES.filter(en => en.parent === catId);
+        const moved = cur.splice(engineDragSrc, 1)[0];
+        cur.splice(i, 0, moved);
         // mirror the new sub-row order into the main ENGINES array
-        for (let k = ENGINES.length - 1; k >= 0; k--) { if (ENGINES[k].parent === AI_CATEGORY_ID) ENGINES.splice(k, 1); }
-        const catIdx = ENGINES.findIndex(en => en.id === AI_CATEGORY_ID);
-        ENGINES.splice(catIdx > -1 ? catIdx + 1 : ENGINES.length, 0, ...AI_SUB_ENGINES);
-        if (activeAiSub !== null) activeAiSub = AI_SUB_ENGINES.indexOf(moved);
+        for (let k = ENGINES.length - 1; k >= 0; k--) { if (ENGINES[k].parent === catId) ENGINES.splice(k, 1); }
+        const catIdx = ENGINES.findIndex(en => en.id === catId);
+        ENGINES.splice(catIdx > -1 ? catIdx + 1 : ENGINES.length, 0, ...cur);
         buildEngines();
         saveEngines();
       });
     }
     wrap.appendChild(btn);
   });
-  wrap.classList.toggle('open', aiSubrowOpen);
+
+  // "+" — add a new site straight into this category (or spin off a new top-level category)
+  if (!bmLocked) {
+    const addBtn = document.createElement('button');
+    addBtn.className = 'engine-btn';
+    addBtn.textContent = '+';
+    addBtn.title = 'add engine or category';
+    addBtn.style.color = 'var(--text3)';
+    addBtn.addEventListener('click', () => {
+      openEngineEditModal(null, true, (newEng) => {
+        const id = 'custom_' + Date.now();
+        const engine = { id, show: true, _custom: true, direct: !newEng.url.includes('%s') && !newEng.url.includes('?q='), parent: catId, ...newEng };
+        ENGINES.unshift(engine);
+        NICK_MAP[newEng.nick.toLowerCase()] = engine;
+        rebuildVisibleEngines();
+        buildEngines();
+        saveEngines();
+      }, () => {}, (newCat) => createCategoryEngine(newCat.name));
+    });
+    wrap.appendChild(addBtn);
+  }
 }
 
-// move a main-row engine into the AI sub-category — drag-drop onto the "ai" tab
+// move a main-row engine into a category — drag-drop onto the category's tab
 // (subInsertIdx omitted, appends) or onto a specific site already inside it (inserts there).
-function moveEngineIntoAiCategory(mainIdx, subInsertIdx) {
+function moveEngineIntoCategory(mainIdx, catId, subInsertIdx) {
   const moved = VISIBLE_ENGINES[mainIdx];
   if (!moved || moved.category) return;
 
-  let subs = ENGINES.filter(e => e.parent === AI_CATEGORY_ID);
+  let subs = ENGINES.filter(e => e.parent === catId);
   const idx = ENGINES.findIndex(e => e.id === moved.id);
   if (idx > -1) ENGINES.splice(idx, 1);
 
-  moved.parent = AI_CATEGORY_ID;
+  moved.parent = catId;
   moved._edited = true; // so the move survives a reload — see applyEngineCustomizations()
 
   if (subInsertIdx === undefined || subInsertIdx === null || subInsertIdx > subs.length) {
@@ -3539,41 +3695,38 @@ function moveEngineIntoAiCategory(mainIdx, subInsertIdx) {
     subs.splice(subInsertIdx, 0, moved);
   }
 
-  for (let k = ENGINES.length - 1; k >= 0; k--) { if (ENGINES[k].parent === AI_CATEGORY_ID) ENGINES.splice(k, 1); }
-  const catIdx = ENGINES.findIndex(e => e.id === AI_CATEGORY_ID);
+  for (let k = ENGINES.length - 1; k >= 0; k--) { if (ENGINES[k].parent === catId) ENGINES.splice(k, 1); }
+  const catIdx = ENGINES.findIndex(e => e.id === catId);
   ENGINES.splice(catIdx > -1 ? catIdx + 1 : ENGINES.length, 0, ...subs);
 
   rebuildVisibleEngines();
   if (activeEngine >= VISIBLE_ENGINES.length) activeEngine = 0;
-  aiCategoryActive = false;
-  activeAiSub = null;
-  aiSubrowOpen = true;
+  openCategoryId = catId; // keep the row open so the drop is visible — buildEngines() below re-renders it
   buildEngines();
-  setEngine(activeEngine);
   saveEngines();
 }
 
-function setAiSubrowOpen(open) {
-  aiSubrowOpen = !!open;
-  const wrap = document.getElementById('aiSubrow');
-  if (wrap) wrap.classList.toggle('open', aiSubrowOpen);
-  const catBtn = document.querySelector('#engineList .category-btn');
-  if (catBtn) {
-    const caret = catBtn.querySelector('.ai-caret');
-    if (caret) caret.classList.toggle('open', aiSubrowOpen);
-  }
-  if (!aiSubrowOpen) hideAiMessage();
+function setOpenCategory(catId) {
+  const next = catId || null;
+  if (next === openCategoryId) return; // already in that state — skip the rebuild (dragover fires repeatedly)
+  openCategoryId = next;
+  document.querySelectorAll('#engineList .category-btn').forEach(btn => {
+    const caret = btn.querySelector('.ai-caret');
+    if (caret) caret.classList.toggle('open', btn.dataset.catId === openCategoryId);
+  });
+  buildSubrow();
+  if (!openCategoryId) hideAiMessage();
 }
 
-function setAiSub(i) {
-  const e = AI_SUB_ENGINES[i];
+function setSubEngine(id) {
+  const e = ENGINES.find(en => en.id === id && en.parent);
   if (!e) return;
-  activeAiSub = i;
-  aiCategoryActive = false;
+  activeSubEngineId = id;
+  activeCategoryId = null;
   document.querySelectorAll('#engineList .engine-btn, #aiSubrow .engine-btn').forEach(b => b.classList.remove('active'));
-  const subBtn = document.querySelectorAll('#aiSubrow .engine-btn')[i];
+  const subBtn = document.querySelector('#aiSubrow .engine-btn[data-id="' + id + '"]');
   if (subBtn) subBtn.classList.add('active');
-  const catBtn = document.querySelector('#engineList .category-btn');
+  const catBtn = document.querySelector('#engineList .category-btn[data-cat-id="' + e.parent + '"]');
   if (catBtn) catBtn.classList.add('active');
   document.getElementById('searchPrefix').textContent = e.direct ? '✦_' : '>_';
   document.getElementById('searchInput').placeholder = e.direct
@@ -3599,24 +3752,24 @@ function setEngine(i) {
   const e = VISIBLE_ENGINES[i];
   if (!e) return;
   activeEngine = i;
-  activeAiSub = null;
+  activeSubEngineId = null;
   document.querySelectorAll('#engineList .engine-btn, #aiSubrow .engine-btn').forEach(b => b.classList.remove('active'));
   const btn = document.querySelectorAll('#engineList .engine-btn')[i];
 
   if (e.category) {
-    aiCategoryActive = true;
+    activeCategoryId = e.id;
     if (btn) btn.classList.add('active');
     document.getElementById('searchPrefix').textContent = '>_';
-    document.getElementById('searchInput').placeholder = 'select an AI site below...';
-    setAiSubrowOpen(true);
+    document.getElementById('searchInput').placeholder = 'select a site below...';
+    setOpenCategory(e.id);
   } else {
-    aiCategoryActive = false;
+    activeCategoryId = null;
     if (btn) btn.classList.add('active');
     document.getElementById('searchPrefix').textContent = e.direct ? '✦_' : '>_';
     document.getElementById('searchInput').placeholder = e.direct
       ? 'open ' + e.name + '...'
       : 'search ' + e.name.toLowerCase().replace(' ✦','') + '...';
-    setAiSubrowOpen(false);
+    setOpenCategory(null);
   }
   hideAiMessage();
 }
@@ -3697,11 +3850,11 @@ function doSearch(query) {
     if (engine.direct) { openResult(engine.url); return; }
   }
   // ── fallback: use active engine ──
-  if (aiCategoryActive) {
+  if (activeCategoryId) {
     showAiMessage('Please select a site below subcategory');
     return;
   }
-  const e = activeAiSub !== null ? AI_SUB_ENGINES[activeAiSub] : VISIBLE_ENGINES[activeEngine];
+  const e = activeSubEngineId ? ENGINES.find(en => en.id === activeSubEngineId) : VISIBLE_ENGINES[activeEngine];
   if (!e) return;
   if (!query && !e.direct) return;
   const url = e.direct ? e.url
@@ -3727,7 +3880,7 @@ document.getElementById('searchInput').addEventListener('input', e => {
     const eng = NICK_MAP[parts[0].toLowerCase()];
     document.getElementById('searchPrefix').textContent = eng.name.replace(' ✦','') + ':';
   } else {
-    const active = activeAiSub !== null ? AI_SUB_ENGINES[activeAiSub] : VISIBLE_ENGINES[activeEngine];
+    const active = activeSubEngineId ? ENGINES.find(en => en.id === activeSubEngineId) : VISIBLE_ENGINES[activeEngine];
     document.getElementById('searchPrefix').textContent = (active && active.direct) ? '✦_' : '>_';
   }
 });
