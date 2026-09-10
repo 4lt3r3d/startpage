@@ -322,19 +322,33 @@
     display: none;
     gap: 6px;
     flex-wrap: wrap;
-    margin: -4px 0 10px 14px;
-    padding-left: 10px;
-    border-left: 1px dashed var(--border2);
+    margin: -4px 0 10px 0;
   }
   .engine-subrow.open { display: flex; }
-  .engine-btn.category-btn { border-style: dashed; }
+  .ai-caret {
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    margin-left: 5px;
+    background: currentColor;
+    vertical-align: middle;
+  }
+  .ai-caret.open {
+    width: 0;
+    height: 0;
+    margin-left: 4px;
+    background: transparent;
+    border-left: 3px solid transparent;
+    border-right: 3px solid transparent;
+    border-top: 4px solid currentColor;
+  }
   .engine-subrow-msg {
     display: none;
     font-family: var(--mono);
     font-size: 10px;
     letter-spacing: 0.04em;
     color: var(--red);
-    margin: -4px 0 10px 14px;
+    margin: -4px 0 10px 0;
   }
   .engine-subrow-msg.visible { display: block; }
   .search-wrap {
@@ -3348,7 +3362,11 @@ function buildEngines() {
     btn.className = 'engine-btn' + (isCategory ? ' category-btn' : '')
       + (!aiCategoryActive && activeAiSub === null && i === activeEngine ? ' active' : '')
       + (isCategory && aiCategoryActive ? ' active' : '');
-    btn.textContent = isCategory ? (e.name + (aiSubrowOpen ? ' ▴' : ' ▾')) : e.name;
+    if (isCategory) {
+      btn.innerHTML = escHtml(e.name) + ' <span class="ai-caret' + (aiSubrowOpen ? ' open' : '') + '"></span>';
+    } else {
+      btn.textContent = e.name;
+    }
     btn.title = isCategory ? 'AI sites — click to expand' : 'nick: ' + e.nick;
     btn.dataset.idx = i;
 
@@ -3541,8 +3559,8 @@ function setAiSubrowOpen(open) {
   if (wrap) wrap.classList.toggle('open', aiSubrowOpen);
   const catBtn = document.querySelector('#engineList .category-btn');
   if (catBtn) {
-    const catEngine = VISIBLE_ENGINES.find(e => e.category);
-    if (catEngine) catBtn.textContent = catEngine.name + (aiSubrowOpen ? ' ▴' : ' ▾');
+    const caret = catBtn.querySelector('.ai-caret');
+    if (caret) caret.classList.toggle('open', aiSubrowOpen);
   }
   if (!aiSubrowOpen) hideAiMessage();
 }
