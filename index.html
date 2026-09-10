@@ -318,6 +318,25 @@
     color: var(--accent);
   }
   .engine-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent3); }
+  .engine-subrow {
+    display: none;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin: -4px 0 10px 14px;
+    padding-left: 10px;
+    border-left: 1px dashed var(--border2);
+  }
+  .engine-subrow.open { display: flex; }
+  .engine-btn.category-btn { border-style: dashed; }
+  .engine-subrow-msg {
+    display: none;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--red);
+    margin: -4px 0 10px 14px;
+  }
+  .engine-subrow-msg.visible { display: block; }
   .search-wrap {
     display: flex;
     align-items: center;
@@ -2034,6 +2053,8 @@
       </svg>
     </button>
     <div class="search-engines" id="engineList"></div>
+    <div class="engine-subrow" id="aiSubrow"></div>
+    <div class="engine-subrow-msg" id="aiSubrowMsg"></div>
     <div class="search-wrap">
       <span class="search-prefix" id="searchPrefix">&gt;_</span>
       <input type="text" id="searchInput" placeholder="search the web..." autocomplete="off" spellcheck="false">
@@ -2844,9 +2865,10 @@ const ENGINES = [
   { id:'yt',     nick:'yt',     name:'YouTube',      url:'https://www.youtube.com/results?search_query=',                    show:true },
   { id:'gh',     nick:'git',    name:'GitHub',       url:'https://github.com/search?q=',                                     show:true },
   { id:'r',      nick:'r',      name:'Reddit',       url:'https://new.reddit.com/search/?q=',                                show:true },
-  { id:'claude', nick:'ai',     name:'Claude ✦',     url:'https://claude.ai',                                                show:true, direct:true },
-  { id:'chatgpt',nick:'cgpt',   name:'ChatGPT ✦',    url:'https://chat.openai.com/',                                         show:true, direct:true },
-  { id:'perp',   nick:'pp',     name:'Perplexity ✦', url:'https://perplexity.ai/?q=',                                        show:true },
+  { id:'ai_category', nick:'',  name:'AI',           category:true,                                                          show:true },
+  { id:'claude', nick:'cla',    name:'Claude ✦',     url:'https://claude.ai',                                                show:true, direct:true, parent:'ai_category' },
+  { id:'chatgpt',nick:'cgpt',   name:'ChatGPT ✦',    url:'https://chat.openai.com/',                                         show:true, direct:true, parent:'ai_category' },
+  { id:'perp',   nick:'pp',     name:'Perplexity ✦', url:'https://perplexity.ai/?q=',                                        show:true, parent:'ai_category' },
   { id:'wiki',   nick:'w',      name:'Wikipedia',    url:'https://en.wikipedia.org/wiki/Special:Search?search=',            show:true },
 
   // ── HIDDEN ENGINES — triggered by nickname prefix only ──
@@ -3052,8 +3074,17 @@ const ENGINES = [
 
 let activeEngine = 0;
 
-// visible engines for buttons
-const VISIBLE_ENGINES = ENGINES.filter(e => e.show);
+// ── AI sub-category (search-bar quick bar): clicking the "ai" tab reveals a
+// second row of AI-only quick buttons instead of cluttering the main row with
+// one button per AI site. See buildAiSubrow()/moveEngineIntoAiCategory(). ──
+const AI_CATEGORY_ID = 'ai_category';
+const AI_SUB_ENGINES = [];
+let aiSubrowOpen = false;
+let aiCategoryActive = false;   // true when the ai tab itself is selected but no site under it is
+let activeAiSub = null;         // index into AI_SUB_ENGINES when a specific AI site is selected
+
+// visible engines for buttons (top-level only — sub-category engines are excluded)
+const VISIBLE_ENGINES = ENGINES.filter(e => e.show && !e.parent);
 // nick → engine lookup map for prefix search
 const NICK_MAP = {};
 ENGINES.forEach(e => { if (e.nick) NICK_MAP[e.nick.toLowerCase()] = e; });
@@ -3107,6 +3138,21 @@ function applyEngineCustomizations() {
     ENGINES.length = 0;
     ordered.forEach(e => ENGINES.push(e));
     rest.forEach(e => ENGINES.push(e));
+  }
+
+  // 5. apply saved AI sub-row order the same way, scoped to just the sub-engines
+  let aiSubOrder;
+  try { aiSubOrder = JSON.parse(localStorage.getItem('sp_engines_ai_suborder') || '[]'); } catch (e) { aiSubOrder = []; }
+  if (Array.isArray(aiSubOrder) && aiSubOrder.length) {
+    const subs = ENGINES.filter(e => e.parent === AI_CATEGORY_ID);
+    const byIdSub = new Map(subs.map(e => [e.id, e]));
+    const orderedSubs = aiSubOrder.map(id => byIdSub.get(id)).filter(Boolean);
+    const orderedSubIds = new Set(orderedSubs.map(e => e.id));
+    const restSubs = subs.filter(e => !orderedSubIds.has(e.id));
+    const finalSubs = [...orderedSubs, ...restSubs];
+    for (let i = ENGINES.length - 1; i >= 0; i--) { if (ENGINES[i].parent === AI_CATEGORY_ID) ENGINES.splice(i, 1); }
+    const catIdx = ENGINES.findIndex(e => e.id === AI_CATEGORY_ID);
+    ENGINES.splice(catIdx > -1 ? catIdx + 1 : ENGINES.length, 0, ...finalSubs);
   }
 
   rebuildVisibleEngines();
@@ -3274,7 +3320,9 @@ function showEngineCtx(e, engine, isVisible, idx) {
 
 function rebuildVisibleEngines() {
   VISIBLE_ENGINES.length = 0;
-  ENGINES.filter(e => e.show).forEach(e => VISIBLE_ENGINES.push(e));
+  ENGINES.filter(e => e.show && !e.parent).forEach(e => VISIBLE_ENGINES.push(e));
+  AI_SUB_ENGINES.length = 0;
+  ENGINES.filter(e => e.parent === AI_CATEGORY_ID).forEach(e => AI_SUB_ENGINES.push(e));
 }
 
 function saveEngines() {
@@ -3283,22 +3331,36 @@ function saveEngines() {
   localStorage.setItem('sp_engines_custom', JSON.stringify(custom));
   // save the current visible quick-bar order so drag-reordering persists/syncs too
   localStorage.setItem('sp_engines_order', JSON.stringify(VISIBLE_ENGINES.map(e => e.id)));
+  // save the AI sub-row order too, same reasoning
+  localStorage.setItem('sp_engines_ai_suborder', JSON.stringify(AI_SUB_ENGINES.map(e => e.id)));
 }
 
 // ── engine drag state ──
 let engineDragSrc = null;
+let engineDragSrcScope = null; // 'main' | 'sub' — which row the drag started in
 
 function buildEngines() {
   const el = document.getElementById('engineList');
   el.innerHTML = '';
   VISIBLE_ENGINES.forEach((e, i) => {
+    const isCategory = !!e.category;
     const btn = document.createElement('button');
-    btn.className = 'engine-btn' + (i === 0 ? ' active' : '');
-    btn.textContent = e.name;
-    btn.title = 'nick: ' + e.nick;
+    btn.className = 'engine-btn' + (isCategory ? ' category-btn' : '')
+      + (!aiCategoryActive && activeAiSub === null && i === activeEngine ? ' active' : '')
+      + (isCategory && aiCategoryActive ? ' active' : '');
+    btn.textContent = isCategory ? (e.name + (aiSubrowOpen ? ' ▴' : ' ▾')) : e.name;
+    btn.title = isCategory ? 'AI sites — click to expand' : 'nick: ' + e.nick;
     btn.dataset.idx = i;
-    btn.addEventListener('click', () => setEngine(i));
-    btn.addEventListener('contextmenu', ev => showEngineCtx(ev, e, true, i));
+
+    if (isCategory) {
+      btn.addEventListener('click', () => {
+        if (aiCategoryActive && aiSubrowOpen) { setAiSubrowOpen(false); return; }
+        setEngine(i);
+      });
+    } else {
+      btn.addEventListener('click', () => setEngine(i));
+      btn.addEventListener('contextmenu', ev => showEngineCtx(ev, e, true, i));
+    }
 
     // drag to reorder (only when unlocked)
     if (!bmLocked) {
@@ -3308,6 +3370,7 @@ function buildEngines() {
       btn.addEventListener('mouseup', () => { btn.style.cursor = 'pointer'; });
       btn.addEventListener('dragstart', ev => {
         engineDragSrc = i;
+        engineDragSrcScope = 'main';
         btn.classList.add('dragging');
         ev.dataTransfer.effectAllowed = 'move';
         ev.dataTransfer.setData('text/plain', String(i));
@@ -3315,16 +3378,27 @@ function buildEngines() {
       btn.addEventListener('dragend', () => {
         btn.classList.remove('dragging');
         engineDragSrc = null;
+        engineDragSrcScope = null;
       });
       btn.addEventListener('dragover', ev => {
         ev.preventDefault();
+        // dragging a normal button over the AI tab reveals the sub-row so it can be dropped in below
+        if (isCategory && engineDragSrcScope === 'main' && engineDragSrc !== null
+          && VISIBLE_ENGINES[engineDragSrc] && !VISIBLE_ENGINES[engineDragSrc].category) {
+          setAiSubrowOpen(true);
+        }
         btn.style.outline = '1px dashed var(--accent)';
       });
       btn.addEventListener('dragleave', () => { btn.style.outline = ''; });
       btn.addEventListener('drop', ev => {
         ev.preventDefault();
         btn.style.outline = '';
-        if (engineDragSrc === null || engineDragSrc === i) return;
+        if (engineDragSrc === null || engineDragSrcScope !== 'main') return;
+        if (isCategory) {
+          moveEngineIntoAiCategory(engineDragSrc);
+          return;
+        }
+        if (engineDragSrc === i) return;
         const moved = VISIBLE_ENGINES.splice(engineDragSrc, 1)[0];
         VISIBLE_ENGINES.splice(i, 0, moved);
         // mirror order in main ENGINES array
@@ -3362,16 +3436,171 @@ function buildEngines() {
     });
     el.appendChild(addBtn);
   }
+
+  buildAiSubrow();
 }
 
-function setEngine(i) {
-  activeEngine = i;
-  document.querySelectorAll('.engine-btn').forEach((b, j) => b.classList.toggle('active', j === i));
-  const e = VISIBLE_ENGINES[i];
+// ── AI sub-row: the second row of AI-only quick buttons revealed under the "ai" tab ──
+function buildAiSubrow() {
+  const wrap = document.getElementById('aiSubrow');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  AI_SUB_ENGINES.forEach((e, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'engine-btn sub-engine-btn' + (activeAiSub === i ? ' active' : '');
+    btn.textContent = e.name;
+    btn.title = 'nick: ' + (e.nick || '—');
+    btn.dataset.subIdx = i;
+    btn.addEventListener('click', () => setAiSub(i));
+    btn.addEventListener('contextmenu', ev => showEngineCtx(ev, e, true, i));
+
+    if (!bmLocked) {
+      btn.draggable = true;
+      btn.style.cursor = 'pointer';
+      btn.addEventListener('mousedown', () => { btn.style.cursor = 'grabbing'; });
+      btn.addEventListener('mouseup', () => { btn.style.cursor = 'pointer'; });
+      btn.addEventListener('dragstart', ev => {
+        engineDragSrc = i;
+        engineDragSrcScope = 'sub';
+        btn.classList.add('dragging');
+        ev.dataTransfer.effectAllowed = 'move';
+        ev.dataTransfer.setData('text/plain', String(i));
+      });
+      btn.addEventListener('dragend', () => {
+        btn.classList.remove('dragging');
+        engineDragSrc = null;
+        engineDragSrcScope = null;
+      });
+      btn.addEventListener('dragover', ev => {
+        ev.preventDefault();
+        btn.style.outline = '1px dashed var(--accent)';
+      });
+      btn.addEventListener('dragleave', () => { btn.style.outline = ''; });
+      btn.addEventListener('drop', ev => {
+        ev.preventDefault();
+        btn.style.outline = '';
+        if (engineDragSrc === null) return;
+        // a main-row button dropped straight onto a specific AI site — insert it at this spot
+        if (engineDragSrcScope === 'main') {
+          moveEngineIntoAiCategory(engineDragSrc, i);
+          return;
+        }
+        if (engineDragSrcScope !== 'sub' || engineDragSrc === i) return;
+        const moved = AI_SUB_ENGINES.splice(engineDragSrc, 1)[0];
+        AI_SUB_ENGINES.splice(i, 0, moved);
+        // mirror the new sub-row order into the main ENGINES array
+        for (let k = ENGINES.length - 1; k >= 0; k--) { if (ENGINES[k].parent === AI_CATEGORY_ID) ENGINES.splice(k, 1); }
+        const catIdx = ENGINES.findIndex(en => en.id === AI_CATEGORY_ID);
+        ENGINES.splice(catIdx > -1 ? catIdx + 1 : ENGINES.length, 0, ...AI_SUB_ENGINES);
+        if (activeAiSub !== null) activeAiSub = AI_SUB_ENGINES.indexOf(moved);
+        buildEngines();
+        saveEngines();
+      });
+    }
+    wrap.appendChild(btn);
+  });
+  wrap.classList.toggle('open', aiSubrowOpen);
+}
+
+// move a main-row engine into the AI sub-category — drag-drop onto the "ai" tab
+// (subInsertIdx omitted, appends) or onto a specific site already inside it (inserts there).
+function moveEngineIntoAiCategory(mainIdx, subInsertIdx) {
+  const moved = VISIBLE_ENGINES[mainIdx];
+  if (!moved || moved.category) return;
+
+  let subs = ENGINES.filter(e => e.parent === AI_CATEGORY_ID);
+  const idx = ENGINES.findIndex(e => e.id === moved.id);
+  if (idx > -1) ENGINES.splice(idx, 1);
+
+  moved.parent = AI_CATEGORY_ID;
+  moved._edited = true; // so the move survives a reload — see applyEngineCustomizations()
+
+  if (subInsertIdx === undefined || subInsertIdx === null || subInsertIdx > subs.length) {
+    subs.push(moved);
+  } else {
+    subs.splice(subInsertIdx, 0, moved);
+  }
+
+  for (let k = ENGINES.length - 1; k >= 0; k--) { if (ENGINES[k].parent === AI_CATEGORY_ID) ENGINES.splice(k, 1); }
+  const catIdx = ENGINES.findIndex(e => e.id === AI_CATEGORY_ID);
+  ENGINES.splice(catIdx > -1 ? catIdx + 1 : ENGINES.length, 0, ...subs);
+
+  rebuildVisibleEngines();
+  if (activeEngine >= VISIBLE_ENGINES.length) activeEngine = 0;
+  aiCategoryActive = false;
+  activeAiSub = null;
+  aiSubrowOpen = true;
+  buildEngines();
+  setEngine(activeEngine);
+  saveEngines();
+}
+
+function setAiSubrowOpen(open) {
+  aiSubrowOpen = !!open;
+  const wrap = document.getElementById('aiSubrow');
+  if (wrap) wrap.classList.toggle('open', aiSubrowOpen);
+  const catBtn = document.querySelector('#engineList .category-btn');
+  if (catBtn) {
+    const catEngine = VISIBLE_ENGINES.find(e => e.category);
+    if (catEngine) catBtn.textContent = catEngine.name + (aiSubrowOpen ? ' ▴' : ' ▾');
+  }
+  if (!aiSubrowOpen) hideAiMessage();
+}
+
+function setAiSub(i) {
+  const e = AI_SUB_ENGINES[i];
+  if (!e) return;
+  activeAiSub = i;
+  aiCategoryActive = false;
+  document.querySelectorAll('#engineList .engine-btn, #aiSubrow .engine-btn').forEach(b => b.classList.remove('active'));
+  const subBtn = document.querySelectorAll('#aiSubrow .engine-btn')[i];
+  if (subBtn) subBtn.classList.add('active');
+  const catBtn = document.querySelector('#engineList .category-btn');
+  if (catBtn) catBtn.classList.add('active');
   document.getElementById('searchPrefix').textContent = e.direct ? '✦_' : '>_';
   document.getElementById('searchInput').placeholder = e.direct
     ? 'open ' + e.name + '...'
     : 'search ' + e.name.toLowerCase().replace(' ✦','') + '...';
+  hideAiMessage();
+}
+
+function showAiMessage(msg) {
+  const el = document.getElementById('aiSubrowMsg');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('visible');
+  clearTimeout(showAiMessage._t);
+  showAiMessage._t = setTimeout(() => el.classList.remove('visible'), 3000);
+}
+function hideAiMessage() {
+  const el = document.getElementById('aiSubrowMsg');
+  if (el) el.classList.remove('visible');
+}
+
+function setEngine(i) {
+  const e = VISIBLE_ENGINES[i];
+  if (!e) return;
+  activeEngine = i;
+  activeAiSub = null;
+  document.querySelectorAll('#engineList .engine-btn, #aiSubrow .engine-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelectorAll('#engineList .engine-btn')[i];
+
+  if (e.category) {
+    aiCategoryActive = true;
+    if (btn) btn.classList.add('active');
+    document.getElementById('searchPrefix').textContent = '>_';
+    document.getElementById('searchInput').placeholder = 'select an AI site below...';
+    setAiSubrowOpen(true);
+  } else {
+    aiCategoryActive = false;
+    if (btn) btn.classList.add('active');
+    document.getElementById('searchPrefix').textContent = e.direct ? '✦_' : '>_';
+    document.getElementById('searchInput').placeholder = e.direct
+      ? 'open ' + e.name + '...'
+      : 'search ' + e.name.toLowerCase().replace(' ✦','') + '...';
+    setAiSubrowOpen(false);
+  }
+  hideAiMessage();
 }
 
 // ── where search results open: same tab / new tab / new window ──
@@ -3450,7 +3679,12 @@ function doSearch(query) {
     if (engine.direct) { openResult(engine.url); return; }
   }
   // ── fallback: use active engine ──
-  const e = VISIBLE_ENGINES[activeEngine];
+  if (aiCategoryActive) {
+    showAiMessage('Please select a site below subcategory');
+    return;
+  }
+  const e = activeAiSub !== null ? AI_SUB_ENGINES[activeAiSub] : VISIBLE_ENGINES[activeEngine];
+  if (!e) return;
   if (!query && !e.direct) return;
   const url = e.direct ? e.url
     : e.url.includes('%s') ? e.url.replace('%s', encodeURIComponent(query))
@@ -3475,8 +3709,8 @@ document.getElementById('searchInput').addEventListener('input', e => {
     const eng = NICK_MAP[parts[0].toLowerCase()];
     document.getElementById('searchPrefix').textContent = eng.name.replace(' ✦','') + ':';
   } else {
-    const active = VISIBLE_ENGINES[activeEngine];
-    document.getElementById('searchPrefix').textContent = active.direct ? '✦_' : '>_';
+    const active = activeAiSub !== null ? AI_SUB_ENGINES[activeAiSub] : VISIBLE_ENGINES[activeEngine];
+    document.getElementById('searchPrefix').textContent = (active && active.direct) ? '✦_' : '>_';
   }
 });
 
@@ -3490,6 +3724,89 @@ document.addEventListener('keydown', e => {
 });
 
 buildEngines();
+
+// ===== Animated Favicon — cursor blink x3 -> "SP" -> glitch -> "404" -> loop =====
+(function initAnimatedFavicon() {
+  const FONT = "'Share Tech Mono', monospace";
+  const SIZE = 64; // draw large, browser downsamples for the tab
+  const canvas = document.createElement('canvas');
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+  const ctx = canvas.getContext('2d');
+
+  let linkEl = document.querySelector("link[rel~='icon']");
+  if (!linkEl) {
+    linkEl = document.createElement('link');
+    linkEl.rel = 'icon';
+    document.head.appendChild(linkEl);
+  }
+
+  function drawFrame(frame) {
+    const s = SIZE / 32;
+    ctx.clearRect(0, 0, SIZE, SIZE);
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, SIZE, SIZE);
+    ctx.textBaseline = "middle";
+
+    if (frame.type === "cursor") {
+      if (frame.on) {
+        ctx.fillStyle = "#00ffb3";
+        ctx.fillRect(9 * s, 7 * s, 6 * s, 17 * s);
+      }
+    } else if (frame.type === "text") {
+      ctx.font = `${14 * s}px ${FONT}`;
+      ctx.fillStyle = frame.color || "#00ffb3";
+      const w = ctx.measureText(frame.text).width;
+      ctx.fillText(frame.text, (SIZE - w) / 2, 16.5 * s);
+      if (frame.cursorAfter) {
+        ctx.fillRect((SIZE + w) / 2 + 1.5 * s, 8 * s, 4 * s, 15 * s);
+      }
+    } else if (frame.type === "glitch") {
+      ctx.font = `${11 * s}px ${FONT}`;
+      const totalW = ctx.measureText(frame.text).width;
+      let x = (SIZE - totalW) / 2;
+      for (const ch of frame.text) {
+        ctx.fillStyle = Math.random() < 0.5 ? "#ff2d55" : "#00ffb3";
+        const dx = (Math.random() * 3 - 1.5) * s;
+        const dy = (Math.random() * 3 - 1.5) * s;
+        ctx.fillText(ch, x + dx, 16.5 * s + dy);
+        x += ctx.measureText(ch).width;
+      }
+    }
+    linkEl.href = canvas.toDataURL('image/png');
+  }
+
+  // durations tuned for a tab icon
+  const seq = [
+    { f: { type: "cursor", on: true }, d: 450 },
+    { f: { type: "cursor", on: false }, d: 450 },
+    { f: { type: "cursor", on: true }, d: 450 },
+    { f: { type: "cursor", on: false }, d: 450 },
+    { f: { type: "cursor", on: true }, d: 450 },
+    { f: { type: "cursor", on: false }, d: 450 },
+    { f: { type: "text", text: "S", cursorAfter: true }, d: 300 },
+    { f: { type: "text", text: "SP", cursorAfter: true }, d: 300 },
+    { f: { type: "text", text: "SP", cursorAfter: false }, d: 700 },
+    { f: { type: "glitch", text: "404" }, d: 90 },
+    { f: { type: "glitch", text: "404" }, d: 90 },
+    { f: { type: "glitch", text: "404" }, d: 90 },
+    { f: { type: "text", text: "404", color: "#ff2d55" }, d: 1400 },
+  ];
+
+  let i = 0;
+  function tick() {
+    const step = seq[i % seq.length];
+    drawFrame(step.f);
+    i++;
+    setTimeout(tick, step.d);
+  }
+
+  if (document.fonts && document.fonts.load) {
+    document.fonts.load(`14px 'Share Tech Mono'`).then(tick).catch(tick);
+  } else {
+    tick();
+  }
+})();
 
 // ===== Voice Search System — powered by Groq Whisper =====
 // Native browser SpeechRecognition doesn't work here: Google gates that
