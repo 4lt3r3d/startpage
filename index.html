@@ -615,6 +615,28 @@
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     text-align: right;
   }
+  .bm-find-foot {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 6px;
+    font-family: var(--mono); font-size: 10px;
+    color: var(--text3); letter-spacing: 0.06em;
+  }
+  .bm-find-key {
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    padding: 1px 6px;
+  }
+  .bm-find-keybtn {
+    background: none; border: none; cursor: pointer;
+    font-family: var(--mono); font-size: 10px;
+    color: var(--text3); padding: 0;
+    text-decoration: underline; text-underline-offset: 2px;
+  }
+  .bm-find-keybtn:hover { color: var(--accent); }
+  .bm-find-foot.recording .bm-find-key {
+    border-color: var(--accent); color: var(--accent);
+    animation: key-waiting-pulse 0.8s ease-in-out infinite;
+  }
   .bm-find-empty, .bm-find-more {
     font-family: var(--mono); font-size: 10px;
     color: var(--text3); padding: 10px 8px;
@@ -2210,6 +2232,13 @@
         <span class="bm-find-count" id="bmFindCount"></span>
       </div>
       <div id="bmFindList"></div>
+      <div class="bm-find-foot" id="bmFindFoot">
+        <span>hotkey</span>
+        <span class="bm-find-key" id="bmFindKeyLabel">Alt+B</span>
+        <button class="bm-find-keybtn" id="bmFindKeyChange" type="button">change</button>
+        <button class="bm-find-keybtn" id="bmFindKeyReset" type="button">reset</button>
+        <span id="bmFindKeyMsg"></span>
+      </div>
     </div>
     <div class="category-tabs" id="categoryTabs"></div>
     <div class="bookmark-grid" id="bookmarkGrid" style="min-height:60px;"></div>
@@ -6686,6 +6715,87 @@ const bmFind = (() => {
     else if (e.key === 'Enter') { e.preventDefault(); go(results[sel]); }
     else if (e.key === 'Escape') { e.preventDefault(); close(); }
   });
+
+  // ── global hotkey (default Alt+B, changeable from the finder footer) ──
+  // stored as { ctrl, alt, shift, meta, code } where code = KeyboardEvent.code
+  const HOTKEY_KEY = 'sp_bmfind_hotkey';
+  const HOTKEY_DEFAULT = { ctrl: false, alt: true, shift: false, meta: false, code: 'KeyB' };
+  const foot    = document.getElementById('bmFindFoot');
+  const keyLbl  = document.getElementById('bmFindKeyLabel');
+  const keyMsg  = document.getElementById('bmFindKeyMsg');
+  let hotkey;
+  try { hotkey = JSON.parse(localStorage.getItem(HOTKEY_KEY) || 'null') || { ...HOTKEY_DEFAULT }; }
+  catch (e) { hotkey = { ...HOTKEY_DEFAULT }; }
+  let recording = false;
+
+  function codeLabel(code) {
+    if (/^Key[A-Z]$/.test(code)) return code.slice(3);
+    if (/^Digit\d$/.test(code)) return code.slice(5);
+    return ({ Backquote: '`', Slash: '/', Backslash: '\\', Semicolon: ';', Quote: "'", Comma: ',', Period: '.',
+              BracketLeft: '[', BracketRight: ']', Minus: '-', Equal: '=', Space: 'Space' })[code] || code;
+  }
+  function comboLabel(k) {
+    const parts = [];
+    if (k.ctrl) parts.push('Ctrl'); if (k.alt) parts.push('Alt');
+    if (k.shift) parts.push('Shift'); if (k.meta) parts.push('Win');
+    parts.push(codeLabel(k.code));
+    return parts.join('+');
+  }
+  function showKey() { keyLbl.textContent = comboLabel(hotkey); }
+  function matches(e, k) {
+    return e.code === k.code && e.ctrlKey === !!k.ctrl && e.altKey === !!k.alt
+        && e.shiftKey === !!k.shift && e.metaKey === !!k.meta;
+  }
+  const hasMod = k => k.ctrl || k.alt || k.meta;
+
+  function startRecording() {
+    recording = true;
+    foot.classList.add('recording');
+    keyLbl.textContent = 'press keys…';
+    keyMsg.textContent = 'esc to cancel';
+  }
+  function stopRecording(msg) {
+    recording = false;
+    foot.classList.remove('recording');
+    keyMsg.textContent = msg || '';
+    showKey();
+    if (msg) setTimeout(() => { if (!recording) keyMsg.textContent = ''; }, 2500);
+  }
+
+  document.getElementById('bmFindKeyChange').addEventListener('click', e => { e.stopPropagation(); startRecording(); });
+  document.getElementById('bmFindKeyReset').addEventListener('click', () => {
+    hotkey = { ...HOTKEY_DEFAULT };
+    try { localStorage.setItem(HOTKEY_KEY, JSON.stringify(hotkey)); } catch (e) {}
+    stopRecording('reset to ' + comboLabel(hotkey));
+    input.focus();
+  });
+
+  // capture phase so it runs before the page's other key handlers
+  document.addEventListener('keydown', e => {
+    if (recording) {
+      if (['Control', 'Alt', 'Shift', 'Meta', 'OS'].includes(e.key)) return; // wait for the real key
+      e.preventDefault(); e.stopPropagation();
+      if (e.key === 'Escape') { stopRecording('cancelled'); input.focus(); return; }
+      const k = { ctrl: e.ctrlKey, alt: e.altKey, shift: e.shiftKey, meta: e.metaKey, code: e.code };
+      hotkey = k;
+      try { localStorage.setItem(HOTKEY_KEY, JSON.stringify(hotkey)); } catch (err) {}
+      stopRecording('saved' + (hasMod(k) ? '' : ' — works when not typing in a box'));
+      input.focus();
+      return;
+    }
+    if (!matches(e, hotkey)) return;
+    // a bare key (no ctrl/alt/win) must not fire while typing somewhere else
+    if (!hasMod(hotkey)) {
+      const ae = document.activeElement;
+      const typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable);
+      if (typing) return;
+    }
+    e.preventDefault(); e.stopPropagation();
+    if (isOpen()) { input.focus(); input.select(); }
+    else open();
+  }, true);
+
+  showKey();
 
   return { open, close, isOpen };
 })();
