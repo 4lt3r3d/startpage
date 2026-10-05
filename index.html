@@ -531,6 +531,100 @@
   }
   .lock-body { transition: stroke 0.2s; }
 
+  /* ── BOOKMARK SEARCH (book button + filter) ── */
+  .bm-title-btns { display: flex; align-items: center; gap: 8px; }
+  .bm-find-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--text3); padding: 2px;
+    display: flex; align-items: center;
+    transition: color 0.2s;
+    outline: none;
+    flex-shrink: 0;
+  }
+  .bm-find-btn:hover, .bm-find-btn.active { color: var(--accent); }
+  #bmFindRow { display: none; margin-bottom: 10px; }
+  #widget-bookmarks.bm-finding #bmFindRow { display: block; }
+  #widget-bookmarks.bm-finding #categoryTabs,
+  #widget-bookmarks.bm-finding #bookmarkGrid,
+  #widget-bookmarks.bm-finding #bmHint { display: none; }
+  .bm-find-bar {
+    display: flex; align-items: stretch;
+    border: 1px solid var(--border2);
+    border-left: 3px solid var(--accent);
+    background: var(--bg);
+  }
+  .bm-find-bar:focus-within { border-color: var(--accent); }
+  .bm-find-prompt {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--accent); padding: 0 8px 0 10px;
+    display: flex; align-items: center;
+    letter-spacing: 0.08em;
+  }
+  #bmFindInput {
+    flex: 1; min-width: 0;
+    background: none; border: none; outline: none;
+    color: var(--text); caret-color: var(--accent);
+    font-family: var(--mono); font-size: 13px;
+    padding: 9px 4px;
+    border-radius: 0;
+  }
+  .bm-find-count {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--text3); padding: 0 10px;
+    display: flex; align-items: center;
+    border-left: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  #bmFindList {
+    margin-top: 6px;
+    max-height: 340px; overflow-y: auto;
+    border-top: 1px solid var(--border);
+  }
+  .bm-find-item {
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr) auto minmax(0, 220px);
+    align-items: center;
+    column-gap: 10px;
+    padding: 5px 8px 5px 6px;
+    border-bottom: 1px solid var(--border);
+    border-left: 2px solid transparent;
+    text-decoration: none;
+    color: var(--text2);
+    font-family: var(--mono); font-size: 12px;
+    cursor: pointer;
+  }
+  .bm-find-item.sel {
+    border-left-color: var(--accent);
+    background: var(--bg3);
+    color: var(--text);
+  }
+  .bm-find-ico { font-size: 13px; text-align: center; line-height: 1; }
+  .bm-find-ico img { width: 16px; height: 16px; display: block; margin: 0 auto; }
+  .bm-find-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bm-find-name b { color: var(--accent); font-weight: 600; }
+  .bm-find-src {
+    font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text3);
+    border: 1px solid var(--border2);
+    padding: 1px 5px;
+    white-space: nowrap;
+  }
+  .bm-find-item.sel .bm-find-src { color: var(--accent); border-color: var(--accent); }
+  .bm-find-host {
+    font-size: 10px; color: var(--text3);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    text-align: right;
+  }
+  .bm-find-empty, .bm-find-more {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--text3); padding: 10px 8px;
+    letter-spacing: 0.06em;
+  }
+  @media (max-width: 600px) {
+    .bm-find-item { grid-template-columns: 22px minmax(0, 1fr) auto; }
+    .bm-find-host { display: none; }
+  }
+
   /* ── DRAG AND DROP ── */
   .cat-tab.dragging { opacity: 0.4; cursor: grabbing !important; }
   .cat-tab.drag-over { outline: 1px dashed var(--accent); outline-offset: 2px; }
@@ -2092,6 +2186,14 @@
   <div class="panel widget fade-in" id="widget-bookmarks" style="grid-column:1/4;flex:1;" draggable="false">
     <div class="panel-title widget-title" style="justify-content:space-between;">
       <span style="display:flex;align-items:center;gap:6px;"><span class="drag-handle" title="drag to move">⠿</span><span class="dot"></span>bookmarks</span>
+      <span class="bm-title-btns">
+      <button class="bm-find-btn" id="bmFindBtn" title="Find any site (bookmarks, osint, engines, AI, quick links)">
+        <svg viewBox="0 0 24 26" width="14" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v19H6.5A2.5 2.5 0 0 0 4 23.5z"></path>
+          <path d="M4 23.5A2.5 2.5 0 0 1 6.5 21H20v3H6.5"></path>
+          <path d="M9 7h7M9 11h5"></path>
+        </svg>
+      </button>
       <button class="bm-lock-btn" id="bmLockBtn" title="Lock/unlock layout">
         <svg id="lockSvg" viewBox="0 0 24 26" width="13" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="13" width="18" height="11" rx="2" ry="2" class="lock-body"></rect>
@@ -2099,6 +2201,15 @@
           <path d="M7 13V9a5 5 0 0 1 10 0" class="lock-shackle-open"></path>
         </svg>
       </button>
+      </span>
+    </div>
+    <div id="bmFindRow">
+      <div class="bm-find-bar">
+        <span class="bm-find-prompt">find&gt;</span>
+        <input type="text" id="bmFindInput" placeholder="site, name, nick, category..." autocomplete="off" spellcheck="false">
+        <span class="bm-find-count" id="bmFindCount"></span>
+      </div>
+      <div id="bmFindList"></div>
     </div>
     <div class="category-tabs" id="categoryTabs"></div>
     <div class="bookmark-grid" id="bookmarkGrid" style="min-height:60px;"></div>
@@ -6403,6 +6514,181 @@ buildCategoryTabs();
 renderBookmarks();
 // apply lock state on load
 setBmLock(bmLocked);
+
+// ══════════════════════════════
+//  BOOKMARK FINDER — book icon left of the lock.
+//  Filters EVERY site on the page (bookmarks, osint, search engines,
+//  AI, quick links) as you type; click / Enter goes straight to the site.
+//  The index is rebuilt each time it opens, so edits are always reflected.
+// ══════════════════════════════
+const bmFind = (() => {
+  const widget = document.getElementById('widget-bookmarks');
+  const btn    = document.getElementById('bmFindBtn');
+  const input  = document.getElementById('bmFindInput');
+  const listEl = document.getElementById('bmFindList');
+  const countEl= document.getElementById('bmFindCount');
+  const MAX_SHOWN = 80;
+  let index = [], results = [], sel = 0;
+
+  function normUrl(u) {
+    return String(u || '').toLowerCase().replace(/^[a-z]+:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
+  }
+  function hostLabel(u) {
+    try { return new URL(u, location.href).hostname.replace(/^www\./, ''); } catch (e) { return String(u || ''); }
+  }
+  // search engines are stored as query URLs — land on the site itself instead
+  function engineHome(e) {
+    const raw = String(e.url || '');
+    if (e.direct) return raw;
+    const site = raw.match(/site:([a-z0-9.-]+\.[a-z]{2,})/i);
+    if (site) return 'https://' + site[1] + '/';
+    try { return new URL(raw.replace('%s', ''), location.href).origin + '/'; } catch (e2) { return raw; }
+  }
+
+  function buildIndex() {
+    const out = [], seen = new Set();
+    const add = item => {
+      if (!item.url || !item.name) return;
+      const key = normUrl(item.url);
+      if (seen.has(key)) return;
+      seen.add(key);
+      item.host = hostLabel(item.url);
+      item._name = item.name.toLowerCase();
+      item._hay  = [item.name, item.nick || '', item.cat || '', item.src, item.host].join(' ').toLowerCase();
+      out.push(item);
+    };
+    try {
+      Object.keys(bookmarks || {}).forEach(cat => (bookmarks[cat] || []).forEach(b =>
+        add({ name: b.name, url: b.url, icon: b.icon, nick: b.nick, cat, src: 'bookmark' })));
+    } catch (e) {}
+    try {
+      Object.keys(osintData || {}).forEach(cat => (osintData[cat] || []).forEach(b =>
+        add({ name: b.name, url: b.url, icon: b.icon, nick: b.nick, cat, src: 'osint' })));
+    } catch (e) {}
+    try {
+      const catNames = {};
+      ENGINES.forEach(e => { if (e.category) catNames[e.id] = (e.name || '').toLowerCase(); });
+      ENGINES.forEach(e => {
+        if (e.category || !e.url || String(e.id || '').startsWith('bm_')) return;
+        const isAi = e.parent === 'ai_category';
+        add({ name: String(e.name || '').replace(/\s*✦\s*$/, ''), url: engineHome(e), icon: null,
+              nick: e.nick, cat: e.parent ? (catNames[e.parent] || '') : '', src: isAi ? 'ai' : 'engine' });
+      });
+    } catch (e) {}
+    try {
+      QUICK.forEach(q => add({ name: q.label, url: q.url, icon: q.icon, cat: '', src: 'quick' }));
+    } catch (e) {}
+    return out;
+  }
+
+  // per-token score; 0 = no match
+  function tokenScore(it, t) {
+    const n = it._name;
+    if (n === t) return 100;
+    if (it.nick && it.nick.toLowerCase() === t) return 90;
+    if (n.startsWith(t)) return 80;
+    if (n.split(/[\s._\-/·]+/).some(w => w.startsWith(t))) return 65;
+    if (n.includes(t)) return 50;
+    if (it.host.startsWith(t)) return 45;
+    if (it._hay.includes(t)) return 30;
+    // loose subsequence on the name, anchored to its first letter (e.g. "ghb" → GitHub)
+    if (t.length > 1 && n[0] === t[0]) {
+      let i = 0;
+      for (const ch of n) { if (ch === t[i]) i++; if (i === t.length) break; }
+      if (i === t.length) return 10;
+    }
+    return 0;
+  }
+
+  function filter(q) {
+    const toks = q.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    if (!toks.length) return index.slice().sort((a, b) => a._name.localeCompare(b._name));
+    const scored = [];
+    index.forEach(it => {
+      let total = 0;
+      for (const t of toks) { const sc = tokenScore(it, t); if (!sc) return; total += sc; }
+      scored.push([total, it]);
+    });
+    scored.sort((a, b) => b[0] - a[0] || a[1]._name.localeCompare(b[1]._name));
+    return scored.map(x => x[1]);
+  }
+
+  function hilite(name, q) {
+    const t = q.trim().toLowerCase();
+    const i = t ? name.toLowerCase().indexOf(t) : -1;
+    if (i < 0) return escHtml(name);
+    return escHtml(name.slice(0, i)) + '<b>' + escHtml(name.slice(i, i + t.length)) + '</b>' + escHtml(name.slice(i + t.length));
+  }
+
+  function render() {
+    const q = input.value;
+    results = filter(q);
+    if (sel >= results.length) sel = Math.max(0, results.length - 1);
+    countEl.textContent = results.length + ' / ' + index.length;
+    listEl.innerHTML = '';
+    if (!results.length) {
+      listEl.innerHTML = '<div class="bm-find-empty">no match — keep it shorter or try the domain</div>';
+      return;
+    }
+    results.slice(0, MAX_SHOWN).forEach((it, i) => {
+      const a = document.createElement('a');
+      a.className = 'bm-find-item' + (i === sel ? ' sel' : '');
+      a.href = it.url;
+      const tag = it.src + (it.cat && it.cat !== it.src ? ' · ' + it.cat : '');
+      a.innerHTML = `<span class="bm-find-ico">${it.icon || '↗'}</span>`
+        + `<span class="bm-find-name">${hilite(it.name, q)}</span>`
+        + `<span class="bm-find-src">${escHtml(tag)}</span>`
+        + `<span class="bm-find-host">${escHtml(it.host)}</span>`;
+      a.addEventListener('mousemove', () => { if (sel !== i) { sel = i; markSel(); } });
+      a.addEventListener('click', e => { e.preventDefault(); go(it); });
+      listEl.appendChild(a);
+    });
+    if (results.length > MAX_SHOWN) {
+      const more = document.createElement('div');
+      more.className = 'bm-find-more';
+      more.textContent = '+' + (results.length - MAX_SHOWN) + ' more — keep typing';
+      listEl.appendChild(more);
+    }
+  }
+
+  function markSel() {
+    listEl.querySelectorAll('.bm-find-item').forEach((el, i) => el.classList.toggle('sel', i === sel));
+    const cur = listEl.querySelectorAll('.bm-find-item')[sel];
+    if (cur) cur.scrollIntoView({ block: 'nearest' });
+  }
+
+  function go(it) { if (it && it.url) window.location.href = it.url; }
+
+  function open() {
+    index = buildIndex();
+    sel = 0;
+    input.value = '';
+    widget.classList.add('bm-finding');
+    btn.classList.add('active');
+    render();
+    input.focus();
+  }
+  function close() {
+    widget.classList.remove('bm-finding');
+    btn.classList.remove('active');
+    input.value = '';
+    listEl.innerHTML = '';
+  }
+  const isOpen = () => widget.classList.contains('bm-finding');
+
+  btn.addEventListener('click', () => { isOpen() ? close() : open(); });
+  input.addEventListener('input', () => { sel = 0; render(); });
+  input.addEventListener('keydown', e => {
+    e.stopPropagation(); // keep '/', '`' etc. from triggering page-level shortcuts
+    const shown = Math.min(results.length, MAX_SHOWN);
+    if (e.key === 'ArrowDown') { e.preventDefault(); if (shown) { sel = (sel + 1) % shown; markSel(); } }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); if (shown) { sel = (sel - 1 + shown) % shown; markSel(); } }
+    else if (e.key === 'Enter') { e.preventDefault(); go(results[sel]); }
+    else if (e.key === 'Escape') { e.preventDefault(); close(); }
+  });
+
+  return { open, close, isOpen };
+})();
 
 // ══════════════════════════════
 //  CONTEXT MENU
