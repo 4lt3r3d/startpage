@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="darkreader-lock"><!-- page is already dark; stop Dark Reader recoloring borders/text -->
+<meta name="color-scheme" content="dark">
 <title>startpage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -4852,10 +4854,14 @@ function renderStats(d) {
   const cpu     = Math.round(d.cpu ?? simStats.cpu);
   const mem     = Math.round(d.mem_pct ?? simStats.mem);
   const disk    = Math.round(d.disk_pct ?? simStats.disk);
-  const cpuT    = Math.round(d.cpu_temp ?? simStats.cpuT);
-  const gpuT    = Math.round(d.gpu_temp ?? simStats.gpuT);
-  const diskT   = Math.round(d.disk_temp ?? simStats.diskT);
-  const boardT  = Math.round(d.board_temp ?? simStats.boardT);
+  // When the stats server is live, never show made-up temps: a missing
+  // reading shows "--" instead of a simulated number.
+  const tempOf  = (v, sim) => v != null ? Math.round(v) : (statsLive ? null : Math.round(sim));
+  const cpuT    = tempOf(d.cpu_temp,   simStats.cpuT);
+  const gpuT    = tempOf(d.gpu_temp,   simStats.gpuT);
+  const diskT   = tempOf(d.disk_temp,  simStats.diskT);
+  const boardT  = tempOf(d.board_temp, simStats.boardT);
+  const fmtT    = t => t == null ? '--' : t + '°C';
   const memUsed  = d.mem_used  != null ? (d.mem_used  / 1e9).toFixed(1) : (simStats.mem * 0.32).toFixed(1);
   const memTotal = d.mem_total != null ? (d.mem_total / 1e9).toFixed(1) : '32.0';
   const diskUsed  = d.disk_used  != null ? (d.disk_used  / 1e9).toFixed(0) : '218';
@@ -4878,10 +4884,10 @@ function renderStats(d) {
   if (diskTitle) diskTitle.textContent = 'Disk ' + diskLabel;
 
   // temps
-  document.getElementById('cpuTemp').textContent  = cpuT + '°C';
-  document.getElementById('gpuTemp').textContent  = gpuT + '°C';
-  document.getElementById('diskTemp').textContent = diskT + '°C';
-  document.getElementById('boardTemp').textContent = boardT + '°C';
+  document.getElementById('cpuTemp').textContent  = fmtT(cpuT);
+  document.getElementById('gpuTemp').textContent  = fmtT(gpuT);
+  document.getElementById('diskTemp').textContent = fmtT(diskT);
+  document.getElementById('boardTemp').textContent = fmtT(boardT);
   document.getElementById('cpuTemp').classList.toggle('hot', cpuT > 75);
   document.getElementById('gpuTemp').classList.toggle('hot', gpuT > 75);
 }
@@ -8644,6 +8650,14 @@ function escHtml(s) {
 // ══════════════════════════════
 let widgetsLocked = localStorage.getItem('sp_widgets_locked') !== 'false'; // locked by default
 let widgetDragSrc = null;
+// dragstart always reports the widget as e.target (never the handle span),
+// so remember whether the mouse went down on a drag handle instead.
+let widgetHandleArmed = null;
+document.addEventListener('mousedown', e => {
+  const h = e.target.closest && e.target.closest('.drag-handle');
+  widgetHandleArmed = h ? h.closest('.widget') : null;
+}, true);
+document.addEventListener('mouseup', () => { widgetHandleArmed = null; }, true);
 
 // Save/restore widget order
 function saveWidgetOrder() {
@@ -8702,18 +8716,19 @@ function initWidgetDrag() {
       // the same event bubbling up — that was silently breaking category /
       // bookmark / osint reordering and cross-category moves inside widgets.
       const innerDraggable = e.target.closest('[draggable="true"]');
-      if (innerDraggable && innerDraggable !== widget && !e.target.closest('.drag-handle')) {
+      if (innerDraggable && innerDraggable !== widget) {
         return; // do NOT preventDefault — inner drag proceeds normally
       }
       if (widgetsLocked) { e.preventDefault(); return; }
-      // only start widget drag from the widget's own drag handle
-      if (!e.target.closest('.drag-handle')) { e.preventDefault(); return; }
+      // only start widget drag if the mouse went down on THIS widget's drag handle
+      if (widgetHandleArmed !== widget) { e.preventDefault(); return; }
       widgetDragSrc = widget;
       widget.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', widget.id);
     });
     widget.addEventListener('dragend', () => {
+      widgetHandleArmed = null;
       widget.classList.remove('dragging');
       widgetDragSrc = null;
       saveWidgetOrder();
