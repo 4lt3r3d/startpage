@@ -2283,10 +2283,10 @@
         </div>
         <div class="panel-title" style="margin-top:12px;"><span class="dot" style="background:var(--yellow);"></span>temperatures</div>
         <div class="temp-grid">
-          <div class="temp-item"><div class="temp-label">CPU</div><div class="temp-num" id="cpuTemp">—°C</div></div>
-          <div class="temp-item"><div class="temp-label">GPU</div><div class="temp-num" id="gpuTemp">—°C</div></div>
-          <div class="temp-item"><div class="temp-label">Disk</div><div class="temp-num" id="diskTemp">—°C</div></div>
-          <div class="temp-item"><div class="temp-label">Board</div><div class="temp-num" id="boardTemp">—°C</div></div>
+          <div class="temp-item"><div class="temp-label">CPU</div><div class="temp-num" id="cpuTemp">—°F</div></div>
+          <div class="temp-item"><div class="temp-label">GPU</div><div class="temp-num" id="gpuTemp">—°F</div></div>
+          <div class="temp-item"><div class="temp-label">Disk</div><div class="temp-num" id="diskTemp">—°F</div></div>
+          <div class="temp-item"><div class="temp-label">Board</div><div class="temp-num" id="boardTemp">—°F</div></div>
         </div>
         <div class="api-note">
           stats require a local API.<br>
@@ -4856,12 +4856,14 @@ function renderStats(d) {
   const disk    = Math.round(d.disk_pct ?? simStats.disk);
   // When the stats server is live, never show made-up temps: a missing
   // reading shows "--" instead of a simulated number.
-  const tempOf  = (v, sim) => v != null ? Math.round(v) : (statsLive ? null : Math.round(sim));
+  // server sends °C; tiles display °F
+  const toF     = c => c * 9 / 5 + 32;
+  const tempOf  = (v, sim) => v != null ? Math.round(toF(v)) : (statsLive ? null : Math.round(toF(sim)));
   const cpuT    = tempOf(d.cpu_temp,   simStats.cpuT);
   const gpuT    = tempOf(d.gpu_temp,   simStats.gpuT);
   const diskT   = tempOf(d.disk_temp,  simStats.diskT);
   const boardT  = tempOf(d.board_temp, simStats.boardT);
-  const fmtT    = t => t == null ? '--' : t + '°C';
+  const fmtT    = t => t == null ? '--' : t + '°F';
   const memUsed  = d.mem_used  != null ? (d.mem_used  / 1e9).toFixed(1) : (simStats.mem * 0.32).toFixed(1);
   const memTotal = d.mem_total != null ? (d.mem_total / 1e9).toFixed(1) : '32.0';
   const diskUsed  = d.disk_used  != null ? (d.disk_used  / 1e9).toFixed(0) : '218';
@@ -4888,8 +4890,8 @@ function renderStats(d) {
   document.getElementById('gpuTemp').textContent  = fmtT(gpuT);
   document.getElementById('diskTemp').textContent = fmtT(diskT);
   document.getElementById('boardTemp').textContent = fmtT(boardT);
-  document.getElementById('cpuTemp').classList.toggle('hot', cpuT > 75);
-  document.getElementById('gpuTemp').classList.toggle('hot', gpuT > 75);
+  document.getElementById('cpuTemp').classList.toggle('hot', cpuT > 167); // 75°C
+  document.getElementById('gpuTemp').classList.toggle('hot', gpuT > 167);
 }
 
 function updateStatsIndicator(live) {
