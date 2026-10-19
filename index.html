@@ -2288,11 +2288,10 @@
           <div class="temp-item"><div class="temp-label">Disk</div><div class="temp-num" id="diskTemp">—°F</div></div>
           <div class="temp-item"><div class="temp-label">Board</div><div class="temp-num" id="boardTemp">—°F</div></div>
         </div>
-        <div class="api-note">
-          stats require a local API.<br>
-          run <code style="color:var(--accent)">glances -w</code> or set up
-          <a href="https://github.com/nicedoc/arch-stats-api" target="_blank">arch-stats-api</a>
-          on port 61208 to populate live data.
+        <div class="api-note" id="statsApiNote">
+          stats server not detected.<br>
+          run <code style="color:var(--accent)">startpage_stats.bat</code>
+          (local stats server on port 61209) to show live data.
         </div>
       </div>
     </div>
@@ -2789,6 +2788,38 @@
     <div class="modal-btns">
       <button class="modal-btn" id="modalCancel">cancel</button>
       <button class="modal-btn primary" id="modalSave">save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SOCIALS / QUICK ACCESS CONTEXT MENU (only while bookmarks unlocked) ── -->
+<div class="ctx-menu" id="linkCtxMenu">
+  <div class="ctx-item" id="linkCtxAdd">＋ &nbsp;add link</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" id="linkCtxEdit">✎ &nbsp;edit</div>
+  <div class="ctx-item" id="linkCtxRemove" style="color:var(--red)">✕ &nbsp;remove</div>
+</div>
+
+<!-- ── TODO LIST-NAME CONTEXT MENU (always available) ── -->
+<div class="ctx-menu" id="todoListCtxMenu">
+  <div class="ctx-item" id="todoListCtxRename">✎ &nbsp;edit name</div>
+  <div class="ctx-sep" id="todoListCtxSep"></div>
+  <div class="ctx-item" id="todoListCtxDelete" style="color:var(--red)">✕ &nbsp;delete list + tasks</div>
+</div>
+
+<!-- ── SOCIALS / QUICK ACCESS MODAL ── -->
+<div class="modal-overlay" id="linkModalOverlay">
+  <div class="modal">
+    <h3 id="linkModalTitle">add link</h3>
+    <label>NAME</label>
+    <input type="text" id="linkName" placeholder="Bandcamp" maxlength="30">
+    <label>URL</label>
+    <input type="text" id="linkUrl" placeholder="https://bandcamp.com">
+    <label>ICON (emoji) <span style="color:var(--text3);font-size:9px;letter-spacing:0;">— auto-picked from name · edit to override</span></label>
+    <input type="text" id="linkIcon" placeholder="🔗" maxlength="4">
+    <div class="modal-btns">
+      <button class="modal-btn" id="linkModalCancel">cancel</button>
+      <button class="modal-btn primary" id="linkModalSave">save</button>
     </div>
   </div>
 </div>
@@ -4902,10 +4933,14 @@ function updateStatsIndicator(live) {
     dot.style.background = 'var(--accent)';
     label.textContent    = 'stats live';
     label.style.color    = 'var(--accent)';
+    const note = document.getElementById('statsApiNote');
+    if (note) note.style.display = 'none';
   } else {
     dot.style.background = 'var(--text3)';
     label.textContent    = 'stats offline';
     label.style.color    = 'var(--text3)';
+    const note = document.getElementById('statsApiNote');
+    if (note) note.style.display = '';
   }
 }
 
@@ -5339,23 +5374,27 @@ function renderTodoListTabs() {
     }
     const item = document.createElement('span');
     item.className = 'todo-title-item' + (l.id === activeTodoListId ? ' active' : '');
-    item.draggable = true;
+    item.draggable = !bmLocked;
     item.dataset.id = l.id;
     item.textContent = l.name;
-    item.title = l.id === activeTodoListId
-      ? 'Double-click to rename'
-      : 'Click to switch · double-click to rename' + (l.id === 'default' ? '' : ' · right-click to delete · drag to reorder');
+    item.title = (l.id === activeTodoListId ? '' : 'Click to switch · ') + 'right-click to edit/delete'
+      + (bmLocked ? '' : ' · drag to reorder');
 
     item.addEventListener('click', () => switchTodoList(l.id));
     item.addEventListener('dblclick', e => { e.stopPropagation(); renameTodoList(l.id); });
-    if (l.id !== 'default') {
-      item.addEventListener('contextmenu', e => { e.preventDefault(); deleteTodoList(l.id); });
-    }
-    item.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', l.id); });
-    item.addEventListener('dragover', e => e.preventDefault());
+    // right-click popup works whether the lock is on or off
+    item.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); showTodoListCtx(e, l.id); });
+    item.addEventListener('dragstart', e => {
+      if (bmLocked) { e.preventDefault(); return; }
+      e.dataTransfer.setData('text/plain', 'todolist:' + l.id);
+    });
+    item.addEventListener('dragover', e => { if (!bmLocked) e.preventDefault(); });
     item.addEventListener('drop', e => {
+      if (bmLocked) return;
       e.preventDefault();
-      const draggedId = e.dataTransfer.getData('text/plain');
+      const raw = e.dataTransfer.getData('text/plain');
+      if (!raw.startsWith('todolist:')) return;
+      const draggedId = raw.slice(9);
       if (!draggedId || draggedId === l.id) return;
       const fromIdx = todoLists.findIndex(x => x.id === draggedId);
       const toIdx = todoLists.findIndex(x => x.id === l.id);
@@ -5376,6 +5415,31 @@ function renderTodoListTabs() {
   addBtn.addEventListener('click', createTodoList);
   wrap.appendChild(addBtn);
 }
+
+// ── list-name right-click popup ──
+let todoListCtxId = null;
+function showTodoListCtx(e, id) {
+  todoListCtxId = id;
+  const canDelete = id !== 'default'; // the first list is permanent
+  document.getElementById('todoListCtxDelete').style.display = canDelete ? '' : 'none';
+  document.getElementById('todoListCtxSep').style.display    = canDelete ? '' : 'none';
+  const m = document.getElementById('todoListCtxMenu');
+  m.style.left = Math.min(e.clientX, window.innerWidth - 180) + 'px';
+  m.style.top  = Math.min(e.clientY, window.innerHeight - 90) + 'px';
+  m.classList.add('visible');
+}
+document.addEventListener('click', () => {
+  const m = document.getElementById('todoListCtxMenu');
+  if (m) m.classList.remove('visible');
+});
+document.getElementById('todoListCtxRename').addEventListener('click', () => {
+  if (todoListCtxId) renameTodoList(todoListCtxId);
+});
+document.getElementById('todoListCtxDelete').addEventListener('click', () => {
+  if (todoListCtxId) deleteTodoList(todoListCtxId);
+});
+
+let todoDragSrc = null;
 
 function renderTodos() {
   const list = document.getElementById('todoList');
@@ -5424,6 +5488,35 @@ function renderTodos() {
       });
       input.addEventListener('blur', commitEdit);
     });
+
+    // drag to reorder tasks — only while the bookmarks lock is unlocked
+    item.draggable = !bmLocked;
+    item.addEventListener('dragstart', e => {
+      if (bmLocked || e.target.closest('input')) { e.preventDefault(); return; }
+      todoDragSrc = i;
+      item.style.opacity = '0.3';
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', 'todo:' + i);
+    });
+    item.addEventListener('dragend', () => {
+      todoDragSrc = null;
+      list.querySelectorAll('.todo-item').forEach(el => { el.style.opacity = ''; el.style.outline = ''; });
+    });
+    item.addEventListener('dragover', e => {
+      if (bmLocked || todoDragSrc === null || todoDragSrc === i) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      item.style.outline = '1px dashed var(--accent)';
+    });
+    item.addEventListener('dragleave', e => { if (!item.contains(e.relatedTarget)) item.style.outline = ''; });
+    item.addEventListener('drop', e => {
+      if (bmLocked || todoDragSrc === null) return;
+      e.preventDefault();
+      const [moved] = todos.splice(todoDragSrc, 1);
+      todos.splice(i, 0, moved);
+      todoDragSrc = null;
+      saveTodos(); renderTodos();
+    });
     list.appendChild(item);
   });
   const remaining = todos.filter(t => !t.done).length;
@@ -5452,7 +5545,7 @@ renderTodoListTabs();
 // ══════════════════════════════
 //  SOCIALS LIST (left column)
 // ══════════════════════════════
-const SOCIALS = [
+const SOCIALS_DEFAULT = [
   { icon: '𝕏',  label: 'X',         url: 'https://x.com' },
   { icon: '📸', label: 'Instagram', url: 'https://instagram.com' },
   { icon: '👽', label: 'Reddit',    url: 'https://reddit.com' },
@@ -5463,16 +5556,8 @@ const SOCIALS = [
   { icon: '🟣', label: 'Twitch',    url: 'https://twitch.tv' },
   { icon: '🎬', label: 'Rumble',    url: 'https://rumble.com' },
 ];
-const socialEl = document.getElementById('socialLinks');
-if (socialEl) {
-  SOCIALS.forEach(s => {
-    const a = document.createElement('a');
-    a.className = 'ql-item';
-    a.href = s.url;
-    a.innerHTML = `<span class="ql-icon">${s.icon}</span><span class="ql-label">${s.label}</span><span class="ql-arrow">→</span>`;
-    socialEl.appendChild(a);
-  });
-}
+// rendered by the LINK LISTS section (next to QUICK LINKS) so both lists
+// share one editable system
 
 // ══════════════════════════════
 //  NOTEPAD (right-edge slide-out + pop-out window)
@@ -6302,6 +6387,10 @@ function setBmLock(locked) {
   // re-render to apply/remove draggable
   buildCategoryTabs();
   renderBookmarks();
+  // socials / quick access / todos follow the same lock (guarded: on first
+  // load this runs before those sections are defined)
+  try { renderLinkLists(); } catch (e) {}
+  try { renderTodos(); renderTodoListTabs(); } catch (e) {}
 }
 
 // ── Lock button click + sound ──
@@ -7761,7 +7850,7 @@ document.getElementById('lastfmList').addEventListener('click', async e => {
 // ══════════════════════════════
 //  QUICK LINKS
 // ══════════════════════════════
-const QUICK = [
+const QUICK_DEFAULT = [
   { icon: '📧', label: 'Mail',       url: 'https://mail.google.com' },
   { icon: '📅', label: 'Calendar',   url: 'https://calendar.google.com' },
   { icon: '🗒', label: 'Notion',     url: 'https://notion.so' },
@@ -7771,14 +7860,182 @@ const QUICK = [
   { icon: '🔳', label: 'LED Animator', url: 'led-animator/' },
 ];
 
-const qlEl = document.getElementById('quickLinks');
-QUICK.forEach(q => {
-  const a = document.createElement('a');
-  a.className = 'ql-item';
-  a.href = q.url;
-  a.innerHTML = `<span class="ql-icon">${q.icon}</span><span class="ql-label">${q.label}</span><span class="ql-arrow">→</span>`;
-  qlEl.appendChild(a);
+// ══════════════════════════════
+//  LINK LISTS (socials + quick access)
+//  Edit / move / delete only while the bookmarks lock is UNLOCKED.
+//  Handlers are always attached and check bmLocked at event time (never
+//  attached conditionally at render time — that's what broke DnD before).
+// ══════════════════════════════
+function loadLinkList(key, defaults) {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || 'null');
+    if (Array.isArray(v)) return v;
+  } catch (e) {}
+  return defaults.map(x => ({ ...x }));
+}
+let SOCIALS = loadLinkList('sp_socials', SOCIALS_DEFAULT);
+let QUICK   = loadLinkList('sp_quick',   QUICK_DEFAULT);
+
+const LINK_LISTS = {
+  socials: { key: 'sp_socials', el: 'socialLinks', get: () => SOCIALS, set: v => { SOCIALS = v; } },
+  quick:   { key: 'sp_quick',   el: 'quickLinks',  get: () => QUICK,   set: v => { QUICK = v; } },
+};
+
+function saveLinkList(kind) {
+  const L = LINK_LISTS[kind];
+  localStorage.setItem(L.key, JSON.stringify(L.get()));
+  localStorage.setItem('sp_last_updated', Date.now().toString());
+  if (typeof fbPush === 'function') fbPush();
+}
+
+let linkDragSrc = null; // { kind, idx }
+
+function renderLinkList(kind) {
+  const L = LINK_LISTS[kind];
+  const wrap = document.getElementById(L.el);
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  L.get().forEach((q, i) => {
+    const a = document.createElement('a');
+    a.className = 'ql-item';
+    a.href = q.url;
+    a.draggable = !bmLocked;
+    a.innerHTML = `<span class="ql-icon">${q.icon || '\u{1F517}'}</span><span class="ql-label">${escHtml(q.label)}</span><span class="ql-arrow">→</span>`;
+
+    a.addEventListener('contextmenu', e => {
+      if (bmLocked) return; // locked → normal browser menu
+      e.preventDefault(); e.stopPropagation();
+      showLinkCtx(e, kind, i);
+    });
+    a.addEventListener('dragstart', e => {
+      if (bmLocked) { e.preventDefault(); return; }
+      linkDragSrc = { kind, idx: i };
+      a.style.opacity = '0.3';
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', kind + ':' + i);
+    });
+    a.addEventListener('dragend', () => {
+      linkDragSrc = null;
+      wrap.querySelectorAll('.ql-item').forEach(el => { el.style.opacity = ''; el.style.outline = ''; });
+    });
+    a.addEventListener('dragover', e => {
+      if (bmLocked || !linkDragSrc || linkDragSrc.kind !== kind || linkDragSrc.idx === i) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      a.style.outline = '1px dashed var(--accent)';
+    });
+    a.addEventListener('dragleave', e => { if (!a.contains(e.relatedTarget)) a.style.outline = ''; });
+    a.addEventListener('drop', e => {
+      if (bmLocked || !linkDragSrc || linkDragSrc.kind !== kind) return;
+      e.preventDefault();
+      const arr = L.get();
+      const [moved] = arr.splice(linkDragSrc.idx, 1);
+      arr.splice(i, 0, moved);
+      linkDragSrc = null;
+      saveLinkList(kind); renderLinkList(kind);
+    });
+    wrap.appendChild(a);
+  });
+}
+
+function renderLinkLists() { renderLinkList('socials'); renderLinkList('quick'); }
+
+// ── link context menu ──
+const linkCtxMenu = document.getElementById('linkCtxMenu');
+let linkCtxTarget = null; // { kind, idx|null }
+
+function showLinkCtx(e, kind, idx) {
+  linkCtxTarget = { kind, idx };
+  const onItem = idx != null;
+  document.getElementById('linkCtxEdit').style.display   = onItem ? '' : 'none';
+  document.getElementById('linkCtxRemove').style.display = onItem ? '' : 'none';
+  linkCtxMenu.style.left = Math.min(e.clientX, window.innerWidth - 160) + 'px';
+  linkCtxMenu.style.top  = Math.min(e.clientY, window.innerHeight - 110) + 'px';
+  linkCtxMenu.classList.add('visible');
+}
+document.addEventListener('click', () => linkCtxMenu.classList.remove('visible'));
+
+// right-click empty space in either widget → add
+['socials', 'quick'].forEach(kind => {
+  const panel = document.getElementById(kind === 'socials' ? 'widget-socials' : 'widget-quicklinks');
+  if (!panel) return;
+  panel.addEventListener('contextmenu', e => {
+    if (bmLocked || e.target.closest('.ql-item')) return;
+    e.preventDefault();
+    showLinkCtx(e, kind, null);
+  });
 });
+
+document.getElementById('linkCtxAdd').addEventListener('click', () => {
+  if (linkCtxTarget) openLinkModal(linkCtxTarget.kind, null);
+});
+document.getElementById('linkCtxEdit').addEventListener('click', () => {
+  if (linkCtxTarget && linkCtxTarget.idx != null) openLinkModal(linkCtxTarget.kind, linkCtxTarget.idx);
+});
+document.getElementById('linkCtxRemove').addEventListener('click', () => {
+  if (!linkCtxTarget || linkCtxTarget.idx == null) return;
+  const { kind, idx } = linkCtxTarget;
+  const arr = LINK_LISTS[kind].get();
+  if (!arr[idx]) return;
+  if (!confirm('remove "' + arr[idx].label + '"?')) return;
+  arr.splice(idx, 1);
+  saveLinkList(kind); renderLinkList(kind);
+});
+
+// ── add / edit modal ──
+let linkModalState = null; // { kind, idx|null }
+function openLinkModal(kind, idx) {
+  linkModalState = { kind, idx };
+  const item = idx != null ? LINK_LISTS[kind].get()[idx] : null;
+  document.getElementById('linkModalTitle').textContent =
+    (item ? 'edit ' : 'add to ') + (kind === 'socials' ? 'socials' : 'quick access');
+  document.getElementById('linkName').value = item ? item.label : '';
+  document.getElementById('linkUrl').value  = item ? item.url : '';
+  document.getElementById('linkIcon').value = item ? (item.icon || '') : '';
+  document.getElementById('linkIcon').dataset.userset = item && item.icon ? '1' : '';
+  document.getElementById('linkModalOverlay').classList.add('visible');
+  document.getElementById('linkName').focus();
+}
+function closeLinkModal() {
+  document.getElementById('linkModalOverlay').classList.remove('visible');
+  linkModalState = null;
+}
+function saveLinkModal() {
+  if (!linkModalState) return;
+  const label = document.getElementById('linkName').value.trim();
+  let url     = document.getElementById('linkUrl').value.trim();
+  if (!label || !url) return;
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(url) && !url.startsWith('/') && url.includes('.') && !url.endsWith('/')) url = 'https://' + url;
+  const icon = document.getElementById('linkIcon').value.trim() ||
+               (typeof guessEmoji === 'function' ? guessEmoji(label, url, '') : '\u{1F517}');
+  const { kind, idx } = linkModalState;
+  const arr = LINK_LISTS[kind].get();
+  if (idx != null && arr[idx]) arr[idx] = { icon, label, url };
+  else arr.push({ icon, label, url });
+  saveLinkList(kind); renderLinkList(kind);
+  closeLinkModal();
+}
+document.getElementById('linkModalCancel').addEventListener('click', closeLinkModal);
+document.getElementById('linkModalSave').addEventListener('click', saveLinkModal);
+document.getElementById('linkModalOverlay').addEventListener('click', e => {
+  if (e.target.id === 'linkModalOverlay') closeLinkModal();
+});
+['linkName', 'linkUrl', 'linkIcon'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); saveLinkModal(); }
+    if (e.key === 'Escape') closeLinkModal();
+  });
+});
+document.getElementById('linkIcon').addEventListener('input', e => { e.target.dataset.userset = e.target.value ? '1' : ''; });
+['linkName', 'linkUrl'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    const iconEl = document.getElementById('linkIcon');
+    if (iconEl.dataset.userset === '1' || typeof guessEmoji !== 'function') return;
+    iconEl.value = guessEmoji(document.getElementById('linkName').value, document.getElementById('linkUrl').value, '');
+  });
+});
+
+renderLinkLists();
 
 // ══════════════════════════════
 //  BACKGROUND PICKER
@@ -9025,6 +9282,8 @@ function fbGetData() {
     dither:      JSON.parse(localStorage.getItem('sp_dither') || 'null'),
     led:         JSON.parse(localStorage.getItem('sp_led') || 'null'),
     widgetOrder: JSON.parse(localStorage.getItem('sp_widget_order') || '{}'),
+    socials:     JSON.parse(localStorage.getItem('sp_socials') || 'null'),
+    quick:       JSON.parse(localStorage.getItem('sp_quick')   || 'null'),
     updated:     Date.now(),
   };
 }
@@ -9122,6 +9381,15 @@ function fbApplyData(data) {
     localStorage.setItem('sp_widget_order', JSON.stringify(data.widgetOrder));
     if (typeof applyWidgetOrder === 'function') try { applyWidgetOrder(); } catch(e){ console.error(e); }
   }
+  // socials / quick access — only when the cloud actually has a saved list
+  if (Array.isArray(data.socials)) {
+    localStorage.setItem('sp_socials', JSON.stringify(data.socials));
+    try { SOCIALS = data.socials; renderLinkList('socials'); } catch(e){ console.error(e); }
+  }
+  if (Array.isArray(data.quick)) {
+    localStorage.setItem('sp_quick', JSON.stringify(data.quick));
+    try { QUICK = data.quick; renderLinkList('quick'); } catch(e){ console.error(e); }
+  }
 }
 
 // ── Smart merge — combine local + cloud ──
@@ -9187,6 +9455,8 @@ function fbMergeData(local, remote) {
   merged.bg          = remoteNewer ? (remote.bg    || local.bg)          : (local.bg    || remote.bg);
   merged.accent      = remoteNewer ? (remote.accent|| local.accent)      : (local.accent|| remote.accent);
   merged.widgetOrder = remoteNewer ? (remote.widgetOrder||local.widgetOrder) : (local.widgetOrder||remote.widgetOrder);
+  merged.socials     = remoteNewer ? (remote.socials || local.socials)   : (local.socials || remote.socials);
+  merged.quick       = remoteNewer ? (remote.quick   || local.quick)     : (local.quick   || remote.quick);
   merged.updated     = Date.now();
 
   return merged;
