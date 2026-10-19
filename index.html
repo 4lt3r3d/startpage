@@ -5386,27 +5386,52 @@ function renderTodoListTabs() {
     item.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); showTodoListCtx(e, l.id); });
     item.addEventListener('dragstart', e => {
       if (bmLocked) { e.preventDefault(); return; }
+      todoListDragId = l.id;
+      item.style.opacity = '0.35';
+      e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', 'todolist:' + l.id);
     });
-    item.addEventListener('dragover', e => { if (!bmLocked) e.preventDefault(); });
-    item.addEventListener('drop', e => {
-      if (bmLocked) return;
-      e.preventDefault();
-      const raw = e.dataTransfer.getData('text/plain');
-      if (!raw.startsWith('todolist:')) return;
-      const draggedId = raw.slice(9);
-      if (!draggedId || draggedId === l.id) return;
-      const fromIdx = todoLists.findIndex(x => x.id === draggedId);
-      const toIdx = todoLists.findIndex(x => x.id === l.id);
-      if (fromIdx === -1 || toIdx === -1) return;
-      const [moved] = todoLists.splice(fromIdx, 1);
-      todoLists.splice(toIdx, 0, moved);
-      saveTodoLists();
-      renderTodoListTabs();
+    item.addEventListener('dragend', () => {
+      todoListDragId = null;
+      item.style.opacity = '';
+      todoListClearMarker();
     });
 
     wrap.appendChild(item);
   });
+
+  // The whole title row is the drop zone (not just the small name text), so
+  // dropping on a "|" separator or in a gap still works. Wired once.
+  if (!wrap.dataset.dndWired) {
+    wrap.dataset.dndWired = '1';
+    wrap.addEventListener('dragover', e => {
+      if (bmLocked || !todoListDragId) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const t = todoListDropTarget(wrap, e.clientX, e.clientY);
+      todoListClearMarker();
+      if (t) t.el.style[t.after ? 'borderRight' : 'borderLeft'] = '1px solid var(--accent)';
+    });
+    wrap.addEventListener('dragleave', e => { if (!wrap.contains(e.relatedTarget)) todoListClearMarker(); });
+    wrap.addEventListener('drop', e => {
+      if (bmLocked || !todoListDragId) return;
+      e.preventDefault();
+      const t = todoListDropTarget(wrap, e.clientX, e.clientY);
+      const dragId = todoListDragId;
+      todoListDragId = null;
+      todoListClearMarker();
+      if (!t || t.id === dragId) return;
+      const fromIdx = todoLists.findIndex(x => x.id === dragId);
+      if (fromIdx === -1) return;
+      const [moved] = todoLists.splice(fromIdx, 1);
+      let toIdx = todoLists.findIndex(x => x.id === t.id);
+      if (toIdx === -1) { todoLists.splice(fromIdx, 0, moved); return; }
+      if (t.after) toIdx += 1;
+      todoLists.splice(toIdx, 0, moved);
+      saveTodoLists();
+      renderTodoListTabs();
+    });
+  }
 
   const addBtn = document.createElement('span');
   addBtn.className = 'todo-title-add';
@@ -5414,6 +5439,26 @@ function renderTodoListTabs() {
   addBtn.title = 'New list';
   addBtn.addEventListener('click', createTodoList);
   wrap.appendChild(addBtn);
+}
+
+// ── list-name drag helpers ──
+let todoListDragId = null;
+// nearest list name to the pointer; after = drop on its right-hand side
+function todoListDropTarget(wrap, x, y) {
+  let best = null, bestD = Infinity;
+  wrap.querySelectorAll('.todo-title-item').forEach(el => {
+    const r = el.getBoundingClientRect();
+    const cx = Math.max(r.left, Math.min(x, r.right));
+    const cy = Math.max(r.top,  Math.min(y, r.bottom));
+    const d = Math.hypot(x - cx, (y - cy) * 3); // favour the same row
+    if (d < bestD) { bestD = d; best = { el, id: el.dataset.id, after: x > r.left + r.width / 2 }; }
+  });
+  return best;
+}
+function todoListClearMarker() {
+  document.querySelectorAll('#todoTitleList .todo-title-item').forEach(el => {
+    el.style.borderLeft = ''; el.style.borderRight = '';
+  });
 }
 
 // ── list-name right-click popup ──
