@@ -2091,6 +2091,73 @@
     /* temp grid — 2 cols */
     .temp-grid { grid-template-columns: 1fr 1fr; }
   }
+
+  /* ── NEWS & UPDATES (multi-source feed widget) ── */
+  #widget-news { border-radius: 0; display: flex; flex-direction: column; flex-shrink: 0; min-width: 0; contain: inline-size; } /* width comes from the column, never from long content */
+  #widget-news::before { display: none; }
+  #widget-news.news-full  { aspect-ratio: 8.5 / 10; }   /* notebook paper, trimmed */
+  #widget-news.news-third { aspect-ratio: 25.5 / 10; }  /* 1/3 of full height */
+  #widget-news.news-closed .news-view { display: none; }
+  #widget-news.news-closed .panel-title { margin-bottom: 0; }
+  #widget-news .news-head { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; }
+  .news-head-l { display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
+  .news-title-link { color: inherit; text-decoration: none; }
+  .news-title-link:hover { color: var(--accent); }
+  .news-srcs { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .news-src-btn {
+    background: none; border: none; border-bottom: 1px solid transparent; border-radius: 0;
+    padding: 0 0 1px; cursor: pointer; outline: none;
+    font: inherit; letter-spacing: inherit; text-transform: inherit; color: var(--text3);
+    transition: color 0.12s, border-color 0.12s;
+  }
+  .news-src-btn:hover { color: var(--text2); }
+  .news-src-btn.active { color: var(--text); border-bottom-color: var(--accent); }
+  .news-sep { color: var(--text3); }
+  .news-sizes { display: flex; gap: 5px; align-items: center; justify-self: end; }
+  .news-size {
+    width: 6px; height: 6px; padding: 0; border: none; border-radius: 0;
+    background: var(--text3); cursor: pointer; opacity: 0.8;
+    transition: background 0.12s, opacity 0.12s;
+  }
+  .news-size:hover { background: var(--text2); opacity: 1; }
+  .news-size.active { background: var(--accent); opacity: 1; }
+  .news-view { flex: 1; min-height: 0; overflow: hidden; position: relative; }
+  .news-list { height: 100%; overflow-y: auto; font-family: var(--mono); margin-right: -8px; padding-right: 8px; will-change: transform; }
+  .news-status { font-size: 10px; color: var(--text3); padding: 6px 0; }
+  .news-day {
+    display: block; position: sticky; top: 0; z-index: 1; background: var(--bg1); text-decoration: none;
+    font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text2);
+    padding: 8px 0 4px; border-bottom: 1px solid var(--border2);
+  }
+  .news-day:first-child { padding-top: 0; }
+  .news-day:hover { color: var(--accent); }
+  /* Track Awesome List — mirrors the site: list → category → entries */
+  .tal-block { padding: 8px 0 6px; border-bottom: 1px solid var(--border); }
+  .tal-list { display: block; font-size: 12px; font-weight: 600; color: var(--accent); text-decoration: none; margin-bottom: 4px; }
+  .tal-list:hover { text-decoration: underline; }
+  .tal-num { color: var(--text); }
+  .tal-body { font-size: 11px; line-height: 1.55; color: var(--text); overflow-wrap: anywhere; }
+  .tal-cat { font-size: 10px; font-weight: 600; color: var(--text2); margin: 6px 0 2px; }
+  .tal-body ul, .tal-body ol { margin: 2px 0; padding-left: 14px; list-style: square; }
+  .tal-body li { margin: 3px 0; }
+  .tal-body li::marker { color: var(--text3); }
+  .tal-body p { margin: 0 0 2px; }
+  .tal-body a { color: var(--accent); text-decoration: none; }
+  .tal-body a:hover { text-decoration: underline; }
+  .tal-body strong { color: var(--text); font-weight: 700; }
+  .tal-body code { font-family: var(--mono); font-size: 10px; background: var(--bg2); border: 1px solid var(--border); padding: 0 3px; }
+  .tal-body img.news-ico { height: 12px; width: auto; vertical-align: -2px; }
+  .tal-body img.news-shot { height: 64px; width: auto; max-width: 100%; margin: 4px 4px 0 0; border: 1px solid var(--border); vertical-align: top; }
+  /* Hacker News — compact ranked rows */
+  .hn-row { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .hn-rank { flex-shrink: 0; width: 18px; font-size: 10px; color: var(--text3); padding-top: 1px; }
+  .hn-main { min-width: 0; }
+  .hn-title { font-size: 11px; color: var(--text); text-decoration: none; }
+  .hn-title:hover { color: var(--accent); }
+  .hn-dom { font-size: 10px; color: var(--text3); }
+  .hn-meta { font-size: 10px; color: var(--text2); margin-top: 2px; }
+  .hn-meta a { color: var(--text2); text-decoration: none; }
+  .hn-meta a:hover { color: var(--accent); }
 </style>
   <!-- Firebase -->
   <script type="module" id="fbModule">
@@ -2320,6 +2387,26 @@
         right-click to add · right-click item to edit/remove
       </div>
     </div>
+
+    <!-- NEWS & UPDATES (Track Awesome List / Hacker News) -->
+    <div class="panel osint-panel widget news-full" id="widget-news" draggable="false">
+      <div class="panel-title widget-title news-head">
+        <span class="news-head-l">
+          <span class="drag-handle" title="drag to move">⠿</span>
+          <span class="dot" style="background:var(--accent);"></span><a class="news-title-link" id="newsTitleLink" href="https://www.trackawesomelist.com/">News &amp; Updates</a>
+        </span>
+        <span class="news-srcs">
+          <button class="news-src-btn active" data-src="tal">Track Awesome List</button><span class="news-sep">/</span><button class="news-src-btn" data-src="hn">Hacker News</button>
+        </span>
+        <span class="news-sizes">
+          <button class="news-size" data-size="closed" title="collapse"></button>
+          <button class="news-size" data-size="third" title="1/3 size"></button>
+          <button class="news-size" data-size="full" title="full size"></button>
+        </span>
+      </div>
+      <div class="news-view"><div class="news-list" id="newsList"><div class="news-status">loading…</div></div></div>
+    </div>
+    <script>try{var _ns=localStorage.getItem('sp_news_size');if(_ns==='closed'||_ns==='third'){var _nw=document.getElementById('widget-news');_nw.classList.remove('news-full');_nw.classList.add('news-'+_ns);}}catch(e){}</script>
 
     <!-- LIVE FEEDS -->
     <div class="panel osint-panel widget" id="widget-feeds" draggable="false">
@@ -13705,6 +13792,221 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
+
+// ── NEWS & UPDATES widget — multi-source feed (Track Awesome List, Hacker News) ──
+// To add a source later: add an entry to SOURCES (load + render) and a matching
+// <button class="news-src-btn" data-src="..."> in the widget header.
+(function initNewsWidget() {
+  const W = document.getElementById('widget-news');
+  const LIST = document.getElementById('newsList');
+  const TITLE = document.getElementById('newsTitleLink');
+  if (!W || !LIST) return;
+  const SIZES = ['closed', 'third', 'full'];
+  const TAL = 'https://www.trackawesomelist.com/';
+  const TAL_DAYS = 5;
+  const parser = new DOMParser();
+  try { localStorage.removeItem('sp_news_cache'); } catch (e) {} // old single-source cache
+
+  const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  const safeUrl = u => (typeof u === 'string' && /^https?:\/\//i.test(u)) ? u : null;
+  const el = (tag, cls) => { const n = document.createElement(tag); if (cls) n.className = cls; return n; };
+  const pad = n => String(n).padStart(2, '0');
+  function status(text) { const s = el('div', 'news-status'); s.textContent = text; LIST.appendChild(s); }
+  function ago(sec) {
+    const m = Math.max(1, Math.round((Date.now() / 1000 - sec) / 60));
+    return m < 60 ? m + 'm ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago';
+  }
+
+  // ── Track Awesome List: one feed per day; each item = one awesome list ──
+  async function loadTAL() {
+    const now = new Date();
+    const reqs = [];
+    for (let i = 0; i < TAL_DAYS; i++) {
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - i));
+      const path = `${d.getUTCFullYear()}/${pad(d.getUTCMonth() + 1)}/${pad(d.getUTCDate())}/`;
+      reqs.push(fetch(TAL + path + 'feed.json', { cache: 'no-cache' })
+        .then(r => r.ok ? r.json() : null).catch(() => null)
+        .then(j => j && {
+          label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }),
+          url: TAL + path,
+          // the day feed lists newest-processed first; the site shows the reverse
+          lists: (j.items || []).slice().reverse().map(it => ({ title: it.title || '', url: it.url || '', html: it.content_html || '' })),
+        }));
+    }
+    const days = (await Promise.all(reqs)).filter(d => d && d.lists.length);
+    if (!days.length) throw new Error('no days');
+    return days;
+  }
+
+  // Rebuild feed HTML from an allowlist (never inject raw markup).
+  const KEEP = { P: 'p', UL: 'ul', OL: 'ol', LI: 'li', CODE: 'code', STRONG: 'strong', B: 'strong', EM: 'em', I: 'em', BR: 'br' };
+  function cleanInto(src, out) {
+    src.childNodes.forEach(ch => {
+      if (ch.nodeType === 3) { out.appendChild(document.createTextNode(ch.textContent)); return; }
+      if (ch.nodeType !== 1) return;
+      const tag = ch.tagName;
+      if (tag === 'H3' || tag === 'H4' || tag === 'H5') {
+        const cat = el('div', 'tal-cat');
+        ch.querySelectorAll('p').forEach(p => p.replaceWith(...p.childNodes)); // unwrap <p> in headings
+        cleanInto(ch, cat); out.appendChild(cat); return;
+      }
+      if (tag === 'IMG') {
+        let u = ch.getAttribute('src') || '';
+        try { u = new URL(u, TAL).href; } catch (e) { return; }
+        if (!safeUrl(u)) return;
+        const h = parseInt(ch.getAttribute('height') || '0', 10);
+        const isIcon = (h && h <= 24) || /\/icons\/|\.svg(\?|$)/i.test(u);
+        const img = el('img', isIcon ? 'news-ico' : 'news-shot');
+        img.alt = ''; img.loading = 'lazy'; img.referrerPolicy = 'no-referrer';
+        if (isIcon) { img.addEventListener('error', () => img.remove()); img.src = u; out.appendChild(img); return; }
+        const a = el('a'); a.href = u; a.appendChild(img); out.appendChild(a);
+        img.addEventListener('error', () => a.remove()); img.src = u; return;  // dead image links (some exist upstream) vanish quietly
+      }
+      if (tag === 'A') {
+        const raw = ch.getAttribute('href') || '';
+        let u = null;
+        if (raw && raw[0] !== '#') { try { u = safeUrl(new URL(raw, TAL).href); } catch (e) {} }
+        if (!u) { cleanInto(ch, out); return; }   // in-page anchors → plain text
+        const a = el('a'); a.href = u; cleanInto(ch, a); out.appendChild(a); return;
+      }
+      const m = KEEP[tag];
+      if (!m) { cleanInto(ch, out); return; }     // unknown wrapper → keep its contents
+      const n = el(m); cleanInto(ch, n); out.appendChild(n);
+    });
+  }
+
+  function renderTAL(days) {
+    LIST.textContent = '';
+    days.forEach(day => {
+      const h = el('a', 'news-day');
+      h.href = safeUrl(day.url) || TAL;
+      h.textContent = `${day.label} · ${day.lists.length} lists`;
+      LIST.appendChild(h);
+      day.lists.forEach((l, i) => {
+        const block = el('div', 'tal-block');
+        const t = el('a', 'tal-list');
+        t.href = safeUrl(l.url) || TAL;
+        const num = el('span', 'tal-num'); num.textContent = `${i + 1}. `;
+        t.append(num, l.title);
+        const body = el('div', 'tal-body');
+        cleanInto(parser.parseFromString(l.html, 'text/html').body, body);
+        block.append(t, body);
+        LIST.appendChild(block);
+      });
+    });
+  }
+
+  // ── Hacker News: real front-page order via HN's official Firebase API (the RSS blocks browser reads) ──
+  const HN_API = 'https://hacker-news.firebaseio.com/v0/';
+  async function loadHN() {
+    const r = await fetch(HN_API + 'topstories.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const ids = (await r.json()).slice(0, 30);
+    const items = await Promise.all(ids.map(id =>
+      fetch(HN_API + 'item/' + encodeURIComponent(id) + '.json').then(x => x.ok ? x.json() : null).catch(() => null)));
+    const out = items.filter(h => h && h.title).map(h => ({
+      id: h.id, title: h.title, url: h.url || '',
+      points: h.score || 0, comments: h.descendants || 0, by: h.by || '', t: h.time || 0,
+    }));
+    if (!out.length) throw new Error('empty');
+    return out;
+  }
+
+  function renderHN(items) {
+    LIST.textContent = '';
+    items.forEach((h, i) => {
+      const item = 'https://news.ycombinator.com/item?id=' + encodeURIComponent(h.id);
+      const row = el('div', 'hn-row');
+      const rank = el('span', 'hn-rank'); rank.textContent = pad(i + 1);
+      const main = el('div', 'hn-main');
+      const a = el('a', 'hn-title'); a.href = safeUrl(h.url) || item; a.textContent = h.title;
+      main.appendChild(a);
+      if (safeUrl(h.url)) {
+        try { const d = el('span', 'hn-dom'); d.textContent = ' (' + new URL(h.url).hostname.replace(/^www\./, '') + ')'; main.appendChild(d); } catch (e) {}
+      }
+      const meta = el('div', 'hn-meta');
+      meta.append(`${h.points} pts · by ${h.by} · ${ago(h.t)} · `);
+      const c = el('a'); c.href = item; c.textContent = `${h.comments} comments`;
+      meta.appendChild(c);
+      main.appendChild(meta);
+      row.append(rank, main);
+      LIST.appendChild(row);
+    });
+  }
+
+  const SOURCES = {
+    tal: { home: TAL,                            ttl: 60 * 60 * 1000, load: loadTAL, render: renderTAL },
+    hn:  { home: 'https://news.ycombinator.com/', ttl: 10 * 60 * 1000, load: loadHN,  render: renderHN  },
+  };
+  const ORDER = Object.keys(SOURCES);
+  let current = lsGet('sp_news_src', 'tal');
+  if (!SOURCES[current]) current = 'tal';
+  const inflight = {};
+
+  function readCache(id) { try { return JSON.parse(lsGet('sp_news_cache_' + id, 'null')); } catch (e) { return null; } }
+
+  function show(id) {
+    const S = SOURCES[id];
+    const cache = readCache(id);
+    if (cache && cache.data) S.render(cache.data);
+    else { LIST.textContent = ''; status('loading…'); }
+    if (cache && cache.t && Date.now() - cache.t < S.ttl) return;
+    if (inflight[id]) return;
+    inflight[id] = S.load()
+      .then(data => {
+        lsSet('sp_news_cache_' + id, JSON.stringify({ t: Date.now(), data }));
+        if (current === id) { const top = LIST.scrollTop; S.render(data); LIST.scrollTop = top; }
+      })
+      .catch(() => {
+        if (current === id && !(cache && cache.data)) { LIST.textContent = ''; status('feed unreachable — click the title to open the site'); }
+      })
+      .finally(() => { delete inflight[id]; });
+  }
+
+  function markTabs() {
+    W.querySelectorAll('.news-src-btn').forEach(b => b.classList.toggle('active', b.dataset.src === current));
+    if (TITLE) TITLE.href = SOURCES[current].home;
+  }
+
+  // Quick horizontal slide: old list exits toward the side away from the new tab, new list enters from the other side.
+  async function switchSource(id) {
+    if (!SOURCES[id] || id === current) return;
+    const dir = ORDER.indexOf(id) > ORDER.indexOf(current) ? -1 : 1;
+    current = id;
+    lsSet('sp_news_src', id);
+    markTabs();
+    LIST.getAnimations().forEach(a => a.cancel());
+    if (W.classList.contains('news-closed') || !LIST.animate) { show(id); LIST.scrollTop = 0; return; }
+    const out = LIST.animate(
+      [{ transform: 'translateX(0)', opacity: 1 }, { transform: `translateX(${dir * 100}%)`, opacity: 0 }],
+      { duration: 140, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' });
+    try { await out.finished; } catch (e) { return; } // cancelled by a newer click
+    if (current !== id) return;
+    show(id);
+    LIST.scrollTop = 0;
+    out.cancel();
+    LIST.animate(
+      [{ transform: `translateX(${-dir * 100}%)`, opacity: 0 }, { transform: 'translateX(0)', opacity: 1 }],
+      { duration: 200, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
+  }
+
+  function setSize(size) {
+    if (!SIZES.includes(size)) size = 'full';
+    SIZES.forEach(s => W.classList.toggle('news-' + s, s === size));
+    W.querySelectorAll('.news-size').forEach(b => b.classList.toggle('active', b.dataset.size === size));
+    lsSet('sp_news_size', size);
+  }
+
+  W.querySelectorAll('.news-size').forEach(b =>
+    b.addEventListener('click', e => { e.stopPropagation(); setSize(b.dataset.size); }));
+  W.querySelectorAll('.news-src-btn').forEach(b =>
+    b.addEventListener('click', e => { e.stopPropagation(); switchSource(b.dataset.src); }));
+
+  setSize(lsGet('sp_news_size', 'full'));
+  markTabs();
+  show(current);
+})();
 </script>
 
 <!-- ── CHEAT SHEET PANEL ── -->
