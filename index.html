@@ -9770,6 +9770,10 @@ function fbStartListening() {
       const localHas  = hasMeaningful(local);
       const remoteHas = hasMeaningful(remote);
 
+      // Remote has now been fetched, so release the load gate BEFORE deciding —
+      // otherwise the fbPush() calls below are refused and the spinner sticks on "loading".
+      window._fbLoading = false;
+
       // Smart sync — modal ONLY for genuine conflicts, and only if user just signed in.
       if (!localHas && remoteHas) {
         fbApplyData(remote);
@@ -9797,7 +9801,6 @@ function fbStartListening() {
       }
 
       window._fbInteractiveSignIn = false;
-      window._fbLoading = false;
     } else {
       // Subsequent real-time updates from another device.
       const remote   = snap.data();
