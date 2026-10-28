@@ -14071,6 +14071,64 @@ document.addEventListener('DOMContentLoaded', function() {
   markTabs();
   show(current);
 })();
+
+// ══════════════════════════════
+//  SP//ADD EXTENSION BRIDGE
+//  Talks to the SP//ADD browser extension (C:\Tools\startpage-ext) through
+//  window.postMessage. Does nothing if the extension isn't installed.
+//  Step 2: sends the current Bookmarks + OSINT category lists (and the
+//  current accent color / font) to the extension whenever they change.
+//  Messages page -> extension use dir:'page->ext'; extension -> page use dir:'ext->page'.
+// ══════════════════════════════
+(function spaddBridge() {
+  let postTimer = null;
+
+  function spaddSnapshot() {
+    const cs = getComputedStyle(document.documentElement);
+    return {
+      bookmarks: Object.keys(bookmarks || {}),
+      osint:     Object.keys(osintData || {}),
+      theme: {
+        accent:  cs.getPropertyValue('--accent').trim(),
+        accent2: cs.getPropertyValue('--accent2').trim(),
+        accent3: cs.getPropertyValue('--accent3').trim(),
+        mono:    cs.getPropertyValue('--mono').trim(),
+      },
+      ts: Date.now(),
+    };
+  }
+
+  function spaddPostCategories() {
+    clearTimeout(postTimer);
+    postTimer = setTimeout(() => {
+      try {
+        window.postMessage({ dir: 'page->ext', type: 'SPADD_CATEGORIES', data: spaddSnapshot() }, location.origin);
+      } catch (e) { console.error('SP//ADD post failed', e); }
+    }, 150);
+  }
+  window.spaddPostCategories = spaddPostCategories;
+
+  // Every category add / rename / delete / reorder — and every cloud sync —
+  // ends by redrawing the tabs, so hooking the two tab builders catches all of them.
+  const _origBuildCategoryTabs = buildCategoryTabs;
+  window.buildCategoryTabs = function() { _origBuildCategoryTabs.apply(this, arguments); spaddPostCategories(); };
+  buildCategoryTabs = window.buildCategoryTabs;
+
+  const _origBuildOsintTabs = buildOsintTabs;
+  window.buildOsintTabs = function() { _origBuildOsintTabs.apply(this, arguments); spaddPostCategories(); };
+  buildOsintTabs = window.buildOsintTabs;
+
+  // Accent color and font picker change CSS variables on <html> — resend when they do.
+  new MutationObserver(spaddPostCategories).observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+
+  // The extension says hello when it loads on this page — answer with the current lists.
+  window.addEventListener('message', e => {
+    if (e.source !== window || !e.data || e.data.dir !== 'ext->page') return;
+    if (e.data.type === 'SPADD_HELLO') spaddPostCategories();
+  });
+
+  spaddPostCategories();
+})();
 </script>
 
 <!-- ── CHEAT SHEET PANEL ── -->
