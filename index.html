@@ -14227,7 +14227,12 @@ document.addEventListener('DOMContentLoaded', function() {
     waiting = false;
     const batch = pending.splice(0, pending.length);
     let res;
-    try { res = processItems(batch); }
+    try {
+      // Start from the latest saved data — another startpage tab may have saved since this one loaded.
+      const b = JSON.parse(localStorage.getItem('sp_bookmarks') || 'null'); if (b) bookmarks = b;
+      const o = JSON.parse(localStorage.getItem('sp_osint')     || 'null'); if (o) osintData = o;
+      res = processItems(batch);
+    }
     catch (e) {
       console.error('SP//ADD add failed', e);
       return; // no ack — the extension keeps the items queued and retries next load
@@ -14242,6 +14247,34 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!waiting) { waiting = true; flush(); }
   });
 })();
+
+// ══════════════════════════════
+//  CROSS-TAB REFRESH
+//  When another startpage tab saves bookmarks or OSINT, this tab reloads them
+//  and redraws, so an out-of-date tab can never save over newer changes.
+//  (The 'storage' event only fires in the OTHER tabs, never the one that saved.)
+// ══════════════════════════════
+window.addEventListener('storage', e => {
+  try {
+    if (e.key === 'sp_bookmarks' && e.newValue) {
+      bookmarks = JSON.parse(e.newValue);
+      if (!bookmarks[activeCategory]) activeCategory = Object.keys(bookmarks)[0];
+      // register any bookmark nicks the other tab added as search shortcuts here too
+      for (const c in bookmarks) (bookmarks[c] || []).forEach(bm => {
+        if (!bm.nick || NICK_MAP[bm.nick]) return;
+        const searchUrl = bm.url.includes('%s') ? bm.url.replace('%s', '') : bm.url + (bm.url.includes('?') ? '&q=' : '?q=');
+        const engine = { id: 'bm_' + bm.nick, nick: bm.nick, name: bm.name, url: searchUrl };
+        ENGINES.push(engine); NICK_MAP[bm.nick] = engine;
+      });
+      buildCategoryTabs(); renderBookmarks();
+    }
+    if (e.key === 'sp_osint' && e.newValue) {
+      osintData = JSON.parse(e.newValue);
+      if (!osintData[osintActive]) osintActive = Object.keys(osintData)[0];
+      buildOsintTabs(); renderOsint();
+    }
+  } catch (err) { console.error('cross-tab refresh failed', err); }
+});
 </script>
 
 <!-- ── CHEAT SHEET PANEL ── -->
