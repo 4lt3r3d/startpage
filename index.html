@@ -14129,6 +14129,119 @@ document.addEventListener('DOMContentLoaded', function() {
 
   spaddPostCategories();
 })();
+
+// ══════════════════════════════
+//  SP//ADD EXTENSION RECEIVER
+//  Step 3: receives pages sent by the SP//ADD extension (right-click menu)
+//  and adds them to the Bookmarks / OSINT widgets with the same rules as the
+//  bulk-add box: duplicate URLs skipped, icons auto-picked by guessEmoji(),
+//  bookmark nicks registered as search shortcuts. Saving goes through the
+//  normal saveBookmarks() / saveOsint(), so cloud sync happens as usual.
+// ══════════════════════════════
+(function spaddReceiver() {
+  const seenIds = new Set();   // ignore a batch item if it's delivered twice
+  const pending = [];          // items waiting for the startup sync to finish
+  const startedAt = Date.now();
+  let waiting = false;
+
+  // Don't add anything until the sign-in sync has settled, so a cloud copy
+  // that's loading can't overwrite (or be overwritten by) the new items.
+  function syncReady() {
+    if (window._fbLoading === false) return true;              // signed in, cloud loaded
+    if (window._fbLoading === true) return Date.now() - startedAt > 20000; // stuck/offline: give up waiting
+    return Date.now() - startedAt > 4000;                      // never signed in
+  }
+
+  function normUrl(u) {
+    try {
+      const x = new URL(u);
+      const host = x.hostname.toLowerCase().replace(/^www\./, '');
+      const path = x.pathname.replace(/\/+$/, '');
+      return host + path + x.search;
+    } catch (e) { return String(u || '').trim().toLowerCase(); }
+  }
+
+  function processItems(items) {
+    const res = { ids: [], added: [], dupes: [], invalid: [], failedIcons: [], nickSkipped: 0 };
+    let touchedBm = false, touchedOsint = false;
+
+    items.forEach(item => {
+      if (!item || !item.id) return;
+      res.ids.push(item.id);
+      if (seenIds.has(item.id)) return;
+      seenIds.add(item.id);
+
+      const isOsint = item.target === 'osint';
+      const data = isOsint ? osintData : bookmarks;
+      const url = bulkNormalizeUrl(item.url || '');
+      if (!/^https?:\/\//i.test(url)) { res.invalid.push({ url: item.url || '' }); return; }
+
+      // category — if it was deleted since the extension last synced, recreate it
+      let cat = String(item.cat || '').trim();
+      if (!cat) { res.invalid.push({ url }); return; }
+      if (!isOsint) cat = cat.toLowerCase().replace(/\s+/g, '-');
+      if (!data[cat]) data[cat] = [];
+
+      // duplicate check across every category of the target widget
+      const key = normUrl(url);
+      let dupeCat = null;
+      for (const c in data) {
+        if ((data[c] || []).some(e => normUrl(e.url) === key)) { dupeCat = c; break; }
+      }
+      const name = (String(item.name || '').trim() || bulkNameFromUrl(url)).slice(0, 48);
+      if (dupeCat) { res.dupes.push({ name, url, target: item.target, cat: dupeCat }); return; }
+
+      // nick — bookmarks only, same cleanup + collision rule as bulk add
+      let nick = isOsint ? '' : String(item.nick || '').toLowerCase().replace(/[^a-z0-9_-]/g, '');
+      if (nick && findNickLocation(nick)) { nick = ''; res.nickSkipped++; }
+
+      let icon = String(item.icon || '').trim();
+      if (!icon) {
+        icon = guessEmoji(name, url, nick);
+        if (icon === '🔗') res.failedIcons.push({ name, url });
+      }
+
+      const entry = { name, url, icon };
+      if (nick) {
+        entry.nick = nick;
+        const searchUrl = url.includes('%s') ? url.replace('%s', '') : url + (url.includes('?') ? '&q=' : '?q=');
+        const engine = { id: 'bm_' + nick, nick, name, url: searchUrl };
+        const existing = ENGINES.findIndex(e => e.id === 'bm_' + nick);
+        if (existing > -1) ENGINES[existing] = engine; else ENGINES.push(engine);
+        NICK_MAP[nick] = engine;
+      }
+
+      data[cat].push(entry);
+      res.added.push({ name, url, target: item.target, cat });
+      if (isOsint) touchedOsint = true; else touchedBm = true;
+    });
+
+    if (touchedBm)    { saveBookmarks(); buildCategoryTabs(); renderBookmarks(); }
+    if (touchedOsint) { saveOsint();     buildOsintTabs();    renderOsint(); }
+    return res;
+  }
+
+  function flush() {
+    if (!pending.length) { waiting = false; return; }
+    if (!syncReady()) { setTimeout(flush, 250); return; }
+    waiting = false;
+    const batch = pending.splice(0, pending.length);
+    let res;
+    try { res = processItems(batch); }
+    catch (e) {
+      console.error('SP//ADD add failed', e);
+      return; // no ack — the extension keeps the items queued and retries next load
+    }
+    window.postMessage({ dir: 'page->ext', type: 'SPADD_RESULT', data: res }, location.origin);
+  }
+
+  window.addEventListener('message', e => {
+    if (e.source !== window || !e.data || e.data.dir !== 'ext->page') return;
+    if (e.data.type !== 'SPADD_ADD' || !Array.isArray(e.data.items)) return;
+    pending.push(...e.data.items);
+    if (!waiting) { waiting = true; flush(); }
+  });
+})();
 </script>
 
 <!-- ── CHEAT SHEET PANEL ── -->
