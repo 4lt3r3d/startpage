@@ -1,0 +1,73 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>SP//ADD</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Share+Tech+Mono&family=VT323&family=Major+Mono+Display&family=IBM+Plex+Mono:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="panel fade-in">
+    <div class="panel-title"><span>SP//ADD</span><span class="title-sub" id="titleSub"></span></div>
+
+    <!-- ── menu ── -->
+    <div id="viewMenu">
+      <button class="row-btn" data-scope="current"><span>add current page</span><span class="cnt" id="cnt-current"></span></button>
+      <button class="row-btn" data-scope="selected"><span>add selected pages</span><span class="cnt" id="cnt-selected"></span></button>
+      <button class="row-btn" data-scope="window"><span>add all pages in current window</span><span class="cnt" id="cnt-window"></span></button>
+      <button class="row-btn" data-scope="all"><span>add pages in all windows</span><span class="cnt" id="cnt-all"></span></button>
+
+      <div class="bulk">
+        <div class="sec-title">BULK PASTE</div>
+        <textarea id="bulkText" spellcheck="false" placeholder="paste sites — one per line&#10;https://shodan.io&#10;shodan.io&#10;Shodan - https://shodan.io&#10;Shodan | https://shodan.io | sh&#10;Shodan https://shodan.io sh"></textarea>
+        <label>TARGET</label>
+        <select id="bTarget"><option value="bookmarks">bookmarks</option><option value="osint">osint</option></select>
+        <label>CATEGORY</label>
+        <select id="bCategory"></select>
+        <div id="bNewCatWrap" hidden>
+          <label>NEW CATEGORY NAME</label>
+          <input type="text" id="bNewCat" placeholder="category name" maxlength="40">
+        </div>
+        <div class="modal-btns bulk-btns">
+          <span class="bulk-info" id="bulkInfo"></span>
+          <button class="modal-btn primary" id="bulkReview" disabled>review</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── review ── -->
+    <div id="viewReview" hidden>
+      <div class="pickers">
+        <div><label>TARGET</label>
+          <select id="target"><option value="bookmarks">bookmarks</option><option value="osint">osint</option></select></div>
+        <div><label>CATEGORY</label><select id="category"></select></div>
+      </div>
+      <div id="newCatWrap" hidden>
+        <label>NEW CATEGORY NAME</label>
+        <input type="text" id="newCat" placeholder="category name" maxlength="40">
+      </div>
+      <div class="list-head">
+        <label class="chk"><input type="checkbox" id="checkAll" checked><span id="listCount"></span></label>
+        <span class="col-h nick-col">NICK</span>
+      </div>
+      <div id="list"></div>
+      <div class="modal-btns">
+        <button class="modal-btn" id="backBtn">back</button>
+        <button class="modal-btn primary" id="addBtn">add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── status ── -->
+  <div class="status" id="status">
+    <div id="stSync"></div>
+    <div id="stQueue"></div>
+    <div id="stResult"></div>
+    <div id="stFailed" hidden>
+      <pre id="failedList"></pre>
+      <button class="modal-btn" id="copyFailed">copy</button>
+    </div>
+  </div>
+<script src="popup.js"></script>
+</body>
+</html>
