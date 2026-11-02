@@ -5095,12 +5095,11 @@ function saveTodos() { localStorage.setItem('sp_todos', JSON.stringify(todos)); 
 // Read-only otherwise — nothing else in the app ever reads these keys except
 // this section and manual recovery. Reads localStorage directly, so it
 // doesn't matter that the notes variables further down haven't loaded yet.
-// If the browser's storage quota is ever hit, the outer try/catch below just
-// stops writing new automatic snapshots silently — existing ones are never
-// lost by that (manual saves are rare/small enough this isn't a concern).
+// If the browser's storage quota is ever hit, the automatic pool drops its
+// oldest snapshots until the write fits (manual saves are rare/small enough
+// this isn't a concern).
 const AUTO_BACKUP_KEY = 'sp_dailyBackups'; // key name kept from before the interval changed
-const AUTO_BACKUP_INTERVAL_MS = 60 * 60 * 1000;
-const AUTO_BACKUP_MAX = 400;
+const AUTO_BACKUP_MAX = 50; // rolling: oldest drops off when a new one is added
 const MANUAL_BACKUP_KEY = 'sp_manualBackups';
 const MANUAL_BACKUP_MAX = 10;
 const NOTE_SLOT_COUNT = 4;
@@ -5143,28 +5142,45 @@ function buildBackupSnapshot() {
   };
 }
 
+// Content-only fingerprint of a snapshot (ignores timestamp/date and which
+// note slot happens to be open) so identical states can be detected.
+function backupFingerprint(b) {
+  return JSON.stringify({ todoLists: b.todoLists, todos: b.todos, notes: b.notes });
+}
+
 function runAutoBackup() {
   try {
     let backups;
     try { backups = JSON.parse(localStorage.getItem(AUTO_BACKUP_KEY) || '[]'); } catch (e) { backups = []; }
     if (!Array.isArray(backups)) backups = [];
 
-    const now = Date.now();
+    // Only add a snapshot if something actually changed since the last one.
+    const snap = buildBackupSnapshot();
     const last = backups[backups.length - 1];
-    if (last && (now - last.ts) < AUTO_BACKUP_INTERVAL_MS) return; // not due yet
+    const changed = !last || backupFingerprint(last) !== backupFingerprint(snap);
+    if (changed) backups.push(snap);
 
-    backups.push(buildBackupSnapshot());
-    if (backups.length > AUTO_BACKUP_MAX) backups = backups.slice(-AUTO_BACKUP_MAX);
-    localStorage.setItem(AUTO_BACKUP_KEY, JSON.stringify(backups));
+    // Rolling cap — also trims an oversized old list even when nothing changed.
+    const trimmed = backups.length > AUTO_BACKUP_MAX;
+    if (trimmed) backups = backups.slice(-AUTO_BACKUP_MAX);
+
+    if (!changed && !trimmed) return; // nothing to write
+
+    // If storage is still full, keep dropping the oldest until it fits.
+    while (true) {
+      try { localStorage.setItem(AUTO_BACKUP_KEY, JSON.stringify(backups)); break; }
+      catch (e) {
+        if (backups.length <= 1) throw e;
+        backups = backups.slice(Math.ceil(backups.length / 4));
+      }
+    }
   } catch (e) {
     console.error('auto backup failed', e);
   }
 }
 runAutoBackup();
-// Also re-check periodically, not just on page load — otherwise a tab left open
-// for many hours without a refresh would never see the 1-hour mark pass and
-// this safety net would silently stop advancing. The function itself decides
-// whether a new snapshot is actually due, this just gives it a chance to run.
+// Also re-check periodically, not just on page load, so a tab left open for
+// hours still captures changes. A snapshot is only written if something changed.
 setInterval(runAutoBackup, 15 * 60 * 1000);
 
 function loadManualBackups() {
@@ -5225,7 +5241,7 @@ function renderTodoBackupsList() {
     try { backups = JSON.parse(localStorage.getItem(AUTO_BACKUP_KEY) || '[]'); } catch (e) { backups = []; }
     if (!Array.isArray(backups)) backups = [];
     if (!backups.length) {
-      container.innerHTML = '<div style="color:var(--text3);font-family:var(--mono);font-size:11px;">no automatic backups saved yet — the first one gets written about an hour after the page has been open.</div>';
+      container.innerHTML = '<div style="color:var(--text3);font-family:var(--mono);font-size:11px;">no automatic backups saved yet — one gets written whenever your todos or notes change.</div>';
     } else {
       backups.slice().reverse().forEach((b, idx) => container.appendChild(buildBackupRow(b, `${idx + 1})`)));
     }
