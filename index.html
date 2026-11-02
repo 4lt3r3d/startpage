@@ -14291,6 +14291,225 @@ window.addEventListener('storage', e => {
     }
   } catch (err) { console.error('cross-tab refresh failed', err); }
 });
+
+// ══════════════════════════════
+//  DRAG-IN FROM THE BROWSER BOOKMARKS BAR
+//  Drag a bookmark (or any link) from the browser onto the Bookmarks or
+//  OSINT widget to save it there:
+//    · drop on a category tab  → saved into that category
+//    · drop anywhere else      → saved into the category currently open
+//  Works whether the widgets are locked or not. Only drags that started
+//  OUTSIDE this page are handled — the existing reorder drags inside the
+//  page (which also carry a link) are left completely alone.
+//  Highlight: bookmarks = dotted accent outline, osint = dotted yellow
+//  outline, plus a dashed "+" tile at the end of the grid (or a dashed
+//  outline on the tab being hovered) showing exactly where it will land.
+// ══════════════════════════════
+(function extDropInit() {
+  // Any drag that starts inside the page fires dragstart here; drags coming
+  // from the browser UI (bookmarks bar, address bar, other windows) never do.
+  let internalDrag = false;
+  document.addEventListener('dragstart', () => { internalDrag = true; }, true);
+  document.addEventListener('dragend',   () => { internalDrag = false; }, true);
+  // dragend can be lost if the dragged element was re-rendered mid-drag, so a
+  // drop anywhere also resets it (after the drop handlers have had their turn).
+  document.addEventListener('drop', () => { setTimeout(() => { internalDrag = false; }, 0); }, true);
+
+  const TARGETS = [
+    {
+      key: 'bookmarks', widgetId: 'widget-bookmarks', gridId: 'bookmarkGrid', hintId: 'bmHint',
+      tabSel: '.cat-tab', color: 'var(--accent)', fallbackIcon: '\u{1F517}', maxName: 40,
+      cats:     () => Object.keys(bookmarks),
+      active:   () => activeCategory,
+      setActive: c => { activeCategory = c; },
+      list:     c => (bookmarks[c] = bookmarks[c] || []),
+      save:     () => saveBookmarks(),
+      rerender: () => { buildCategoryTabs(); renderBookmarks(); },
+    },
+    {
+      key: 'osint', widgetId: 'widget-osint', gridId: 'osintGrid', hintId: 'osintHint',
+      tabSel: '.osint-tab', color: 'var(--yellow)', fallbackIcon: '\u{1F50D}', maxName: 30,
+      cats:     () => Object.keys(osintData),
+      active:   () => osintActive,
+      setActive: c => { osintActive = c; },
+      list:     c => (osintData[c] = osintData[c] || []),
+      save:     () => saveOsint(),
+      rerender: () => { buildOsintTabs(); renderOsint(); },
+    },
+  ];
+
+  function isExternalLink(e) {
+    if (internalDrag || !e.dataTransfer) return false;
+    const types = Array.from(e.dataTransfer.types || []);
+    return types.includes('text/uri-list') || types.includes('text/x-moz-url');
+  }
+
+  function normUrl(u) {
+    return String(u || '').toLowerCase().replace(/^[a-z]+:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
+  }
+
+  // "https://www.cloudboxes.io/plans" → "Cloudboxes"
+  function nameFromUrl(u) {
+    try {
+      const parts = new URL(u).hostname.replace(/^www\./, '').split('.');
+      let base = parts.length >= 2 ? parts[parts.length - 2] : parts[0];
+      if (parts.length >= 3 && base.length <= 3) base = parts[parts.length - 3]; // e.g. bbc.co.uk
+      return base.charAt(0).toUpperCase() + base.slice(1);
+    } catch (e) { return u; }
+  }
+
+  // Pull the URL (and title, when the browser sends one) out of the drop.
+  function readLink(dt) {
+    const uriList = dt.getData('text/uri-list') || '';
+    const lines = uriList.split(/\r?\n/).map(s => s.trim());
+    let url = lines.find(s => s && !s.startsWith('#')) || '';
+    if (!url) url = (dt.getData('text/plain') || '').trim();
+    if (!/^https?:\/\//i.test(url)) return null;
+
+    let name = '';
+    const moz = dt.getData('text/x-moz-url');
+    if (moz) name = (moz.split(/\r?\n/)[1] || '').trim();
+    if (!name) {
+      const html = dt.getData('text/html');
+      if (html) {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const a = doc.querySelector('a');
+        name = ((a ? a.textContent : doc.body.textContent) || '').trim();
+      }
+    }
+    if (!name) {
+      const comment = lines.find(s => s.startsWith('#'));
+      if (comment) name = comment.slice(1).trim();
+    }
+    if (!name || /^https?:\/\//i.test(name)) name = nameFromUrl(url);
+    return { url, name: name.replace(/\s+/g, ' ') };
+  }
+
+  // Which category a drop at this spot would go into.
+  function targetFor(t, e) {
+    const tab = e.target.closest ? e.target.closest(t.tabSel) : null;
+    if (tab && t.cats().includes(tab.textContent)) return { cat: tab.textContent, tab };
+    return { cat: t.active(), tab: null };
+  }
+
+  // ── highlight ──
+  function ghostFor(t) {
+    if (t.ghost) return t.ghost;
+    const g = document.createElement('div');
+    g.className = 'ext-drop-ghost';
+    g.style.cssText = [
+      'display:flex', 'flex-direction:column', 'align-items:center', 'justify-content:center',
+      'gap:5px', 'padding:10px 6px', 'min-height:62px', 'border-radius:0', 'background:transparent',
+      'border:1px dashed ' + t.color, 'color:' + t.color, 'pointer-events:none',
+      'font-family:var(--mono)', 'font-size:10px', 'text-align:center', 'overflow:hidden',
+    ].join(';');
+    g.innerHTML = '<div style="font-size:18px;line-height:1;">+</div><div class="ext-drop-ghost-label"></div>';
+    t.ghost = g;
+    return g;
+  }
+
+  function showHighlight(t, where) {
+    const widget = document.getElementById(t.widgetId);
+    widget.style.outline = '2px dotted ' + t.color;
+    widget.style.outlineOffset = '3px';
+
+    if (t.hotTab && t.hotTab !== where.tab) { t.hotTab.style.outline = ''; t.hotTab.style.outlineOffset = ''; }
+    t.hotTab = where.tab;
+    if (where.tab) {
+      where.tab.style.outline = '2px dashed ' + t.color;
+      where.tab.style.outlineOffset = '2px';
+    }
+
+    // the "+" tile only makes sense when it lands in the category on screen
+    const grid = document.getElementById(t.gridId);
+    const g = ghostFor(t);
+    if (where.cat === t.active()) {
+      g.querySelector('.ext-drop-ghost-label').textContent = '→ ' + where.cat;
+      if (g.parentNode !== grid || grid.lastElementChild !== g) grid.appendChild(g);
+    } else if (g.parentNode) {
+      g.remove();
+    }
+  }
+
+  function clearHighlight(t) {
+    const widget = document.getElementById(t.widgetId);
+    if (widget) { widget.style.outline = ''; widget.style.outlineOffset = ''; }
+    if (t.hotTab) { t.hotTab.style.outline = ''; t.hotTab.style.outlineOffset = ''; t.hotTab = null; }
+    if (t.ghost && t.ghost.parentNode) t.ghost.remove();
+  }
+
+  function flash(t, msg) {
+    const hint = document.getElementById(t.hintId);
+    if (!hint) return;
+    clearTimeout(t.flashTimer);
+    if (t.flashOrig == null) t.flashOrig = { html: hint.innerHTML, color: hint.style.color };
+    hint.textContent = msg;
+    hint.style.color = t.color;
+    t.flashTimer = setTimeout(() => {
+      hint.innerHTML = t.flashOrig.html;
+      hint.style.color = t.flashOrig.color;
+      t.flashOrig = null;
+    }, 2500);
+  }
+
+  TARGETS.forEach(t => {
+    const widget = document.getElementById(t.widgetId);
+    if (!widget) return;
+
+    // Capture phase so the existing reorder handlers inside never see an
+    // outside link (several of them stop the event once they decide it's not theirs).
+    widget.addEventListener('dragover', e => {
+      if (!isExternalLink(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'copy';
+      showHighlight(t, targetFor(t, e));
+    }, true);
+
+    widget.addEventListener('dragleave', e => {
+      if (!isExternalLink(e)) return;
+      if (!widget.contains(e.relatedTarget)) clearHighlight(t);
+    }, true);
+
+    widget.addEventListener('drop', e => {
+      if (!isExternalLink(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const where = targetFor(t, e);
+      clearHighlight(t);
+
+      const link = readLink(e.dataTransfer);
+      if (!link) { flash(t, 'that drop had no web link in it'); return; }
+
+      const arr = t.list(where.cat);
+      if (arr.some(b => normUrl(b.url) === normUrl(link.url))) {
+        t.setActive(where.cat); t.rerender();
+        flash(t, link.name + ' is already in ' + where.cat);
+        return;
+      }
+
+      const name = link.name.slice(0, t.maxName);
+      let icon = guessEmoji(name, link.url, '');
+      if (icon === '\u{1F517}') icon = t.fallbackIcon;
+      arr.push({ name, url: link.url, icon });
+      t.save();
+      t.setActive(where.cat);   // jump to the category so you can see it landed
+      t.rerender();
+      flash(t, '+ ' + name + ' → ' + where.cat);
+    }, true);
+  });
+
+  // Safety net: clear any highlight once the drag moves off a widget, leaves
+  // the window, or ends anywhere.
+  document.addEventListener('dragover', e => {
+    TARGETS.forEach(t => {
+      const w = document.getElementById(t.widgetId);
+      if (w && !w.contains(e.target)) clearHighlight(t);
+    });
+  });
+  document.addEventListener('dragleave', e => { if (!e.relatedTarget) TARGETS.forEach(clearHighlight); });
+  document.addEventListener('drop', () => TARGETS.forEach(clearHighlight));
+})();
 </script>
 
 <!-- ── CHEAT SHEET PANEL ── -->
