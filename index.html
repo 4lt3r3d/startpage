@@ -2099,11 +2099,12 @@
   #widget-news.news-third { aspect-ratio: 25.5 / 10; }  /* 1/3 of full height */
   #widget-news.news-closed .news-view { display: none; }
   #widget-news.news-closed .panel-title { margin-bottom: 0; }
-  #widget-news .news-head { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; }
+  #widget-news .news-head { display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr); gap: 10px; }
   .news-head-l { display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
   .news-title-link { color: inherit; text-decoration: none; }
   .news-title-link:hover { color: var(--accent); }
-  .news-srcs { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .news-srcs { display: flex; align-items: center; gap: 8px; white-space: nowrap; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .news-srcs::-webkit-scrollbar { display: none; }
   .news-src-btn {
     background: none; border: none; border-bottom: 1px solid transparent; border-radius: 0;
     padding: 0 0 1px; cursor: pointer; outline: none;
@@ -2113,6 +2114,13 @@
   .news-src-btn:hover { color: var(--text2); }
   .news-src-btn.active { color: var(--text); border-bottom-color: var(--accent); }
   .news-sep { color: var(--text3); }
+  .news-add-btn {
+    background: none; border: none; border-radius: 0; padding: 0 2px; cursor: pointer; outline: none;
+    font: inherit; font-size: 13px; line-height: 1; color: var(--text3); transition: color 0.12s;
+  }
+  .news-add-btn:hover { color: var(--accent); }
+  .rss-desc { font-size: 10px; color: var(--text2); margin-top: 2px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .news-modal-err { font-size: 10px; color: var(--red); min-height: 14px; margin: -4px 0 6px; }
   .news-sizes { display: flex; gap: 5px; align-items: center; justify-self: end; }
   .news-size {
     width: 6px; height: 6px; padding: 0; border: none; border-radius: 0;
@@ -2395,9 +2403,7 @@
           <span class="drag-handle" title="drag to move">⠿</span>
           <span class="dot" style="background:var(--accent);"></span><a class="news-title-link" id="newsTitleLink" href="https://www.trackawesomelist.com/">News &amp; Updates</a>
         </span>
-        <span class="news-srcs">
-          <button class="news-src-btn active" data-src="tal">Track Awesome List</button><span class="news-sep">/</span><button class="news-src-btn" data-src="hn">Hacker News</button>
-        </span>
+        <span class="news-srcs" id="newsSrcs"></span>
         <span class="news-sizes">
           <button class="news-size" data-size="closed" title="collapse"></button>
           <button class="news-size" data-size="third" title="1/3 size"></button>
@@ -2907,6 +2913,40 @@
     <div class="modal-btns">
       <button class="modal-btn" id="linkModalCancel">cancel</button>
       <button class="modal-btn primary" id="linkModalSave">save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── NEWS & UPDATES FEED CONTEXT MENU (only while bookmarks unlocked) ── -->
+<div class="ctx-menu" id="newsCtxMenu">
+  <div class="ctx-item" id="newsCtxAdd">＋ &nbsp;add RSS feed</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" id="newsCtxRemove" style="color:var(--red)">✕ &nbsp;remove feed</div>
+</div>
+
+<!-- ── NEWS & UPDATES: ADD RSS FEED MODAL ── -->
+<div class="modal-overlay" id="newsFeedOverlay">
+  <div class="modal">
+    <h3>add RSS feed</h3>
+    <label>TITLE <span style="color:var(--text3);font-size:9px;letter-spacing:0;">— optional · uses the feed's own name if left blank</span></label>
+    <input type="text" id="newsFeedTitle" placeholder="Krebs on Security" maxlength="40">
+    <label>RSS ADDRESS</label>
+    <input type="text" id="newsFeedUrl" placeholder="https://krebsonsecurity.com/feed/">
+    <div class="news-modal-err" id="newsFeedErr"></div>
+    <div class="modal-btns">
+      <button class="modal-btn" id="newsFeedCancel">cancel</button>
+      <button class="modal-btn primary" id="newsFeedSave">add</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── NEWS & UPDATES: REMOVE FEED CONFIRM ── -->
+<div class="modal-overlay" id="newsDelOverlay">
+  <div class="modal">
+    <h3 id="newsDelText">are you sure you want to delete feed?</h3>
+    <div class="modal-btns">
+      <button class="modal-btn" id="newsDelNo">no</button>
+      <button class="modal-btn primary" id="newsDelYes" style="color:var(--red);border-color:var(--red);background:transparent;">yes</button>
     </div>
   </div>
 </div>
@@ -6539,6 +6579,7 @@ function setBmLock(locked) {
   // load this runs before those sections are defined)
   try { renderLinkLists(); } catch (e) {}
   try { renderTodos(); renderTodoListTabs(); } catch (e) {}
+  try { if (window.spNewsLockChanged) window.spNewsLockChanged(); } catch (e) {}
 }
 
 // ── Lock button click + sound ──
@@ -13874,8 +13915,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 // ── NEWS & UPDATES widget — multi-source feed (Track Awesome List, Hacker News) ──
-// To add a source later: add an entry to SOURCES (load + render) and a matching
-// <button class="news-src-btn" data-src="..."> in the widget header.
+// Built-in sources live in BUILTIN; user RSS feeds are added/removed from the header
+// ("+" button or right-click a feed name) while the bookmarks lock is open.
 (function initNewsWidget() {
   const W = document.getElementById('widget-news');
   const LIST = document.getElementById('newsList');
@@ -14015,19 +14056,134 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  const SOURCES = {
-    tal: { home: TAL,                            ttl: 60 * 60 * 1000, load: loadTAL, render: renderTAL },
-    hn:  { home: 'https://news.ycombinator.com/', ttl: 10 * 60 * 1000, load: loadHN,  render: renderHN  },
+  // ── Generic RSS / Atom feeds (user-added) ──
+  // Try the feed directly; most feeds block cross-site reads, so fall back to the
+  // cors.dev relay (free, no key — it sees the feed address, nothing else).
+  const RELAY = 'https://proxy.cors.dev/?url=';  // ?url= form: browsers mangle a raw https:// inside the path
+  async function fetchText(url) {
+    let last = null;
+    for (const u of [url, RELAY + encodeURIComponent(url)]) {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 12000);
+      try {
+        const r = await fetch(u, { cache: 'no-cache', signal: ctl.signal });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return await r.text();
+      } catch (e) { last = e; } finally { clearTimeout(timer); }
+    }
+    throw last || new Error('unreachable');
+  }
+
+  const kid = (node, names) => { for (const c of node.children) if (names.includes(c.localName)) return c; return null; };
+  const txt = (node, names) => { const k = kid(node, names); return k ? k.textContent.trim() : ''; };
+  const plain = html => {
+    if (!html) return '';
+    const t = parser.parseFromString(html, 'text/html').body.textContent || '';
+    return t.replace(/\s+/g, ' ').trim().slice(0, 240);
   };
-  const ORDER = Object.keys(SOURCES);
+
+  function parseFeed(text) {
+    const doc = parser.parseFromString(text, 'application/xml');
+    if (doc.getElementsByTagName('parsererror').length) throw new Error('not a feed');
+    const root = doc.documentElement;
+    const isAtom = root.localName === 'feed';
+    const chan = isAtom ? root : (root.getElementsByTagName('channel')[0] || root);
+    let home = '';
+    if (isAtom) {
+      for (const l of chan.children) if (l.localName === 'link' && (!l.getAttribute('rel') || l.getAttribute('rel') === 'alternate')) { home = l.getAttribute('href') || ''; break; }
+    } else home = txt(chan, ['link']);
+    const nodes = [...doc.getElementsByTagName(isAtom ? 'entry' : 'item')].slice(0, 50);
+    const items = nodes.map(n => {
+      let url = '';
+      if (isAtom) {
+        for (const l of n.children) if (l.localName === 'link' && (!l.getAttribute('rel') || l.getAttribute('rel') === 'alternate')) { url = l.getAttribute('href') || ''; break; }
+      } else {
+        url = txt(n, ['link']);
+        const g = kid(n, ['guid']);
+        if (!url && g && g.getAttribute('isPermaLink') !== 'false') url = g.textContent.trim();
+      }
+      const when = Date.parse(txt(n, ['pubDate', 'published', 'updated', 'date']));
+      const authorEl = kid(n, ['author', 'creator']);
+      const by = authorEl ? (txt(authorEl, ['name']) || authorEl.textContent.trim()) : '';
+      return {
+        title: plain(txt(n, ['title'])) || '(untitled)',
+        url, by: by.slice(0, 60),
+        t: isNaN(when) ? 0 : Math.floor(when / 1000),
+        desc: plain(txt(n, ['description', 'summary', 'encoded', 'content'])),
+        comments: txt(n, ['comments']),
+      };
+    });
+    if (!items.length) throw new Error('no items');
+    return { title: plain(txt(chan, ['title'])), home: safeUrl(home) || '', items };
+  }
+
+  function renderRSS(data) {
+    LIST.textContent = '';
+    (data.items || []).forEach((h, i) => {
+      const row = el('div', 'hn-row');
+      const rank = el('span', 'hn-rank'); rank.textContent = pad(i + 1);
+      const main = el('div', 'hn-main');
+      const link = safeUrl(h.url);
+      const a = el(link ? 'a' : 'span', 'hn-title'); if (link) a.href = link; a.textContent = h.title;
+      main.appendChild(a);
+      if (link) { try { const d = el('span', 'hn-dom'); d.textContent = ' (' + new URL(link).hostname.replace(/^www\./, '') + ')'; main.appendChild(d); } catch (e) {} }
+      const bits = [];
+      if (h.t) bits.push(ago(h.t));
+      if (h.by) bits.push('by ' + h.by);
+      const cm = safeUrl(h.comments);
+      if (bits.length || cm) {
+        const meta = el('div', 'hn-meta');
+        meta.append(bits.join(' · '));
+        if (cm) { if (bits.length) meta.append(' · '); const c = el('a'); c.href = cm; c.textContent = 'comments'; meta.appendChild(c); }
+        main.appendChild(meta);
+      }
+      if (h.desc && h.desc !== h.title) { const d = el('div', 'rss-desc'); d.textContent = h.desc; main.appendChild(d); }
+      row.append(rank, main);
+      LIST.appendChild(row);
+    });
+    if (!LIST.children.length) status('no items in this feed');
+  }
+
+  // ── Source registry: built-ins (removable) + user feeds ──
+  const BUILTIN = {
+    tal: { title: 'Track Awesome List', home: TAL,                            ttl: 60 * 60 * 1000, load: loadTAL, render: renderTAL },
+    hn:  { title: 'Hacker News',        home: 'https://news.ycombinator.com/', ttl: 10 * 60 * 1000, load: loadHN,  render: renderHN  },
+  };
+  const readJSON = (k, d) => { try { const v = JSON.parse(lsGet(k, 'null')); return v == null ? d : v; } catch (e) { return d; } };
+  let customFeeds = readJSON('sp_news_custom', []);   // [{ id, title, url }]
+  let hiddenBuiltins = readJSON('sp_news_hidden', []); // built-in ids the user removed
+  let SOURCES = {};
+  let ORDER = [];
+
+  function rebuildSources() {
+    SOURCES = {};
+    Object.keys(BUILTIN).forEach(id => { if (!hiddenBuiltins.includes(id)) SOURCES[id] = BUILTIN[id]; });
+    customFeeds.forEach(f => {
+      if (!safeUrl(f.url)) return;
+      SOURCES[f.id] = {
+        title: f.title, url: f.url, ttl: 30 * 60 * 1000,
+        get home() { const c = readCache(f.id); return (c && c.data && c.data.home) || (() => { try { return new URL(f.url).origin + '/'; } catch (e) { return f.url; } })(); },
+        load: () => fetchText(f.url).then(parseFeed),
+        render: renderRSS,
+      };
+    });
+    ORDER = Object.keys(SOURCES);
+  }
+  function saveFeeds() {
+    lsSet('sp_news_custom', JSON.stringify(customFeeds));
+    lsSet('sp_news_hidden', JSON.stringify(hiddenBuiltins));
+  }
+
+  rebuildSources();
   let current = lsGet('sp_news_src', 'tal');
-  if (!SOURCES[current]) current = 'tal';
+  if (!SOURCES[current]) current = ORDER[0] || null;
   const inflight = {};
 
   function readCache(id) { try { return JSON.parse(lsGet('sp_news_cache_' + id, 'null')); } catch (e) { return null; } }
 
   function show(id) {
     const S = SOURCES[id];
+    if (!S) { LIST.textContent = ''; status('no feeds — unlock bookmarks, then click + to add one'); return; }
     const cache = readCache(id);
     if (cache && cache.data) S.render(cache.data);
     else { LIST.textContent = ''; status('loading…'); }
@@ -14036,7 +14192,7 @@ document.addEventListener('DOMContentLoaded', function() {
     inflight[id] = S.load()
       .then(data => {
         lsSet('sp_news_cache_' + id, JSON.stringify({ t: Date.now(), data }));
-        if (current === id) { const top = LIST.scrollTop; S.render(data); LIST.scrollTop = top; }
+        if (current === id) { const top = LIST.scrollTop; S.render(data); LIST.scrollTop = top; markTabs(); }
       })
       .catch(() => {
         if (current === id && !(cache && cache.data)) { LIST.textContent = ''; status('feed unreachable — click the title to open the site'); }
@@ -14044,9 +14200,37 @@ document.addEventListener('DOMContentLoaded', function() {
       .finally(() => { delete inflight[id]; });
   }
 
+  // ── Header tab strip (rebuilt whenever feeds or the lock change) ──
+  const SRCS = document.getElementById('newsSrcs');
+  function renderTabs() {
+    if (!SRCS) return;
+    SRCS.textContent = '';
+    ORDER.forEach((id, i) => {
+      if (i) { const sep = el('span', 'news-sep'); sep.textContent = '/'; SRCS.appendChild(sep); }
+      const b = el('button', 'news-src-btn');
+      b.dataset.src = id;
+      b.textContent = SOURCES[id].title;
+      b.addEventListener('click', e => { e.stopPropagation(); switchSource(id); });
+      b.addEventListener('contextmenu', e => {
+        if (bmLocked) return;                     // locked → normal browser behaviour, no menu
+        e.preventDefault(); e.stopPropagation();
+        showNewsCtx(e, id);
+      });
+      SRCS.appendChild(b);
+    });
+    if (!bmLocked) {
+      const add = el('button', 'news-add-btn');
+      add.textContent = '+';
+      add.title = 'add RSS feed';
+      add.addEventListener('click', e => { e.stopPropagation(); openFeedModal(); });
+      SRCS.appendChild(add);
+    }
+    markTabs();
+  }
+
   function markTabs() {
     W.querySelectorAll('.news-src-btn').forEach(b => b.classList.toggle('active', b.dataset.src === current));
-    if (TITLE) TITLE.href = SOURCES[current].home;
+    if (TITLE && SOURCES[current]) TITLE.href = SOURCES[current].home;
   }
 
   // Quick horizontal slide: old list exits toward the side away from the new tab, new list enters from the other side.
@@ -14071,6 +14255,98 @@ document.addEventListener('DOMContentLoaded', function() {
       { duration: 200, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
   }
 
+  // ── Right-click menu on feed names ──
+  const CTX = document.getElementById('newsCtxMenu');
+  let ctxId = null;
+  function showNewsCtx(e, id) {
+    ctxId = id;
+    CTX.style.left = Math.min(e.clientX, window.innerWidth - 160) + 'px';
+    CTX.style.top = Math.min(e.clientY, window.innerHeight - 90) + 'px';
+    CTX.classList.add('visible');
+  }
+  document.addEventListener('click', () => CTX && CTX.classList.remove('visible'));
+  document.getElementById('newsCtxAdd').addEventListener('click', () => openFeedModal());
+  document.getElementById('newsCtxRemove').addEventListener('click', () => { if (ctxId) askRemove(ctxId); });
+
+  // ── Add-feed modal ──
+  const FO = document.getElementById('newsFeedOverlay');
+  const FT = document.getElementById('newsFeedTitle');
+  const FU = document.getElementById('newsFeedUrl');
+  const FE = document.getElementById('newsFeedErr');
+  const FS = document.getElementById('newsFeedSave');
+  function openFeedModal() {
+    if (bmLocked) return;
+    FT.value = ''; FU.value = ''; FE.textContent = '';
+    FS.disabled = false; FS.textContent = 'add';
+    FO.classList.add('visible');
+    setTimeout(() => FT.focus(), 30);
+  }
+  const closeFeedModal = () => FO.classList.remove('visible');
+  async function saveFeed() {
+    let url = FU.value.trim();
+    if (url && !/^[a-z]+:\/\//i.test(url)) url = 'https://' + url;
+    if (!safeUrl(url)) { FE.textContent = 'enter a full RSS address (https://…)'; FU.focus(); return; }
+    if (customFeeds.some(f => f.url === url)) { FE.textContent = 'that feed is already added'; return; }
+    FE.textContent = ''; FS.disabled = true; FS.textContent = 'checking…';
+    try {
+      const data = parseFeed(await fetchText(url));        // make sure it really is a readable feed
+      const id = 'c' + Date.now().toString(36);
+      const title = (FT.value.trim() || data.title || new URL(url).hostname).slice(0, 40);
+      customFeeds.push({ id, title, url });
+      saveFeeds();
+      lsSet('sp_news_cache_' + id, JSON.stringify({ t: Date.now(), data }));
+      rebuildSources(); renderTabs();
+      closeFeedModal();
+      if (!current) { current = id; lsSet('sp_news_src', id); markTabs(); show(id); }
+      else switchSource(id);
+    } catch (e) {
+      FE.textContent = "couldn't read an RSS/Atom feed at that address";
+    } finally { FS.disabled = false; FS.textContent = 'add'; }
+  }
+  FS.addEventListener('click', saveFeed);
+  document.getElementById('newsFeedCancel').addEventListener('click', closeFeedModal);
+  FO.addEventListener('click', e => { if (e.target === FO) closeFeedModal(); });
+  [FT, FU].forEach(inp => inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); saveFeed(); }
+    if (e.key === 'Escape') closeFeedModal();
+  }));
+
+  // ── Remove-feed confirm ──
+  const DO = document.getElementById('newsDelOverlay');
+  let delId = null;
+  function askRemove(id) {
+    if (bmLocked || !SOURCES[id]) return;
+    delId = id;
+    document.getElementById('newsDelText').textContent = `are you sure you want to delete feed "${SOURCES[id].title}"?`;
+    DO.classList.add('visible');
+  }
+  const closeDel = () => { DO.classList.remove('visible'); delId = null; };
+  document.getElementById('newsDelNo').addEventListener('click', closeDel);
+  DO.addEventListener('click', e => { if (e.target === DO) closeDel(); });
+  document.getElementById('newsDelYes').addEventListener('click', () => {
+    const id = delId; closeDel();
+    if (!id) return;
+    if (BUILTIN[id]) { if (!hiddenBuiltins.includes(id)) hiddenBuiltins.push(id); }
+    else customFeeds = customFeeds.filter(f => f.id !== id);
+    saveFeeds();
+    try { localStorage.removeItem('sp_news_cache_' + id); } catch (e) {}
+    const wasIdx = ORDER.indexOf(id);
+    rebuildSources();
+    if (current === id) {
+      current = ORDER[Math.min(Math.max(wasIdx, 0), ORDER.length - 1)] || null;
+      lsSet('sp_news_src', current || '');
+      show(current);
+    }
+    renderTabs();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && DO.classList.contains('visible')) closeDel(); });
+
+  // bookmarks lock toggled → show/hide "+" and enable/disable right-click
+  window.spNewsLockChanged = () => {
+    renderTabs();
+    if (bmLocked) { CTX.classList.remove('visible'); closeFeedModal(); closeDel(); }
+  };
+
   function setSize(size) {
     if (!SIZES.includes(size)) size = 'full';
     SIZES.forEach(s => W.classList.toggle('news-' + s, s === size));
@@ -14080,11 +14356,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   W.querySelectorAll('.news-size').forEach(b =>
     b.addEventListener('click', e => { e.stopPropagation(); setSize(b.dataset.size); }));
-  W.querySelectorAll('.news-src-btn').forEach(b =>
-    b.addEventListener('click', e => { e.stopPropagation(); switchSource(b.dataset.src); }));
 
   setSize(lsGet('sp_news_size', 'full'));
-  markTabs();
+  renderTabs();
   show(current);
 })();
 
