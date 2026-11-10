@@ -2120,6 +2120,9 @@
   }
   .news-add-btn:hover { color: var(--accent); }
   .rss-desc { font-size: 10px; color: var(--text2); margin-top: 2px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .rss-desc-rich { display: block; -webkit-line-clamp: unset; line-height: 1.5; overflow: visible; }
+  .rss-desc-rich a { color: var(--accent); text-decoration: none; }
+  .rss-desc-rich a:hover { text-decoration: underline; }
   .news-modal-err { font-size: 10px; color: var(--red); min-height: 14px; margin: -4px 0 6px; }
   .news-sizes { display: flex; gap: 5px; align-items: center; justify-self: end; }
   .news-size {
@@ -14082,6 +14085,37 @@ document.addEventListener('DOMContentLoaded', function() {
     return t.replace(/\s+/g, ' ').trim().slice(0, 240);
   };
 
+  // RSS descriptions are untrusted HTML. Preserve only harmless inline formatting
+  // and verified http(s) links so rich feeds can expose their source/listening links.
+  function cleanRSSDesc(html) {
+    const frag = document.createDocumentFragment();
+    if (!html) return { frag, links: 0 };
+    const body = parser.parseFromString(html, 'text/html').body;
+    let links = 0;
+    const walk = (src, dst) => {
+      [...src.childNodes].forEach(n => {
+        if (n.nodeType === Node.TEXT_NODE) { dst.appendChild(document.createTextNode(n.textContent || '')); return; }
+        if (n.nodeType !== Node.ELEMENT_NODE) return;
+        const tag = n.localName.toLowerCase();
+        if (tag === 'br') { dst.appendChild(document.createElement('br')); return; }
+        if (tag === 'a') {
+          const href = safeUrl(n.getAttribute('href') || '');
+          if (href) {
+            const a = document.createElement('a');
+            a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer';
+            walk(n, a); dst.appendChild(a); links++; return;
+          }
+        }
+        if (['b', 'strong', 'i', 'em'].includes(tag)) {
+          const el = document.createElement(tag); walk(n, el); dst.appendChild(el); return;
+        }
+        walk(n, dst);
+      });
+    };
+    walk(body, frag);
+    return { frag, links };
+  }
+
   function parseFeed(text) {
     const doc = parser.parseFromString(text, 'application/xml');
     if (doc.getElementsByTagName('parsererror').length) throw new Error('not a feed');
@@ -14105,11 +14139,12 @@ document.addEventListener('DOMContentLoaded', function() {
       const when = Date.parse(txt(n, ['pubDate', 'published', 'updated', 'date']));
       const authorEl = kid(n, ['author', 'creator']);
       const by = authorEl ? (txt(authorEl, ['name']) || authorEl.textContent.trim()) : '';
+      const descHtml = txt(n, ['description', 'summary', 'encoded', 'content']);
       return {
         title: plain(txt(n, ['title'])) || '(untitled)',
         url, by: by.slice(0, 60),
         t: isNaN(when) ? 0 : Math.floor(when / 1000),
-        desc: plain(txt(n, ['description', 'summary', 'encoded', 'content'])),
+        desc: plain(descHtml), descHtml: descHtml.slice(0, 12000),
         comments: txt(n, ['comments']),
       };
     });
@@ -14137,7 +14172,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (cm) { if (bits.length) meta.append(' · '); const c = el('a'); c.href = cm; c.textContent = 'comments'; meta.appendChild(c); }
         main.appendChild(meta);
       }
-      if (h.desc && h.desc !== h.title) { const d = el('div', 'rss-desc'); d.textContent = h.desc; main.appendChild(d); }
+      if (h.desc && h.desc !== h.title) {
+        const d = el('div', 'rss-desc');
+        const rich = cleanRSSDesc(h.descHtml || '');
+        if (rich.links >= 2) { d.classList.add('rss-desc-rich'); d.appendChild(rich.frag); }
+        else d.textContent = h.desc;
+        main.appendChild(d);
+      }
       row.append(rank, main);
       LIST.appendChild(row);
     });
@@ -14161,7 +14202,7 @@ document.addEventListener('DOMContentLoaded', function() {
     customFeeds.forEach(f => {
       if (!safeUrl(f.url)) return;
       SOURCES[f.id] = {
-        title: f.title, url: f.url, ttl: 30 * 60 * 1000,
+        title: f.title, url: f.url, ttl: 5 * 60 * 1000,
         get home() { const c = readCache(f.id); return (c && c.data && c.data.home) || (() => { try { return new URL(f.url).origin + '/'; } catch (e) { return f.url; } })(); },
         load: () => fetchText(f.url).then(parseFeed),
         render: renderRSS,
