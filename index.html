@@ -320,6 +320,7 @@
     color: var(--accent);
   }
   .engine-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent3); }
+  .engine-btn.kbd-focus { outline: 1px solid var(--accent); outline-offset: 2px; }
   .engine-subrow {
     display: none;
     gap: 6px;
@@ -4057,6 +4058,7 @@ function setEngine(i) {
   if (!e) return;
   activeEngine = i;
   activeSubEngineId = null;
+  exitSubrow();
   document.querySelectorAll('#engineList .engine-btn, #aiSubrow .engine-btn').forEach(b => b.classList.remove('active'));
   const btn = document.querySelectorAll('#engineList .engine-btn')[i];
 
@@ -4167,12 +4169,89 @@ function doSearch(query) {
   openResult(url);
 }
 
+// tracks whether keyboard focus is currently in the sub-row (-1 = top row)
+let subKbdIdx = -1;
+
+function getSubrowBtns() {
+  return Array.from(document.querySelectorAll('#aiSubrow .engine-btn'));
+}
+
+function highlightSubKbd(idx) {
+  const btns = getSubrowBtns();
+  btns.forEach((b, i) => b.classList.toggle('kbd-focus', i === idx));
+}
+
+function enterSubrow() {
+  const btns = getSubrowBtns();
+  if (!btns.length) return false;
+  subKbdIdx = 0;
+  highlightSubKbd(0);
+  setSubEngine(btns[0].dataset.id);
+  return true;
+}
+
+function exitSubrow() {
+  highlightSubKbd(-1);
+  subKbdIdx = -1;
+}
+
 document.getElementById('searchInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') { doSearch(e.target.value.trim()); }
-  if (e.key === 'Escape') { e.target.value = ''; }
+  if (e.key === 'Escape') {
+    if (subKbdIdx >= 0) { exitSubrow(); return; }
+    e.target.value = '';
+  }
   if (e.key === 'Tab') {
     e.preventDefault();
-    setEngine((activeEngine + 1) % VISIBLE_ENGINES.length);
+    if (subKbdIdx >= 0) {
+      // Tab in sub-row: advance to next sub, or wrap back to top row
+      const btns = getSubrowBtns();
+      if (subKbdIdx < btns.length - 1) {
+        subKbdIdx++;
+        highlightSubKbd(subKbdIdx);
+        setSubEngine(btns[subKbdIdx].dataset.id);
+      } else {
+        exitSubrow();
+        setEngine((activeEngine + 1) % VISIBLE_ENGINES.length);
+      }
+    } else {
+      setEngine((activeEngine + 1) % VISIBLE_ENGINES.length);
+    }
+  }
+  if (e.key === 'ArrowDown') {
+    if (subKbdIdx < 0) {
+      // descend into sub-row if current engine is a category with an open/openable sub-row
+      const cur = VISIBLE_ENGINES[activeEngine];
+      if (cur && cur.category) {
+        e.preventDefault();
+        if (openCategoryId !== cur.id) setOpenCategory(cur.id);
+        enterSubrow();
+      }
+    }
+  }
+  if (e.key === 'ArrowUp') {
+    if (subKbdIdx >= 0) {
+      e.preventDefault();
+      exitSubrow();
+    }
+  }
+  if (e.key === 'ArrowRight') {
+    if (subKbdIdx >= 0) {
+      e.preventDefault();
+      const btns = getSubrowBtns();
+      subKbdIdx = (subKbdIdx + 1) % btns.length;
+      highlightSubKbd(subKbdIdx);
+      setSubEngine(btns[subKbdIdx].dataset.id);
+    }
+  }
+  if (e.key === 'ArrowLeft') {
+    if (subKbdIdx >= 0) {
+      e.preventDefault();
+      const btns = getSubrowBtns();
+      subKbdIdx = (subKbdIdx - 1 + btns.length) % btns.length;
+      highlightSubKbd(subKbdIdx);
+      setSubEngine(btns[subKbdIdx].dataset.id);
+    }
   }
 });
 
